@@ -8,7 +8,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Textarea } from "@/components/ui/textarea";
 import { CANCEL_REASONS, FAILURE_REASONS } from "@/modules/orders/contact";
-import { allowedTransitions, nextStatus, ORDER_STATUS_LABELS, type OrderStatus } from "@/modules/orders/state-machine";
+import { allowedTransitions, nextStatus, ORDER_STATUS_LABELS, type OrderStatus, type Zone } from "@/modules/orders/state-machine";
 import { changeOrderStatus } from "../actions";
 
 const NEGATIVE: OrderStatus[] = ["cancelled", "failed_delivery", "returned"];
@@ -19,13 +19,13 @@ function reasonsFor(status: OrderStatus | null): Record<string, string> | null {
   return null;
 }
 
-export function StatusActions({ orderId, status }: { orderId: string; status: OrderStatus }) {
+export function StatusActions({ orderId, status, zone }: { orderId: string; status: OrderStatus; zone: Zone }) {
   const [pending, startTransition] = useTransition();
   const [target, setTarget] = useState<OrderStatus | null>(null);
   const [note, setNote] = useState("");
   const [reason, setReason] = useState("");
-  const next = nextStatus(status);
-  const others = allowedTransitions(status).filter((s) => s !== next);
+  const next = nextStatus(status, zone);
+  const others = allowedTransitions(status, zone).filter((s) => s !== next);
   const reasons = reasonsFor(target);
 
   const apply = (to: OrderStatus, withNote?: string, withReason?: string) =>

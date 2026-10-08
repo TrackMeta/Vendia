@@ -12,20 +12,20 @@
 - [x] **Equipo:** rol Confirmador, asignación de pedidos, «Mis pendientes».
 
 ## Bloque 2: Provincia y despacho
-- [ ] **Flujo de provincia:**
+- [x] **Flujo de provincia:**
   - Agencia de destino (la elige el confirmador al contactar al cliente) y número de orden y código de envío.
   - Clave de recojo, visible solo para el equipo.
   - **Estados en orden inverso a Lima:** Enviado → En agencia → Cobrado → Entregado.
-- [ ] **Adelanto solo en provincia;** Lima es contraentrega. **Pagos con comprobantes:** adelanto y saldo, con monto, método, fecha y quién verificó.
-- [ ] **DNI obligatorio en provincia.**
-- [ ] **Couriers por tienda:**
+- [x] **Adelanto solo en provincia;** Lima es contraentrega. **Pagos con comprobantes:** adelanto y saldo, con monto, método, fecha y quién verificó.
+- [x] **DNI obligatorio en provincia.**
+- [x] **Couriers por tienda:**
   - Eva Courier en Lima (catálogo ampliable con más empresas de delivery).
   - Shalom en provincia, con agencia de origen predeterminada y seleccionable.
   - **Olva: próximamente.**
-- [ ] **Exportación a la plantilla oficial** de Shalom y Eva (kit de Nodo): revisión previa, reserva atómica, lotes y nueva descarga.
-- [ ] **Medida y peso** por producto u oferta.
-- [ ] **Stock:** se descuenta al confirmar; se devuelve al cancelar, en una devolución por falta de pago o en un rechazo en puerta.
-- [ ] **Costos por pedido:** costo de envío (valor sugerido por courier y zona, editable) y devolución de 0, 1 o 2 envíos.
+- [x] **Exportación a la plantilla oficial** de Shalom y Eva (kit de Nodo): revisión previa, reserva atómica, lotes y nueva descarga.
+- [x] **Medida y peso** por producto (y editable por pedido). La base de datos ya acepta medida por oferta; falta su pantalla.
+- [x] **Stock:** se descuenta al confirmar; se devuelve al cancelar, en una devolución por falta de pago o en un rechazo en puerta.
+- [x] **Costos por pedido:** costo de envío (valor sugerido por courier y zona, editable) y devolución de 0, 1 o 2 envíos. Ya cuenta en la utilidad del Inicio; las demás tablas de analítica se ajustan en el Bloque 3.
 
 ## Bloque 3: Números correctos
 - [ ] **Venta real por zona:** Lima = Entregado y Provincia = Cobrado, o Entregado en ambos (configurable). Se aplica en todas las métricas y en el Purchase de Meta.

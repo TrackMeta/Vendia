@@ -7,6 +7,7 @@ import { publicAssetUrl } from "@/lib/env";
 import { formatMoney } from "@/lib/format";
 import { readAttribution } from "@/modules/attribution/capture";
 import { trackPixel } from "@/modules/meta/pixel";
+import { zoneOf } from "@/modules/orders/contact";
 import { splitFullName } from "@/modules/orders/order-input";
 import type { FormBlock } from "../schema";
 import { type LandingRenderData, shippingFor } from "../types";
@@ -62,7 +63,10 @@ export function CodForm({ data, preview }: { data: LandingRenderData; preview: b
   const shipping = shippingFor(ubigeo.province || null, data.shipping);
   const subtotal = offer?.price ?? 0;
   const total = subtotal + (shipping ?? 0);
-  const advance = Math.min(data.advanceAmount, total);
+  // Provincia: adelanto y DNI (para recoger en la agencia). Lima: contraentrega pura.
+  const provincia = ubigeo.province ? zoneOf(ubigeo.province) === "provincia" : false;
+  const advance = provincia ? Math.min(data.advanceAmount, total) : 0;
+  const showDni = Boolean(fieldsBlock?.askDni) || provincia;
 
   const validationError = (() => {
     if (!offer) return "Selecciona una oferta";
@@ -72,7 +76,8 @@ export function CodForm({ data, preview }: { data: LandingRenderData; preview: b
     if (!ubigeo.district) return "Selecciona tu departamento, provincia y distrito";
     if (address.trim().length < 5) return "Ingresa tu dirección completa";
     if (fieldsBlock?.requireReference && reference.trim().length < 3) return "Ingresa una referencia de tu dirección";
-    if (fieldsBlock?.askDni && dni && !/^\d{8}$/.test(dni)) return "El DNI debe tener 8 dígitos";
+    if (provincia && !/^\d{8}$/.test(dni)) return "Ingresa tu DNI (8 dígitos): lo pide la agencia para entregarte";
+    if (dni && !/^\d{8}$/.test(dni)) return "El DNI debe tener 8 dígitos";
     return null;
   })();
 
@@ -225,8 +230,8 @@ export function CodForm({ data, preview }: { data: LandingRenderData; preview: b
                     <input className={inputClass} type="tel" inputMode="numeric" value={whatsapp} onChange={(e) => setWhatsapp(e.target.value)} />
                   </Field>
                 ) : null}
-                {block.askDni ? (
-                  <Field label="DNI">
+                {showDni ? (
+                  <Field label={provincia ? "DNI (para recoger en la agencia)" : "DNI"} required={provincia}>
                     <input className={inputClass} inputMode="numeric" maxLength={8} value={dni} onChange={(e) => setDni(e.target.value.replace(/\D/g, ""))} />
                   </Field>
                 ) : null}

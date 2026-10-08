@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { requireOwner } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
+import { CouriersSettings, type CourierSettingsRow } from "./couriers-settings";
 import { SettingsForm } from "./settings-form";
 
 export const metadata: Metadata = { title: "Configuración" };
@@ -9,7 +10,10 @@ export const metadata: Metadata = { title: "Configuración" };
 export default async function SettingsPage() {
   const { store } = await requireOwner();
   const supabase = await createClient();
-  const { data: settings } = await supabase.from("store_settings").select("*").eq("store_id", store.id).single();
+  const [{ data: settings }, { data: couriers }] = await Promise.all([
+    supabase.from("store_settings").select("*").eq("store_id", store.id).single(),
+    supabase.from("store_couriers").select("courier_id, enabled, is_default, shipping_cost, return_shipments, origin_agency").eq("store_id", store.id),
+  ]);
 
   return (
     <div className="max-w-3xl">
@@ -35,6 +39,7 @@ export default async function SettingsPage() {
           contact_whatsapp: ((settings?.contact_sequence as string[] | null) ?? ["whatsapp"]).includes("whatsapp"),
         }}
       />
+      <CouriersSettings rows={(couriers ?? []).map((c) => ({ ...c, shipping_cost: Number(c.shipping_cost) }) as CourierSettingsRow)} />
     </div>
   );
 }

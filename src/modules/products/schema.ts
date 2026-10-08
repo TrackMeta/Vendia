@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { PACKAGE_SIZES } from "@/modules/couriers";
 
 const money = z.coerce.number({ error: "Ingresa un monto válido" }).min(0, "No puede ser negativo").max(1_000_000);
 const optionalMoney = z
@@ -34,6 +35,12 @@ export const productInput = z.object({
     .optional()
     .transform((v) => (v ? v : null)),
   status: z.enum(["draft", "active", "archived"]),
+  // Paquete para la planilla del courier (Shalom exige medida; el peso y las medidas en 0 son válidos)
+  package_size: z.enum(PACKAGE_SIZES as [string, ...string[]]).default("PAQUETE S"),
+  package_weight: z.coerce.number().min(0).max(1000).default(1),
+  package_height: z.coerce.number().min(0).max(1000).default(0),
+  package_width: z.coerce.number().min(0).max(1000).default(0),
+  package_length: z.coerce.number().min(0).max(1000).default(0),
 });
 
 export type ProductInput = z.input<typeof productInput>;

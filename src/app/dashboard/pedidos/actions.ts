@@ -6,14 +6,23 @@ import { z } from "zod";
 import { requireStore } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
+import { COURIER_IDS, courierName, PACKAGE_SIZES, SHALOM_DESTINATIONS } from "@/modules/couriers";
 import { maybeSendPurchase } from "@/modules/meta/capi";
 import { CANCEL_REASONS, CONTACT_RESULTS, FAILURE_REASONS } from "@/modules/orders/contact";
 import { orderInput } from "@/modules/orders/order-input";
+import { PAYMENT_METHODS, RECEIPTS_BUCKET } from "@/modules/orders/payments";
 import { ORDER_STATUSES } from "@/modules/orders/state-machine";
 
 export type ActionResult = { ok: true; message?: string } | { ok: false; error: string };
 
 const REASONS = [...Object.keys(CANCEL_REASONS), ...Object.keys(FAILURE_REASONS)] as [string, ...string[]];
+
+/** Mensaje legible de un error de la base de datos al cambiar de estado. */
+function statusError(error: { code?: string; message: string }, fallback = "No se pudo cambiar el estado") {
+  if (error.code === "P0001") return error.message.startsWith("No se puede pasar") ? "Ese cambio de estado no está permitido" : error.message;
+  if (error.code === "P0002") return error.message;
+  return fallback;
+}
 
 function revalidateOrders(orderId?: string) {
   revalidatePath("/dashboard/pedidos");
@@ -36,10 +45,7 @@ export async function changeOrderStatus(orderId: string, to: string, note?: stri
     p_note: parsed.data.note ?? null,
     ...(parsed.data.reason ? { p_reason: parsed.data.reason } : {}),
   });
-  if (error) {
-    if (error.code === "P0001") return { ok: false, error: "Ese cambio de estado no está permitido" };
-    return { ok: false, error: "No se pudo cambiar el estado" };
-  }
+  if (error) return { ok: false, error: statusError(error) };
   schedulePurchase([parsed.data.orderId]);
   revalidateOrders(orderId);
   return { ok: true, message: "Estado actualizado" };
@@ -83,7 +89,6 @@ export async function changeOrdersStatus(orderIds: string[], to: string, reason?
 }
 
 const editSchema = z.object({
-  shipping_cost: z.coerce.number().min(0, "El costo de envío no puede ser negativo").max(100_000),
   internal_notes: z
     .string()
     .trim()
@@ -95,18 +100,6 @@ const editSchema = z.object({
     .string()
     .trim()
     .max(300)
-    .optional()
-    .transform((v) => (v ? v : null)),
-  courier_name: z
-    .string()
-    .trim()
-    .max(80)
-    .optional()
-    .transform((v) => (v ? v : null)),
-  tracking_code: z
-    .string()
-    .trim()
-    .max(120)
     .optional()
     .transform((v) => (v ? v : null)),
 });
@@ -156,7 +149,7 @@ export async function logContactAttempt(input: z.input<typeof contactSchema>): P
     p_next_contact_at: d.nextContactAt ?? null,
     p_cancel_reason: d.cancelReason ?? null,
   });
-  if (error) return { ok: false, error: error.code === "P0001" || error.code === "P0002" ? error.message : "No se pudo registrar el intento" };
+  if (error) return { ok: false, error: statusError(error, "No se pudo registrar el intento") };
   const r = data as { attempt: number; status: string; sequence_done: boolean; next_channel: string | null };
   revalidateOrders(d.orderId);
   const label = CONTACT_RESULTS[d.result as keyof typeof CONTACT_RESULTS].label;
@@ -226,4 +219,117 @@ export async function createManualOrder(input: ManualOrderInput): Promise<Manual
   const r = data as { order_id: string; order_number: number };
   revalidateOrders();
   return { ok: true, orderId: r.order_id, orderNumber: r.order_number };
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// Envío (courier, agencia, clave de recojo, medidas) y pagos con comprobante
+// ─────────────────────────────────────────────────────────────────────
+
+const text = (max: number) =>
+  z
+    .string()
+    .trim()
+    .max(max)
+    .transform((v) => (v ? v : null));
+
+const shippingSchema = z
+  .object({
+    courier_id: z.union([z.literal(""), z.enum(COURIER_IDS as [string, ...string[]])]).transform((v) => v || null),
+    tracking_code: text(120),
+    courier_order_number: text(60),
+    agency_destination: z
+      .string()
+      .trim()
+      .max(120)
+      .refine((v) => !v || SHALOM_DESTINATIONS.includes(v), "Elige una agencia de la lista oficial")
+      .transform((v) => v || null),
+    pickup_key: text(40),
+    package_size: z.union([z.literal(""), z.enum(PACKAGE_SIZES as [string, ...string[]])]).transform((v) => v || null),
+    package_weight: z.union([z.literal(""), z.coerce.number().min(0).max(1000)]).transform((v) => (v === "" ? null : v)),
+    shipping_cost: z.coerce.number().min(0, "El costo de envío no puede ser negativo").max(100_000),
+    return_shipments: z.union([z.literal(""), z.coerce.number().int().min(0).max(2)]).transform((v) => (v === "" ? null : v)),
+    dni: z
+      .string()
+      .trim()
+      .refine((v) => !v || /^\d{8}$/.test(v), "El DNI debe tener 8 dígitos")
+      .transform((v) => v || null),
+  })
+  .partial();
+
+export type ShippingInput = z.input<typeof shippingSchema>;
+
+/** Guarda los datos de envío del pedido (solo los campos enviados). */
+export async function updateOrderShipping(orderId: string, input: ShippingInput): Promise<ActionResult> {
+  const { store } = await requireStore();
+  const id = z.uuid().safeParse(orderId);
+  const parsed = shippingSchema.safeParse(input);
+  if (!id.success) return { ok: false, error: "Datos inválidos" };
+  if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message ?? "Datos inválidos" };
+  const values: Record<string, unknown> = Object.fromEntries(Object.entries(parsed.data).filter(([, v]) => v !== undefined));
+  if ("courier_id" in values) values.courier_name = values.courier_id ? courierName(values.courier_id as string) : null;
+  if (!Object.keys(values).length) return { ok: true, message: "Sin cambios" };
+
+  const supabase = await createClient();
+  const { error } = await supabase.from("orders").update(values).eq("id", id.data).eq("store_id", store.id);
+  if (error) return { ok: false, error: "No se pudieron guardar los datos de envío" };
+  revalidateOrders(id.data);
+  return { ok: true, message: "Datos de envío guardados" };
+}
+
+const paymentSchema = z.object({
+  orderId: z.uuid(),
+  kind: z.enum(["advance", "balance"]),
+  amount: z.coerce.number().positive("Ingresa el monto").max(100_000),
+  method: z.enum(Object.keys(PAYMENT_METHODS) as [string, ...string[]]),
+  paid_on: z.iso.date("Fecha inválida"),
+  note: z.string().trim().max(300).optional(),
+  receipt_path: z.string().max(300).optional(),
+});
+
+export type PaymentInput = z.input<typeof paymentSchema>;
+
+/** Registra un adelanto o pago del saldo (el comprobante ya se subió al bucket privado). */
+export async function addOrderPayment(input: PaymentInput): Promise<ActionResult> {
+  const { store } = await requireStore();
+  const parsed = paymentSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message ?? "Datos inválidos" };
+  const d = parsed.data;
+  if (d.receipt_path && !d.receipt_path.startsWith(`${store.id}/${d.orderId}/`)) return { ok: false, error: "Comprobante inválido" };
+
+  const supabase = await createClient();
+  const { error } = await supabase.from("order_payments").insert({
+    store_id: store.id,
+    order_id: d.orderId,
+    kind: d.kind,
+    amount: d.amount,
+    method: d.method,
+    paid_on: d.paid_on,
+    note: d.note || null,
+    receipt_path: d.receipt_path || null,
+  });
+  if (error) return { ok: false, error: "No se pudo registrar el pago" };
+  revalidateOrders(d.orderId);
+  return { ok: true, message: d.kind === "advance" ? "Adelanto registrado" : "Pago del saldo registrado" };
+}
+
+export async function verifyOrderPayment(paymentId: string, orderId: string): Promise<ActionResult> {
+  await requireStore();
+  if (!z.uuid().safeParse(paymentId).success) return { ok: false, error: "Datos inválidos" };
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("verify_order_payment", { p_payment_id: paymentId });
+  if (error) return { ok: false, error: "No se pudo verificar" };
+  revalidateOrders(orderId);
+  return { ok: true, message: "Pago verificado" };
+}
+
+export async function deleteOrderPayment(paymentId: string, orderId: string): Promise<ActionResult> {
+  const { store } = await requireStore();
+  if (!z.uuid().safeParse(paymentId).success) return { ok: false, error: "Datos inválidos" };
+  const supabase = await createClient();
+  const { data, error } = await supabase.from("order_payments").delete().eq("id", paymentId).eq("store_id", store.id).select("receipt_path");
+  if (error || !data?.length) return { ok: false, error: "No se pudo eliminar (un pago verificado solo lo elimina el dueño)" };
+  const path = data[0].receipt_path as string | null;
+  if (path) await supabase.storage.from(RECEIPTS_BUCKET).remove([path]);
+  revalidateOrders(orderId);
+  return { ok: true, message: "Pago eliminado" };
 }

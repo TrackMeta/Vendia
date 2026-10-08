@@ -41,6 +41,15 @@ export function formatDateTime(value: string | Date | null | undefined): string 
   return dateTime.format(typeof value === "string" ? new Date(value) : value);
 }
 
+const dateOnly = new Intl.DateTimeFormat("es-PE", { timeZone: "UTC", day: "2-digit", month: "short", year: "numeric" });
+
+/** Fecha sin hora ("2026-10-08" → "08 oct. 2026"). Se interpreta como fecha de calendario, sin zona. */
+export function formatDate(value: string | null | undefined): string {
+  if (!value) return "—";
+  const d = new Date(`${value.slice(0, 10)}T00:00:00Z`);
+  return Number.isNaN(d.getTime()) ? "—" : dateOnly.format(d);
+}
+
 /** Celular peruano → formato 51XXXXXXXXX. Devuelve null si no es válido. */
 export function normalizePeruPhone(raw: string): string | null {
   let digits = raw.replace(/\D/g, "");

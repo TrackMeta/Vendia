@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { requireOwner } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
+import { COURIER_IDS, COURIERS, SHALOM_ORIGINS } from "@/modules/couriers";
 import { buildSequence } from "@/modules/orders/contact";
 
 export type ActionResult = { ok: true; message?: string } | { ok: false; error: string };
@@ -66,4 +67,49 @@ export async function saveSettings(_prev: ActionResult | undefined, formData: Fo
 
   revalidatePath("/dashboard", "layout");
   return { ok: true, message: "Configuración guardada. Los cambios en landings publicadas se ven en unos minutos." };
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// Couriers de la tienda
+// ─────────────────────────────────────────────────────────────────────
+
+const courierSchema = z.object({
+  courier_id: z.enum(COURIER_IDS as [string, ...string[]]),
+  enabled: z.boolean(),
+  is_default: z.boolean(),
+  shipping_cost: z.coerce.number().min(0).max(10_000),
+  return_shipments: z.coerce.number().int().min(0).max(2),
+  origin_agency: z
+    .string()
+    .trim()
+    .max(120)
+    .refine((v) => !v || SHALOM_ORIGINS.includes(v), "Elige una agencia de origen de la lista de Shalom")
+    .transform((v) => v || null),
+});
+
+export type CourierSettingsInput = z.input<typeof courierSchema>;
+
+/** Activa/configura un courier: costo sugerido, costo de devolución y agencia de origen. */
+export async function saveCourierSettings(input: CourierSettingsInput): Promise<ActionResult> {
+  const { store } = await requireOwner();
+  const parsed = courierSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message ?? "Datos inválidos" };
+  const d = parsed.data;
+  const def = COURIERS[d.courier_id];
+  if (def.status !== "ready" && d.enabled) return { ok: false, error: `${def.name} estará disponible próximamente` };
+
+  const supabase = await createClient();
+  // Un solo predeterminado por zona
+  if (d.is_default) {
+    await supabase.from("store_couriers").update({ is_default: false }).eq("store_id", store.id).eq("zone", def.zone).neq("courier_id", d.courier_id);
+  }
+  const values = { ...d, zone: def.zone, is_default: d.is_default && d.enabled };
+  const { data: existing } = await supabase.from("store_couriers").select("courier_id").eq("store_id", store.id).eq("courier_id", d.courier_id).maybeSingle();
+  const { error } = existing
+    ? await supabase.from("store_couriers").update(values).eq("store_id", store.id).eq("courier_id", d.courier_id)
+    : await supabase.from("store_couriers").insert({ ...values, store_id: store.id });
+  if (error) return { ok: false, error: "No se pudo guardar el courier" };
+  revalidatePath("/dashboard/configuracion");
+  revalidatePath("/dashboard/logistica");
+  return { ok: true, message: `${def.name} guardado` };
 }

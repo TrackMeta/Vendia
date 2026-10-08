@@ -20,10 +20,13 @@ import {
   type FailureReason,
   RISK_LABELS,
 } from "@/modules/orders/contact";
+import { type PaymentKind, type PaymentMethod, RECEIPTS_BUCKET } from "@/modules/orders/payments";
 import { ORDER_STATUS_LABELS, type OrderStatus } from "@/modules/orders/state-machine";
 import { ZoneBadge } from "../../logistica/logistics-table";
 import { AssignSelect } from "./assign-select";
 import { OrderDetailsForm } from "./details-form";
+import { type PaymentRow, PaymentsCard } from "./payments-card";
+import { ShippingCard } from "./shipping-card";
 import { StatusActions } from "./status-actions";
 
 export const metadata: Metadata = { title: "Pedido" };
@@ -42,10 +45,17 @@ export default async function OrderDetailPage({ params }: PageProps<"/dashboard/
   const { user, store } = await requireStore();
   const supabase = await createClient();
 
-  const [{ data: attempts }, { data: settings }, { data: team }] = await Promise.all([
+  const [{ data: attempts }, { data: settings }, { data: team }, { data: paymentRows }, { data: storeCouriers }] = await Promise.all([
     supabase.from("order_contact_attempts").select("id, attempt_number, channel, result, note, next_contact_at, created_by, created_at").eq("order_id", id).order("id", { ascending: false }),
     supabase.from("store_settings").select("contact_sequence").eq("store_id", store.id).maybeSingle(),
     supabase.rpc("get_store_team", { p_store_id: store.id }),
+    supabase
+      .from("order_payments")
+      .select("id, kind, amount, method, paid_on, note, receipt_path, verified_at, verified_by, created_by")
+      .eq("order_id", id)
+      .eq("store_id", store.id)
+      .order("created_at"),
+    supabase.from("store_couriers").select("courier_id, zone, enabled").eq("store_id", store.id),
   ]);
   const members = ((team ?? []) as { user_id: string; email: string; full_name: string | null }[]).map((m) => ({ id: m.user_id, name: m.full_name || m.email }));
   const memberName = (uid: string | null) => (uid ? (uid === user.id ? "Tú" : (members.find((m) => m.id === uid)?.name ?? "Equipo")) : "Sistema");
@@ -61,7 +71,16 @@ export default async function OrderDetailPage({ params }: PageProps<"/dashboard/
     .maybeSingle();
   if (!order) notFound();
 
-  const items = order.order_items as { id: string; product_name: string; offer_name: string | null; quantity: number; line_price: number; unit_cost: number }[];
+  const items = order.order_items as {
+    id: string;
+    product_name: string;
+    offer_name: string | null;
+    quantity: number;
+    line_price: number;
+    unit_cost: number;
+    product_id: string | null;
+    offer_id: string | null;
+  }[];
   const attr = one(order.order_attribution as Record<string, string | null>[]);
   const history = [...(order.order_status_history as { id: number; from_status: string | null; to_status: string; source: string; note: string | null; created_at: string }[])].sort(
     (a, b) => b.id - a.id,
@@ -70,6 +89,37 @@ export default async function OrderDetailPage({ params }: PageProps<"/dashboard/
   const firstName = String(order.customer_name).split(" ")[0];
   const item = items[0];
   const pendingContact = order.status === "new" || order.status === "pending_confirmation";
+  const zone = order.zone as "lima" | "provincia";
+  const locationHint = order.district_name === order.province_name ? order.province_name : `${order.province_name} ${order.district_name}`;
+  // Medida y peso por defecto: oferta → producto (order_items no tiene FK a products)
+  const [{ data: packageProduct }, { data: packageOffer }] = await Promise.all([
+    item?.product_id
+      ? supabase.from("products").select("package_size, package_weight").eq("id", item.product_id).maybeSingle()
+      : Promise.resolve({ data: null }),
+    item?.offer_id
+      ? supabase.from("product_offers").select("package_size, package_weight").eq("id", item.offer_id).maybeSingle()
+      : Promise.resolve({ data: null }),
+  ]);
+
+  // Comprobantes: enlaces firmados de 1 hora (el bucket es privado)
+  const receiptPaths = (paymentRows ?? []).map((p) => p.receipt_path).filter((x): x is string => Boolean(x));
+  const { data: signed } = receiptPaths.length
+    ? await supabase.storage.from(RECEIPTS_BUCKET).createSignedUrls(receiptPaths, 3600)
+    : { data: [] as { path: string | null; signedUrl: string }[] };
+  const signedUrl = (path: string | null) => (path ? (signed?.find((s) => s.path === path)?.signedUrl ?? null) : null);
+  const payments: PaymentRow[] = (paymentRows ?? []).map((p) => ({
+    id: p.id,
+    kind: p.kind as PaymentKind,
+    amount: Number(p.amount),
+    method: p.method as PaymentMethod,
+    paid_on: p.paid_on,
+    note: p.note,
+    receipt_url: signedUrl(p.receipt_path),
+    receipt_is_pdf: Boolean(p.receipt_path?.endsWith(".pdf")),
+    verified: Boolean(p.verified_at),
+    verified_by_name: p.verified_by ? memberName(p.verified_by) : null,
+    created_by_name: memberName(p.created_by),
+  }));
   const risks = ((order.risk_reasons as string[] | null) ?? []).filter((r) => r !== "posible_duplicado");
   const waText = encodeURIComponent(
     `Hola ${firstName}, te saludamos de ${store.name}. Recibimos tu pedido #${order.order_number} de ${item?.product_name ?? ""}${
@@ -87,7 +137,7 @@ export default async function OrderDetailPage({ params }: PageProps<"/dashboard/
         <div className="flex flex-wrap items-center gap-3">
           <h1 className="text-2xl font-semibold tracking-tight">Pedido #{order.order_number}</h1>
           <OrderStatusBadge status={order.status as OrderStatus} className="text-sm" />
-          <ZoneBadge zone={order.zone as "lima" | "provincia"} />
+          <ZoneBadge zone={zone} />
           {order.source === "manual" ? <SimpleBadge>Manual{order.source_channel ? ` · ${order.source_channel}` : ""}</SimpleBadge> : null}
           <span className="text-sm text-muted-foreground">{formatDateTime(order.created_at)}</span>
           <div className="ml-auto">
@@ -110,7 +160,7 @@ export default async function OrderDetailPage({ params }: PageProps<"/dashboard/
             <AlertTriangle className="size-4" /> Posible duplicado: el mismo celular pidió este producto hace menos de 30 minutos.
           </p>
         ) : null}
-        <StatusActions orderId={order.id} status={order.status as OrderStatus} />
+        <StatusActions orderId={order.id} status={order.status as OrderStatus} zone={zone} />
         {pendingContact ? (
           <ContactPanel
             storeName={store.name}
@@ -128,6 +178,10 @@ export default async function OrderDetailPage({ params }: PageProps<"/dashboard/
               last_contact_result: order.last_contact_result,
               next_contact_at: order.next_contact_at,
               contact_sequence_done: order.contact_sequence_done,
+              zone,
+              dni: order.dni,
+              agency_destination: order.agency_destination,
+              location_hint: locationHint,
             }}
           />
         ) : null}
@@ -201,15 +255,45 @@ export default async function OrderDetailPage({ params }: PageProps<"/dashboard/
             </CardContent>
           </Card>
 
+          <ShippingCard
+            orderId={order.id}
+            locationHint={locationHint}
+            defaultSize={packageOffer?.package_size ?? packageProduct?.package_size ?? "PAQUETE S"}
+            defaultWeight={Number(packageOffer?.package_weight ?? packageProduct?.package_weight ?? 1)}
+            storeCouriers={storeCouriers ?? []}
+            initial={{
+              zone,
+              status: order.status,
+              courier_id: order.courier_id,
+              tracking_code: order.tracking_code,
+              courier_order_number: order.courier_order_number,
+              agency_destination: order.agency_destination,
+              agency_origin: order.agency_origin,
+              pickup_key: order.pickup_key,
+              package_size: order.package_size,
+              package_weight: order.package_weight === null ? null : Number(order.package_weight),
+              shipping_cost: Number(order.shipping_cost),
+              return_shipments: order.return_shipments,
+              dni: order.dni,
+              exported_at: order.exported_at,
+            }}
+          />
+
+          <PaymentsCard
+            storeId={store.id}
+            orderId={order.id}
+            zone={zone}
+            total={Number(order.total)}
+            advanceExpected={Number(order.advance_amount)}
+            payments={payments}
+          />
+
           <OrderDetailsForm
             orderId={order.id}
             initial={{
-              shipping_cost: Number(order.shipping_cost),
               internal_notes: order.internal_notes ?? "",
               address: order.address,
               reference: order.reference ?? "",
-              courier_name: order.courier_name ?? "",
-              tracking_code: order.tracking_code ?? "",
             }}
           />
         </div>

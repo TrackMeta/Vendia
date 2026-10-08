@@ -1,6 +1,6 @@
 "use client";
 
-import { AlertTriangle, Download, UserCheck } from "lucide-react";
+import { AlertTriangle, Download, FileSpreadsheet, MapPin, UserCheck } from "lucide-react";
 import Link from "next/link";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
@@ -12,6 +12,7 @@ import { displayPeruPhone, formatDateTime, formatMoney } from "@/lib/format";
 import { CANCEL_REASONS, type ContactChannel, FAILURE_REASONS, RISK_LABELS } from "@/modules/orders/contact";
 import type { OrderStatus } from "@/modules/orders/state-machine";
 import { assignOrders, changeOrdersStatus } from "../pedidos/actions";
+import { ExportDialog, type StoreCourier } from "./export-dialog";
 
 export type LogisticsOrder = {
   id: string;
@@ -21,6 +22,9 @@ export type LogisticsOrder = {
   zone: "lima" | "provincia";
   customer_name: string;
   customer_phone: string;
+  dni: string | null;
+  agency_destination: string | null;
+  exported_at: string | null;
   total: number;
   balance_due: number;
   address: string;
@@ -40,10 +44,18 @@ export type LogisticsOrder = {
   contact_sequence_done: boolean;
   source: string;
   source_channel: string | null;
-  order_items: { product_name: string; offer_name: string | null; quantity: number }[];
+  order_items: {
+    product_name: string;
+    offer_name: string | null;
+    quantity: number;
+  }[];
 };
 
-type BulkAction = { to: OrderStatus; label: string; reasons?: Record<string, string> };
+type BulkAction = {
+  to: OrderStatus;
+  label: string;
+  reasons?: Record<string, string>;
+};
 
 const BULK_ACTIONS: Record<string, BulkAction[]> = {
   confirmar: [
@@ -56,7 +68,9 @@ const BULK_ACTIONS: Record<string, BulkAction[]> = {
     { to: "cancelled", label: "Cancelar", reasons: CANCEL_REASONS },
   ],
   "en-camino": [
-    { to: "out_for_delivery", label: "En reparto" },
+    { to: "out_for_delivery", label: "En reparto (Lima)" },
+    { to: "at_agency", label: "En agencia (provincia)" },
+    { to: "collected", label: "Cobrado" },
     { to: "delivered", label: "Entregado" },
     { to: "failed_delivery", label: "No entregado", reasons: FAILURE_REASONS },
   ],
@@ -73,6 +87,7 @@ export function LogisticsTable({
   sequence,
   members,
   currentUserId,
+  couriers,
 }: {
   view: string;
   orders: LogisticsOrder[];
@@ -80,7 +95,9 @@ export function LogisticsTable({
   sequence: ContactChannel[];
   members: { id: string; name: string }[];
   currentUserId: string;
+  couriers: StoreCourier[];
 }) {
+  const [exportOpen, setExportOpen] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [pending, startTransition] = useTransition();
   const [reasonAction, setReasonAction] = useState<BulkAction | null>(null);
@@ -123,7 +140,12 @@ export function LogisticsTable({
     <div className="flex flex-col gap-3">
       <div className="sticky top-14 z-10 flex flex-wrap items-center gap-2 rounded-lg border bg-background/95 p-2 backdrop-blur md:top-0">
         <label className="flex items-center gap-2 px-1 text-sm">
-          <input type="checkbox" checked={allSelected} onChange={() => setSelected(allSelected ? new Set() : new Set(orders.map((o) => o.id)))} className="size-4" />
+          <input
+            type="checkbox"
+            checked={allSelected}
+            onChange={() => setSelected(allSelected ? new Set() : new Set(orders.map((o) => o.id)))}
+            className="size-4"
+          />
           {selected.size ? `${selected.size} seleccionados` : `Seleccionar todos (${orders.length})`}
         </label>
         <div className="ml-auto flex flex-wrap items-center gap-2">
@@ -163,14 +185,19 @@ export function LogisticsTable({
             </Button>
           ))}
           {view === "despachar" ? (
-            <form method="post" action="/dashboard/logistica/exportar">
-              {(selected.size ? selectedIds : orders.map((o) => o.id)).map((id) => (
-                <input key={id} type="hidden" name="ids" value={id} />
-              ))}
-              <Button size="sm" type="submit">
-                <Download /> Excel para courier {selected.size ? `(${selected.size})` : "(todos)"}
+            <>
+              <form method="post" action="/dashboard/logistica/exportar">
+                {(selected.size ? selectedIds : orders.map((o) => o.id)).map((id) => (
+                  <input key={id} type="hidden" name="ids" value={id} />
+                ))}
+                <Button size="sm" variant="ghost" type="submit" title="CSV genérico para otros couriers">
+                  <Download /> CSV
+                </Button>
+              </form>
+              <Button size="sm" disabled={!selected.size && !orders.some((o) => !o.exported_at)} onClick={() => setExportOpen(true)}>
+                <FileSpreadsheet /> Exportar a courier {selected.size ? `(${selected.size})` : "(pendientes)"}
               </Button>
-            </form>
+            </>
           ) : null}
         </div>
       </div>
@@ -182,7 +209,13 @@ export function LogisticsTable({
           const risks = (o.risk_reasons ?? []).filter((r) => r !== "posible_duplicado");
           return (
             <div key={o.id} className="flex gap-3 rounded-xl border p-3">
-              <input type="checkbox" checked={selected.has(o.id)} onChange={() => toggle(o.id)} className="mt-1 size-4 shrink-0" aria-label={`Seleccionar pedido ${o.order_number}`} />
+              <input
+                type="checkbox"
+                checked={selected.has(o.id)}
+                onChange={() => toggle(o.id)}
+                className="mt-1 size-4 shrink-0"
+                aria-label={`Seleccionar pedido ${o.order_number}`}
+              />
               <div className="flex min-w-0 flex-1 flex-col gap-1.5">
                 <div className="flex flex-wrap items-center gap-2">
                   <Link href={`/dashboard/pedidos/${o.id}`} className="font-semibold hover:underline">
@@ -216,6 +249,13 @@ export function LogisticsTable({
                   {product} · {o.address}
                   {o.reference ? ` (Ref: ${o.reference})` : ""} · {o.district_name}, {o.province_name}, {o.department_name}
                 </p>
+                {o.zone === "provincia" && view !== "confirmar" ? (
+                  <p className={`flex items-center gap-1 text-xs ${o.agency_destination ? "text-muted-foreground" : "text-amber-600"}`}>
+                    <MapPin className="size-3.5" /> {o.agency_destination ? `Agencia ${o.agency_destination}` : "Falta la agencia de destino"}
+                    {!o.dni ? " · Falta DNI" : ""}
+                  </p>
+                ) : null}
+                {o.exported_at && view === "despachar" ? <p className="text-xs text-muted-foreground">Ya exportado · {formatDateTime(o.exported_at)}</p> : null}
                 {o.tracking_code || o.courier_name ? (
                   <p className="text-xs text-muted-foreground">
                     {o.courier_name ?? "Courier"} {o.tracking_code ? `· Guía ${o.tracking_code}` : ""}
@@ -240,6 +280,10 @@ export function LogisticsTable({
                         last_contact_result: o.last_contact_result,
                         next_contact_at: o.next_contact_at,
                         contact_sequence_done: o.contact_sequence_done,
+                        zone: o.zone,
+                        dni: o.dni,
+                        agency_destination: o.agency_destination,
+                        location_hint: o.district_name === o.province_name ? o.province_name : `${o.province_name} ${o.district_name}`,
                       }}
                     />
                   </div>
@@ -249,6 +293,15 @@ export function LogisticsTable({
           );
         })}
       </div>
+
+      {exportOpen ? (
+        <ExportDialog
+          onClose={() => setExportOpen(false)}
+          orderIds={selected.size ? selectedIds : orders.filter((o) => !o.exported_at).map((o) => o.id)}
+          couriers={couriers}
+          onDone={() => setSelected(new Set())}
+        />
+      ) : null}
 
       <Dialog open={reasonAction !== null} onOpenChange={(open) => !open && setReasonAction(null)}>
         <DialogContent>

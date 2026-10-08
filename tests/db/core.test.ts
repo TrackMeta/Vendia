@@ -179,8 +179,9 @@ describe("Pedidos COD", () => {
     expect(Number(order.subtotal)).toBe(129.9); // precio de la oferta, no el enviado
     expect(Number(order.shipping_charged)).toBe(10); // Lima
     expect(Number(order.total)).toBe(139.9);
-    expect(Number(order.advance_amount)).toBe(20);
-    expect(Number(order.balance_due)).toBe(119.9);
+    // Lima es contraentrega pura: sin adelanto (Bloque 2)
+    expect(Number(order.advance_amount)).toBe(0);
+    expect(Number(order.balance_due)).toBe(139.9);
     expect(Number(order.product_cost_total)).toBe(50); // 25 × 2
     expect(order.department_name).toBe("Lima");
     expect(order.district_name).toBe("San Juan de Miraflores");

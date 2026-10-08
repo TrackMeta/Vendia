@@ -1,8 +1,11 @@
 /**
  * Máquina de estados del pedido.
- * ESPEJO de public.order_transition_allowed() en
- * supabase/migrations/20261008000300_functions.sql — la base de datos es la autoridad;
+ * ESPEJO de public.order_transition_allowed(from, to, zone) en
+ * supabase/migrations/20261008001300_provincia_despacho.sql — la base de datos es la autoridad;
  * esto solo sirve para mostrar en la UI qué cambios son posibles.
+ *
+ * Lima:      … → Enviado → En reparto → Entregado → Cobrado
+ * Provincia: … → Enviado → En agencia → Cobrado (pagó el saldo) → Entregado (recogió)
  */
 export const ORDER_STATUSES = [
   "new",
@@ -11,6 +14,7 @@ export const ORDER_STATUSES = [
   "preparing",
   "shipped",
   "out_for_delivery",
+  "at_agency",
   "delivered",
   "collected",
   "cancelled",
@@ -19,6 +23,7 @@ export const ORDER_STATUSES = [
 ] as const;
 
 export type OrderStatus = (typeof ORDER_STATUSES)[number];
+export type Zone = "lima" | "provincia";
 
 export const ORDER_STATUS_LABELS: Record<OrderStatus, string> = {
   new: "Nuevo",
@@ -27,6 +32,7 @@ export const ORDER_STATUS_LABELS: Record<OrderStatus, string> = {
   preparing: "Preparando",
   shipped: "Enviado",
   out_for_delivery: "En reparto",
+  at_agency: "En agencia",
   delivered: "Entregado",
   collected: "Cobrado",
   cancelled: "Cancelado",
@@ -43,6 +49,7 @@ export const ORDER_STATUS_TONE: Record<OrderStatus, StatusTone> = {
   preparing: "progress",
   shipped: "progress",
   out_for_delivery: "progress",
+  at_agency: "progress",
   delivered: "success",
   collected: "success",
   cancelled: "danger",
@@ -50,41 +57,39 @@ export const ORDER_STATUS_TONE: Record<OrderStatus, StatusTone> = {
   returned: "danger",
 };
 
-const MAIN_CHAIN: OrderStatus[] = [
-  "new",
-  "pending_confirmation",
-  "confirmed",
-  "preparing",
-  "shipped",
-  "out_for_delivery",
-  "delivered",
-  "collected",
-];
+const CHAINS: Record<Zone, OrderStatus[]> = {
+  lima: ["new", "pending_confirmation", "confirmed", "preparing", "shipped", "out_for_delivery", "delivered", "collected"],
+  provincia: ["new", "pending_confirmation", "confirmed", "preparing", "shipped", "at_agency", "collected", "delivered"],
+};
 
-function rank(status: OrderStatus): number | null {
-  const index = MAIN_CHAIN.indexOf(status);
+function rank(status: OrderStatus, zone: Zone): number | null {
+  const index = CHAINS[zone].indexOf(status);
   return index === -1 ? null : index;
 }
 
-export function isTransitionAllowed(from: OrderStatus, to: OrderStatus): boolean {
+export function isTransitionAllowed(from: OrderStatus, to: OrderStatus, zone: Zone = "lima"): boolean {
   if (from === to) return false;
-  const fromRank = rank(from);
-  const toRank = rank(to);
+  const fromRank = rank(from, zone);
+  const toRank = rank(to, zone);
   if (fromRank !== null && toRank !== null) return toRank > fromRank;
   if (to === "cancelled") return ["new", "pending_confirmation", "confirmed", "preparing"].includes(from);
-  if (to === "failed_delivery") return from === "shipped" || from === "out_for_delivery";
+  if (to === "failed_delivery") return from === "shipped" || from === "out_for_delivery" || from === "at_agency";
   if (to === "returned") return from === "failed_delivery";
   if (from === "cancelled") return to === "new" || to === "pending_confirmation";
   return false;
 }
 
-export function allowedTransitions(from: OrderStatus): OrderStatus[] {
-  return ORDER_STATUSES.filter((to) => isTransitionAllowed(from, to));
+export function allowedTransitions(from: OrderStatus, zone: Zone = "lima"): OrderStatus[] {
+  return ORDER_STATUSES.filter((to) => isTransitionAllowed(from, to, zone));
 }
 
 /** El siguiente paso "natural" (botón principal en la UI). */
-export function nextStatus(from: OrderStatus): OrderStatus | null {
-  const r = rank(from);
-  if (r === null || r === MAIN_CHAIN.length - 1) return null;
-  return MAIN_CHAIN[r + 1];
+export function nextStatus(from: OrderStatus, zone: Zone = "lima"): OrderStatus | null {
+  const chain = CHAINS[zone];
+  const r = rank(from, zone);
+  if (r === null || r === chain.length - 1) return null;
+  return chain[r + 1];
 }
+
+/** Estados que significan «el pedido ya salió y está en camino». */
+export const IN_TRANSIT_STATUSES: OrderStatus[] = ["shipped", "out_for_delivery", "at_agency"];

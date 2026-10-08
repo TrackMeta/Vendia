@@ -43,3 +43,24 @@ describe("Máquina de estados del pedido", () => {
     expect(nextStatus("new")).toBe("pending_confirmation");
   });
 });
+
+describe("Provincia: el orden es inverso a Lima", () => {
+  it("Enviado → En agencia → Cobrado → Entregado", () => {
+    expect(nextStatus("shipped", "provincia")).toBe("at_agency");
+    expect(nextStatus("at_agency", "provincia")).toBe("collected");
+    expect(nextStatus("collected", "provincia")).toBe("delivered");
+    expect(nextStatus("delivered", "provincia")).toBeNull();
+  });
+
+  it("Lima no pasa por agencia y provincia no pasa por reparto", () => {
+    expect(isTransitionAllowed("shipped", "at_agency", "lima")).toBe(false);
+    expect(isTransitionAllowed("shipped", "out_for_delivery", "provincia")).toBe(false);
+    expect(isTransitionAllowed("collected", "delivered", "lima")).toBe(false);
+    expect(isTransitionAllowed("collected", "delivered", "provincia")).toBe(true);
+  });
+
+  it("no recogió en agencia → No entregado", () => {
+    expect(isTransitionAllowed("at_agency", "failed_delivery", "provincia")).toBe(true);
+    expect(allowedTransitions("delivered", "provincia")).toEqual([]);
+  });
+});

@@ -192,6 +192,69 @@ async function main() {
   await db.exec(`set request.jwt.claim.sub = '${userId}'`);
   await step("dueño quita al confirmador", `select public.remove_store_member('${storeId}', '${staffId}')`);
   await step("asignación liberada", `select assigned_to is null from public.orders where id = '${manual.order_id}'`);
+
+  // ── Bloque 2: provincia y despacho ──
+  console.log("\nBloque 2:");
+  await step("couriers iniciales", `select string_agg(courier_id || ':' || zone, ',' order by courier_id) from public.store_couriers where store_id = '${storeId}'`);
+  await step("stock del producto = 5", `update public.products set stock = 5 where id = '${productId}' returning stock`);
+  await step("store_settings adelanto 20", `update public.store_settings set advance_amount = 20 where store_id = '${storeId}' returning advance_amount`);
+  const lima = (await step(
+    "pedido Lima (sin adelanto)",
+    `select public.create_cod_order('{"landing_page_id":"${landingId}","offer_id":"${offerId}","idempotency_key":"k5","first_name":"Lima","phone":"51944444444","district_code":"150101","address":"Calle 5"}'::jsonb)`,
+  )) as { order_id: string };
+  await step("Lima: adelanto 0", `select advance_amount from public.orders where id = '${lima.order_id}'`);
+  const prov = (await step(
+    "pedido provincia (con adelanto)",
+    `select public.create_cod_order('{"landing_page_id":"${landingId}","offer_id":"${offerId}","idempotency_key":"k6","first_name":"Prov","phone":"51955555555","district_code":"040101","address":"Calle 6","dni":"12345678"}'::jsonb)`,
+  )) as { order_id: string };
+  await step("provincia: adelanto 20", `select advance_amount from public.orders where id = '${prov.order_id}'`);
+  await step("confirmar provincia → descuenta stock", `select (public.change_order_status('${prov.order_id}', 'confirmed')).stock_reserved`);
+  await step("stock tras confirmar (5 - 2)", `select stock from public.products where id = '${productId}'`);
+  await step("courier y costo sugerido", `select courier_id || ' ' || shipping_cost from public.orders where id = '${prov.order_id}'`);
+  await step("pago adelanto 30", `insert into public.order_payments (store_id, order_id, kind, amount, method) values ('${storeId}', '${prov.order_id}', 'advance', 30, 'yape') returning id`);
+  await step("adelanto sincronizado", `select advance_amount || ' / saldo ' || balance_due from public.orders where id = '${prov.order_id}'`);
+  const exp = (await step(
+    "exportar a Shalom (reserva atómica)",
+    `select public.reserve_orders_for_export('${storeId}', 'shalom', array['${prov.order_id}'::uuid], 'ATOCONGO', true)`,
+  )) as { batch_id: string };
+  await step("lote creado", `select order_count from public.export_batches where id = '${exp.batch_id}'`);
+  try {
+    await db.query(`select public.reserve_orders_for_export('${storeId}', 'shalom', array['${prov.order_id}'::uuid])`);
+    console.error("  ✗ exportar dos veces: debería fallar");
+    process.exit(1);
+  } catch {
+    console.log("  ✓ no se exporta dos veces");
+  }
+  await step("provincia: enviado → en agencia", `select (public.change_order_status('${prov.order_id}', 'at_agency')).at_agency_at is not null`);
+  await step("provincia: en agencia → cobrado (sin entregar)", `select (public.change_order_status('${prov.order_id}', 'collected')).delivered_at is null`);
+  await step("provincia: cobrado → entregado", `select (public.change_order_status('${prov.order_id}', 'delivered')).status`);
+  try {
+    await db.query(`select public.change_order_status('${lima.order_id}', 'at_agency')`);
+    console.error("  ✗ Lima no pasa por agencia: debería fallar");
+    process.exit(1);
+  } catch {
+    console.log("  ✓ Lima no pasa por «En agencia»");
+  }
+  await step("Lima: confirmar", `select (public.change_order_status('${lima.order_id}', 'confirmed')).status`);
+  await step("Lima: enviado", `select (public.change_order_status('${lima.order_id}', 'shipped')).status`);
+  await step("Lima: no entregado → devuelve stock", `select (public.change_order_status('${lima.order_id}', 'failed_delivery', null, 'rechazo_en_puerta')).return_shipments`);
+  await step("stock final (devuelto)", `select stock from public.products where id = '${productId}'`);
+  await step("Lima: devuelto (no devuelve dos veces)", `select (public.change_order_status('${lima.order_id}', 'returned')).stock_reserved`);
+  await step("stock sigue igual", `select stock from public.products where id = '${productId}'`);
+  await step("stock 1 para probar faltante", `update public.products set stock = 1 where id = '${productId}' returning stock`);
+  const o7 = (await step(
+    "pedido sin stock suficiente",
+    `select public.create_cod_order('{"landing_page_id":"${landingId}","offer_id":"${offerId}","idempotency_key":"k7","first_name":"Sin","phone":"51966666666","district_code":"150101","address":"Calle 7"}'::jsonb)`,
+  )) as { order_id: string };
+  try {
+    await db.query(`select public.change_order_status('${o7.order_id}', 'confirmed')`);
+    console.error("  ✗ sin stock: debería fallar");
+    process.exit(1);
+  } catch (e) {
+    console.log(`  ✓ sin stock no confirma → ${(e as Error).message}`);
+  }
+  await step("aviso de stock bajo", `select count(*) from public.notifications where store_id = '${storeId}' and type = 'low_stock'`);
+  await step("get_order_stats con agencia", `select public.get_order_stats('${storeId}', now() - interval '1 day', now() + interval '1 day') -> 'in_progress'`);
   console.log("\nOK — prueba de humo completa");
 }
 

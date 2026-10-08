@@ -2,6 +2,7 @@ import { after, NextResponse, type NextRequest } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { leadEventId } from "@/modules/meta/events";
 import { enqueueOrderEvent } from "@/modules/meta/capi";
+import { zoneOf } from "@/modules/orders/contact";
 import { orderInput } from "@/modules/orders/order-input";
 
 const RATE_LIMIT_WINDOW_MINUTES = 10;
@@ -32,6 +33,10 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: parsed.error.issues[0]?.message ?? "Datos inválidos" }, { status: 400 });
   }
   const input = parsed.data;
+  // Provincia: el DNI es obligatorio (lo pide la agencia para entregar)
+  if (zoneOf(input.district_code.slice(0, 4)) === "provincia" && !input.dni) {
+    return NextResponse.json({ error: "Ingresa tu DNI (8 dígitos): lo pide la agencia para entregarte" }, { status: 400 });
+  }
   const ip = clientIp(request);
   const supabase = createAdminClient();
 

@@ -43,7 +43,7 @@ export function SettingsForm({ storeId, storeSlug, initial }: { storeId: string;
   const [state, action, pending] = useActionState(saveSettings, undefined);
   const [logo, setLogo] = useState(initial.logo_path);
   const [favicon, setFavicon] = useState(initial.favicon_path);
-  const [example, setExample] = useState({ lima: initial.shipping_lima, advance: initial.advance_amount });
+  const [example, setExample] = useState({ lima: initial.shipping_lima, province: initial.shipping_province, advance: initial.advance_amount });
 
   useEffect(() => {
     if (!state) return;
@@ -53,6 +53,7 @@ export function SettingsForm({ storeId, storeSlug, initial }: { storeId: string;
 
   const productPrice = 79;
   const total = productPrice + example.lima;
+  const provinceTotal = productPrice + example.province;
 
   return (
     <form action={action} className="flex flex-col gap-6">
@@ -104,9 +105,16 @@ export function SettingsForm({ storeId, storeSlug, initial }: { storeId: string;
             />
           </Field>
           <Field label="Envío provincias (S/)">
-            <Input name="shipping_province" type="number" step="0.01" min="0" defaultValue={initial.shipping_province} />
+            <Input
+              name="shipping_province"
+              type="number"
+              step="0.01"
+              min="0"
+              defaultValue={initial.shipping_province}
+              onChange={(e) => setExample((x) => ({ ...x, province: Number(e.target.value) || 0 }))}
+            />
           </Field>
-          <Field label="Adelanto (S/)" hint="0 = sin adelanto">
+          <Field label="Adelanto en provincia (S/)" hint="Lima es contraentrega: no lleva adelanto. 0 = sin adelanto">
             <Input
               name="advance_amount"
               type="number"
@@ -117,12 +125,15 @@ export function SettingsForm({ storeId, storeSlug, initial }: { storeId: string;
             />
           </Field>
           <div className="rounded-lg bg-muted/50 p-3 text-sm sm:col-span-3">
-            <p className="mb-1 font-medium">Ejemplo con un producto de {formatMoney(productPrice)} en Lima:</p>
+            <p className="mb-1 font-medium">Ejemplo con un producto de {formatMoney(productPrice)}:</p>
             <p className="text-muted-foreground">
-              Producto {formatMoney(productPrice)} + envío {formatMoney(example.lima)} = total {formatMoney(total)}
+              Lima: {formatMoney(productPrice)} + envío {formatMoney(example.lima)} = {formatMoney(total)}, se paga todo al recibir.
+            </p>
+            <p className="text-muted-foreground">
+              Provincia: {formatMoney(productPrice)} + envío {formatMoney(example.province)} = {formatMoney(provinceTotal)}
               {example.advance > 0
-                ? ` · adelanto ${formatMoney(Math.min(example.advance, total))} · saldo al recibir ${formatMoney(total - Math.min(example.advance, total))}`
-                : ""}
+                ? ` · adelanto ${formatMoney(Math.min(example.advance, provinceTotal))} · saldo en agencia ${formatMoney(provinceTotal - Math.min(example.advance, provinceTotal))}`
+                : ", se paga todo en la agencia."}
             </p>
           </div>
           <div className="sm:col-span-3">

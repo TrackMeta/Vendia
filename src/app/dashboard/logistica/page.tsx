@@ -7,6 +7,7 @@ import { createClient } from "@/lib/supabase/server";
 import { cn } from "@/lib/utils";
 import { type ContactChannel, DEFAULT_SEQUENCE, sortForConfirmation } from "@/modules/orders/contact";
 import type { OrderStatus } from "@/modules/orders/state-machine";
+import { type BatchRow, BatchesList, type StoreCourier } from "./export-dialog";
 import { LogisticsTable, type LogisticsOrder } from "./logistics-table";
 
 export const metadata: Metadata = { title: "Logística" };
@@ -14,8 +15,16 @@ export const metadata: Metadata = { title: "Logística" };
 const VIEWS = {
   confirmar: { label: "Por confirmar", statuses: ["new", "pending_confirmation"] as OrderStatus[] },
   despachar: { label: "Por despachar", statuses: ["confirmed", "preparing"] as OrderStatus[] },
-  "en-camino": { label: "En camino", statuses: ["shipped", "out_for_delivery"] as OrderStatus[] },
+  // En provincia, «Cobrado» llega antes que «Entregado»: sigue en camino hasta que lo recoge
+  "en-camino": { label: "En camino", statuses: ["shipped", "out_for_delivery", "at_agency", "collected"] as OrderStatus[] },
 } as const;
+
+const IN_TRANSIT_FILTER = "status.in.(shipped,out_for_delivery,at_agency),and(status.eq.collected,zone.eq.provincia,delivered_at.is.null)";
+
+function inView(view: keyof typeof VIEWS, o: { status: string; zone: string; delivered_at: string | null }) {
+  if (view === "en-camino" && o.status === "collected") return o.zone === "provincia" && !o.delivered_at;
+  return (VIEWS[view].statuses as string[]).includes(o.status);
+}
 
 type ViewKey = keyof typeof VIEWS;
 const ZONES = { todas: "Todas", lima: "Lima", provincia: "Provincia" } as const;
@@ -31,34 +40,83 @@ export default async function LogisticsPage({ searchParams }: PageProps<"/dashbo
   let query = supabase
     .from("orders")
     .select(
-      "id, order_number, created_at, status, zone, customer_name, customer_phone, total, balance_due, address, reference, district_name, province_name, department_name, is_possible_duplicate, risk_reasons, courier_name, tracking_code, assigned_to, contact_attempts, last_contact_result, last_contact_at, next_contact_at, contact_sequence_done, source, source_channel, order_items (product_name, offer_name, quantity)",
+      "id, order_number, created_at, status, zone, customer_name, customer_phone, dni, total, balance_due, address, reference, district_name, province_name, department_name, is_possible_duplicate, risk_reasons, courier_name, tracking_code, agency_destination, exported_at, assigned_to, contact_attempts, last_contact_result, last_contact_at, next_contact_at, contact_sequence_done, source, source_channel, order_items (product_name, offer_name, quantity)",
     )
     .eq("store_id", store.id)
-    .in("status", VIEWS[view].statuses)
     .order("created_at", { ascending: true })
     .limit(300);
+  query = view === "en-camino" ? query.or(IN_TRANSIT_FILTER) : query.in("status", VIEWS[view].statuses);
   if (zone !== "todas") query = query.eq("zone", zone);
   if (mine) query = query.eq("assigned_to", user.id);
 
-  const [{ data: orders }, { data: counts }, { data: settings }, { data: team }] = await Promise.all([
+  const [{ data: orders }, { data: counts }, { data: settings }, { data: team }, { data: couriers }, { data: batches }] = await Promise.all([
     query,
-    supabase.from("orders").select("status").eq("store_id", store.id).in("status", Object.values(VIEWS).flatMap((v) => v.statuses)),
+    supabase
+      .from("orders")
+      .select("status, zone, delivered_at")
+      .eq("store_id", store.id)
+      .in(
+        "status",
+        Object.values(VIEWS).flatMap((v) => v.statuses),
+      ),
     supabase.from("store_settings").select("contact_sequence").eq("store_id", store.id).maybeSingle(),
     supabase.rpc("get_store_team", { p_store_id: store.id }),
+    supabase.from("store_couriers").select("courier_id, zone, enabled, is_default, origin_agency").eq("store_id", store.id),
+    view === "despachar"
+      ? supabase
+          .from("export_batches")
+          .select("id, courier_id, order_count, created_at, created_by")
+          .eq("store_id", store.id)
+          .order("created_at", { ascending: false })
+          .limit(8)
+      : Promise.resolve({
+          data: [] as {
+            id: string;
+            courier_id: string;
+            order_count: number;
+            created_at: string;
+            created_by: string | null;
+          }[],
+        }),
   ]);
 
-  const countFor = (key: ViewKey) => (counts ?? []).filter((c) => (VIEWS[key].statuses as string[]).includes(c.status)).length;
+  const countFor = (key: ViewKey) => (counts ?? []).filter((c) => inView(key, c)).length;
   const sequence = ((settings?.contact_sequence as ContactChannel[] | null) ?? DEFAULT_SEQUENCE).filter((s) => s === "call" || s === "whatsapp");
-  const rows = (orders ?? []).map((o) => ({ ...o, total: Number(o.total), balance_due: Number(o.balance_due) }) as LogisticsOrder);
+  const rows = (orders ?? []).map(
+    (o) =>
+      ({
+        ...o,
+        total: Number(o.total),
+        balance_due: Number(o.balance_due),
+      }) as LogisticsOrder,
+  );
   const sorted = view === "confirmar" ? sortForConfirmation(rows) : rows;
-  const members = ((team ?? []) as { user_id: string; email: string; full_name: string | null }[]).map((m) => ({
+  const members = (
+    (team ?? []) as {
+      user_id: string;
+      email: string;
+      full_name: string | null;
+    }[]
+  ).map((m) => ({
     id: m.user_id,
     name: m.full_name || m.email,
+  }));
+  const batchRows: BatchRow[] = (batches ?? []).map((b) => ({
+    id: b.id,
+    courier_id: b.courier_id,
+    order_count: b.order_count,
+    created_at: b.created_at,
+    created_by_name: b.created_by === user.id ? "Tú" : (members.find((m) => m.id === b.created_by)?.name ?? "Equipo"),
   }));
 
   const href = (params: Record<string, string | undefined>) => {
     const next = new URLSearchParams();
-    const merged: Record<string, string | undefined> = { vista: view, zona: zone !== "todas" ? zone : undefined, mios: mine ? "1" : undefined, ...params };
+    const merged: Record<string, string | undefined> = {
+      vista: view,
+      zona: zone !== "todas" ? zone : undefined,
+      mios: mine ? "1" : undefined,
+      ...params,
+    };
     for (const [k, v] of Object.entries(merged)) if (v) next.set(k, v);
     return `/dashboard/logistica?${next.toString()}`;
   };
@@ -75,7 +133,10 @@ export default async function LogisticsPage({ searchParams }: PageProps<"/dashbo
           <Link
             key={key}
             href={href({ vista: key })}
-            className={cn("rounded-full border px-3 py-1 text-sm whitespace-nowrap", view === key ? "border-foreground bg-foreground text-background" : "hover:bg-muted")}
+            className={cn(
+              "rounded-full border px-3 py-1 text-sm whitespace-nowrap",
+              view === key ? "border-foreground bg-foreground text-background" : "hover:bg-muted",
+            )}
           >
             {VIEWS[key].label} <span className="opacity-60">{countFor(key)}</span>
           </Link>
@@ -92,7 +153,10 @@ export default async function LogisticsPage({ searchParams }: PageProps<"/dashbo
           </Link>
         ))}
         <span className="mx-1 text-muted-foreground">·</span>
-        <Link href={href({ mios: mine ? undefined : "1" })} className={cn("rounded-md border px-2.5 py-0.5", mine ? "border-primary bg-primary/10 text-primary" : "hover:bg-muted")}>
+        <Link
+          href={href({ mios: mine ? undefined : "1" })}
+          className={cn("rounded-md border px-2.5 py-0.5", mine ? "border-primary bg-primary/10 text-primary" : "hover:bg-muted")}
+        >
           Mis pendientes
         </Link>
       </div>
@@ -103,7 +167,9 @@ export default async function LogisticsPage({ searchParams }: PageProps<"/dashbo
         sequence={sequence}
         members={members}
         currentUserId={user.id}
+        couriers={(couriers ?? []) as StoreCourier[]}
       />
+      {view === "despachar" ? <BatchesList batches={batchRows} /> : null}
     </div>
   );
 }

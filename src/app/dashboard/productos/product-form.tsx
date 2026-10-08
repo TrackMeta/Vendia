@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { PACKAGE_SIZES } from "@/modules/couriers";
 import type { ActionResult } from "./actions";
 
 export type ProductFormValues = {
@@ -19,6 +20,11 @@ export type ProductFormValues = {
   stock: number | null;
   category: string | null;
   status: "draft" | "active" | "archived";
+  package_size?: string;
+  package_weight?: number | string;
+  package_height?: number | string;
+  package_width?: number | string;
+  package_length?: number | string;
 };
 
 const EMPTY: ProductFormValues = {
@@ -80,6 +86,7 @@ export function ProductForm({
           <div className="flex flex-col gap-2">
             <Label htmlFor="stock">Stock (opcional)</Label>
             <Input id="stock" name="stock" type="number" min="0" step="1" defaultValue={initial.stock ?? ""} />
+            <p className="text-xs text-muted-foreground">Se descuenta al confirmar y vuelve si se cancela o no se entrega. Vacío = sin control.</p>
           </div>
           <div className="flex flex-col gap-2">
             <Label htmlFor="sku">SKU (opcional)</Label>
@@ -88,6 +95,39 @@ export function ProductForm({
           <div className="flex flex-col gap-2">
             <Label htmlFor="category">Categoría (opcional)</Label>
             <Input id="category" name="category" defaultValue={initial.category ?? ""} placeholder="Salud y belleza" />
+          </div>
+          <div className="grid gap-3 rounded-lg border p-3 sm:col-span-2 sm:grid-cols-5">
+            <p className="text-sm font-medium sm:col-span-5">
+              Paquete para el courier <span className="font-normal text-muted-foreground">· se usa en la planilla de Shalom (medidas en cm, 0 si no las sabes)</span>
+            </p>
+            <div className="flex flex-col gap-1.5 sm:col-span-2">
+              <Label htmlFor="package_size">Medida</Label>
+              <select id="package_size" name="package_size" defaultValue={initial.package_size ?? "PAQUETE S"} className={nativeSelect}>
+                {PACKAGE_SIZES.map((s) => (
+                  <option key={s} value={s}>
+                    {s}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="package_weight">Peso (kg)</Label>
+              <Input id="package_weight" name="package_weight" type="number" step="0.1" min="0" defaultValue={initial.package_weight ?? 1} />
+            </div>
+            <div className="grid grid-cols-3 gap-1.5 sm:col-span-2">
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="package_height">Alto</Label>
+                <Input id="package_height" name="package_height" type="number" step="0.1" min="0" defaultValue={initial.package_height ?? 0} />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="package_width">Ancho</Label>
+                <Input id="package_width" name="package_width" type="number" step="0.1" min="0" defaultValue={initial.package_width ?? 0} />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="package_length">Largo</Label>
+                <Input id="package_length" name="package_length" type="number" step="0.1" min="0" defaultValue={initial.package_length ?? 0} />
+              </div>
+            </div>
           </div>
           <div className="flex flex-col gap-2 sm:col-span-2">
             <Label htmlFor="description">Descripción (opcional)</Label>

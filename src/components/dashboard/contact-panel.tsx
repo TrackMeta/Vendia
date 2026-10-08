@@ -4,7 +4,8 @@ import { CalendarClock, Check, MessageCircle, Phone, PhoneOff, X } from "lucide-
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
-import { logContactAttempt } from "@/app/dashboard/pedidos/actions";
+import { logContactAttempt, updateOrderShipping } from "@/app/dashboard/pedidos/actions";
+import { AgencyPicker } from "@/components/dashboard/agency-picker";
 import { Button } from "@/components/ui/button";
 import { displayPeruPhone, formatDateTime, formatMoney } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -23,6 +24,11 @@ export type ContactOrder = {
   last_contact_result: string | null;
   next_contact_at: string | null;
   contact_sequence_done: boolean;
+  zone?: "lima" | "provincia";
+  dni?: string | null;
+  agency_destination?: string | null;
+  /** Provincia y distrito, para sugerir la agencia Shalom. */
+  location_hint?: string;
 };
 
 export function whatsappConfirmLink(o: Pick<ContactOrder, "customer_name" | "customer_phone" | "order_number" | "product_label" | "total" | "address" | "district_name">, storeName: string) {
@@ -46,7 +52,10 @@ export function ContactPanel({ order, sequence, storeName, compact = false }: { 
   const labels = sequenceLabels(sequence);
   const stepIndex = order.contact_attempts < sequence.length ? order.contact_attempts : null;
   const [channel, setChannel] = useState<ContactChannel>(stepIndex !== null ? sequence[stepIndex] : "call");
-  const [mode, setMode] = useState<null | "later" | "reject">(null);
+  const [mode, setMode] = useState<null | "later" | "reject" | "confirm">(null);
+  const [dni, setDni] = useState(order.dni ?? "");
+  const [agency, setAgency] = useState(order.agency_destination ?? "");
+  const provincia = order.zone === "provincia";
   const [laterAt, setLaterAt] = useState(() => toLocalInput(new Date(Date.now() + 60 * 60_000)));
   const [rejectReason, setRejectReason] = useState<keyof typeof CANCEL_REASONS>("ya_no_lo_quiere");
   const [note, setNote] = useState("");
@@ -140,7 +149,12 @@ export function ContactPanel({ order, sequence, storeName, compact = false }: { 
 
       {/* Resultado */}
       <div className="flex flex-wrap gap-1.5">
-        <Button size="sm" disabled={pending} onClick={() => submit("confirmed")} className="bg-emerald-600 text-white hover:bg-emerald-700">
+        <Button
+          size="sm"
+          disabled={pending}
+          onClick={() => (provincia ? setMode(mode === "confirm" ? null : "confirm") : submit("confirmed"))}
+          className="bg-emerald-600 text-white hover:bg-emerald-700"
+        >
           <Check /> Confirmó
         </Button>
         <Button size="sm" variant="outline" disabled={pending} onClick={() => submit("no_answer")}>
@@ -160,6 +174,42 @@ export function ContactPanel({ order, sequence, storeName, compact = false }: { 
         </Button>
       </div>
 
+      {mode === "confirm" ? (
+        <div className="flex flex-col gap-2 rounded-lg bg-emerald-50 p-2 dark:bg-emerald-950/40">
+          <p className="text-sm font-medium">Provincia: confirma el DNI y la agencia Shalom donde recogerá</p>
+          <div className="grid gap-2 sm:grid-cols-[9rem_1fr]">
+            <input
+              value={dni}
+              onChange={(e) => setDni(e.target.value.replace(/\D/g, "").slice(0, 8))}
+              inputMode="numeric"
+              placeholder="DNI (8 dígitos)"
+              aria-label="DNI"
+              className="h-9 rounded-md border bg-background px-2 text-sm"
+            />
+            <AgencyPicker value={agency} onChange={setAgency} hint={order.location_hint} />
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              size="sm"
+              disabled={pending || !/^\d{8}$/.test(dni)}
+              onClick={() =>
+                startTransition(async () => {
+                  const saved = await updateOrderShipping(order.id, { dni, ...(agency ? { agency_destination: agency } : {}) });
+                  if (!saved.ok) {
+                    toast.error(saved.error);
+                    return;
+                  }
+                  submit("confirmed");
+                })
+              }
+              className="bg-emerald-600 text-white hover:bg-emerald-700"
+            >
+              <Check /> Guardar y confirmar
+            </Button>
+            {!agency ? <span className="text-xs text-muted-foreground">Sin agencia aún: la puedes elegir después, antes de exportar.</span> : null}
+          </div>
+        </div>
+      ) : null}
       {mode === "later" ? (
         <div className="flex flex-wrap items-center gap-2 rounded-lg bg-muted/50 p-2">
           <label className="text-sm">¿Cuándo volver a llamar?</label>

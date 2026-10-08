@@ -6,6 +6,12 @@
       "runtimeExecutable": "C:/PROGRA~1/nodejs/node.exe",
       "runtimeArgs": ["node_modules/next/dist/bin/next", "dev"],
       "port": 3000
+    },
+    {
+      "name": "vendia-prod",
+      "runtimeExecutable": "C:/PROGRA~1/nodejs/node.exe",
+      "runtimeArgs": ["node_modules/next/dist/bin/next", "start", "-p", "3001"],
+      "port": 3001
     }
   ]
 }

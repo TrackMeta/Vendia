@@ -124,7 +124,7 @@ describe("Meta: configuración y seguridad del token", () => {
   it("el vendedor puede guardar el token pero NO leerlo", async () => {
     const { error } = await a.client
       .from("store_meta_settings")
-      .upsert({ store_id: a.storeId, pixel_id: "123456789012345", capi_token_encrypted: encryptSecret("EAAG-token-de-prueba"), enabled: true }, { onConflict: "store_id" });
+      .insert({ store_id: a.storeId, pixel_id: "123456789012345", capi_token_encrypted: encryptSecret("EAAG-token-de-prueba"), enabled: true });
     expect(error).toBeNull();
     const read = await a.client.from("store_meta_settings").select("capi_token_encrypted").eq("store_id", a.storeId);
     expect(read.error).not.toBeNull();
@@ -147,11 +147,16 @@ describe("Meta: configuración y seguridad del token", () => {
 describe("Meta Conversions API (respuesta de Meta simulada)", () => {
   it("envía Lead una sola vez y Purchase solo al entregar, con el mismo event_id estable", async () => {
     const calls: { url: string; body: { data: { event_name: string; event_id: string; custom_data: { value: number; currency: string }; user_data: Record<string, unknown> }[] } }[] = [];
+    // Solo se simula Meta (graph.facebook.com); Supabase usa el fetch real.
+    const realFetch = globalThis.fetch;
     vi.stubGlobal(
       "fetch",
-      vi.fn(async (input: string, init: { body: string }) => {
-        calls.push({ url: String(input), body: JSON.parse(init.body) });
-        return new Response(JSON.stringify({ events_received: 1, fbtrace_id: "x" }), { status: 200 });
+      vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+        if (String(input).startsWith("https://graph.facebook.com/")) {
+          calls.push({ url: String(input), body: JSON.parse(String(init?.body)) });
+          return new Response(JSON.stringify({ events_received: 1, fbtrace_id: "x" }), { status: 200 });
+        }
+        return realFetch(input, init);
       }),
     );
 
@@ -165,6 +170,7 @@ describe("Meta Conversions API (respuesta de Meta simulada)", () => {
 
     expect(calls).toHaveLength(2);
     expect(calls[0].url).toContain("/v26.0/123456789012345/events");
+    vi.unstubAllGlobals();
     const [lead, purchase] = calls.map((c) => c.body.data[0]);
     expect(lead.event_name).toBe("Lead");
     expect(lead.event_id).toBe(`lead_${orderId}`);

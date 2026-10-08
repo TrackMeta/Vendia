@@ -1,6 +1,6 @@
 # Vendia — Plan de arquitectura y Fase 1
 
-> Estado: **Fase 1 completada** (2026-10-08) — ver [FASE-1.md](FASE-1.md). Siguiente: Gastos + Fase 2 (Meta).
+> Estado: **Fases 1 a 5 y panel admin completados** (2026-10-08) — ver [FASE-1.md](FASE-1.md) y [FASES-2-5.md](FASES-2-5.md). Pendiente: publicar en Vercel ([DEPLOY.md](DEPLOY.md)).
 >
 > **Enfoque acordado:** primero la **landing page** (imágenes + botones + botón fijo + formulario emergente) y que todo el flujo alrededor funcione perfecto: pedido, ubigeo, atribución, estados y seguridad. La **product page** queda para después (sección 8).
 
@@ -391,12 +391,12 @@ Si un divisor es 0, se muestra "—", nunca infinito ni un error.
 
 | Fase | Contenido |
 |---|---|
-| **1 — MVP** | Auth, tienda, dashboard, productos + imágenes, constructor de landing, landing pública, formulario COD, ubigeo completo, pedidos + estados, clientes, configuración COD, RLS, **captura de atribución** |
-| **2 — Meta** | Pixel por tienda (PageView, ViewContent, InitiateCheckout, Lead), CAPI desde el servidor con deduplicación, Purchase configurable al entregar, bandeja de eventos con reintentos |
-| **3 — Logística** | En lugar de Releasit: bandeja de confirmación con WhatsApp, interfaz `OrderIntegration`, exportación a courier (Excel), infraestructura de webhooks |
-| **4 — Analítica** | Funnel, CPA/ROAS por campaña, producto y ubigeo |
-| **5 — Gastos** | Módulo de gastos, utilidad y margen. Más adelante, importar el gasto desde la API de Meta |
-| Luego | **Product page** (página de producto clásica de tienda; referencia: bioyet.com/products/derman-crema-intima-candidiasis-y-balanitis-30ml-picazon), panel admin, dominios propios, upsells, más couriers, WhatsApp API |
+| **1 — MVP** ✅ | Auth, tienda, dashboard, productos + imágenes, constructor de landing, landing pública, formulario COD, ubigeo completo, pedidos + estados, clientes, configuración COD, RLS, **captura de atribución** |
+| **2 — Meta** ✅ | Pixel por tienda (PageView, ViewContent, InitiateCheckout, Lead), CAPI desde el servidor con deduplicación, Purchase configurable al entregar, bandeja de eventos con reintentos |
+| **3 — Logística** ✅ | En lugar de Releasit: bandeja de confirmación con WhatsApp, interfaz `OrderIntegration`, exportación a courier (Excel), infraestructura de webhooks |
+| **4 — Analítica** ✅ | Funnel, CPA/ROAS por campaña, producto y ubigeo |
+| **5 — Gastos** ✅ | Módulo de gastos, utilidad y margen. Importación del reporte CSV de Meta Ads (la importación automática por la API de Marketing de Meta queda para después: requiere revisión de app de Meta) |
+| Luego | Panel admin ✅ (hecho) · **Product page** (página de producto clásica de tienda; referencia: bioyet.com/products/derman-crema-intima-candidiasis-y-balanitis-30ml-picazon), panel admin, dominios propios, upsells, más couriers, WhatsApp API |
 
 **Recomendación:** pasar **Gastos (5) antes que Analítica (4)**. Sin el gasto cargado, el CPA y el ROAS no se pueden calcular.
 

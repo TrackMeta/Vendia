@@ -60,8 +60,14 @@ export async function saveMetaSettings(_prev: ActionResult | undefined, formData
     row.capi_token_encrypted = null;
   }
 
+  // Insert o update explícito: la columna store_id no es actualizable desde el cliente (por seguridad).
   const supabase = await createClient();
-  const { error } = await supabase.from("store_meta_settings").upsert(row, { onConflict: "store_id" });
+  const { data: existing } = await supabase.from("store_meta_settings").select("store_id").eq("store_id", store.id).maybeSingle();
+  const { store_id: _storeId, ...changes } = row;
+  void _storeId;
+  const { error } = existing
+    ? await supabase.from("store_meta_settings").update(changes).eq("store_id", store.id)
+    : await supabase.from("store_meta_settings").insert(row);
   if (error) return { ok: false, error: "No se pudo guardar la configuración de Meta" };
 
   await revalidateStoreLandings(store.id, store.slug);

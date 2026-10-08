@@ -1,6 +1,8 @@
 # Vendia — Plan de arquitectura y Fase 1
 
-> Estado: **propuesta, pendiente de aprobación**. Fecha: 2026-10-07.
+> Estado: **aprobado. Fase 1 en curso.** Fecha: 2026-10-07.
+>
+> **Enfoque acordado:** primero la **landing page** (imágenes + botones + botón fijo + formulario emergente) y que todo el flujo alrededor funcione perfecto: pedido, ubigeo, atribución, estados y seguridad. La **product page** queda para después (sección 8).
 
 ---
 
@@ -394,7 +396,7 @@ Si un divisor es 0, se muestra "—", nunca infinito ni un error.
 | **3 — Logística** | En lugar de Releasit: bandeja de confirmación con WhatsApp, interfaz `OrderIntegration`, exportación a courier (Excel), infraestructura de webhooks |
 | **4 — Analítica** | Funnel, CPA/ROAS por campaña, producto y ubigeo |
 | **5 — Gastos** | Módulo de gastos, utilidad y margen. Más adelante, importar el gasto desde la API de Meta |
-| Luego | Panel admin, dominios propios, upsells, más couriers, WhatsApp API |
+| Luego | **Product page** (página de producto clásica de tienda; referencia: bioyet.com/products/derman-crema-intima-candidiasis-y-balanitis-30ml-picazon), panel admin, dominios propios, upsells, más couriers, WhatsApp API |
 
 **Recomendación:** pasar **Gastos (5) antes que Analítica (4)**. Sin el gasto cargado, el CPA y el ROAS no se pueden calcular.
 
@@ -404,21 +406,23 @@ Si un divisor es 0, se muestra "—", nunca infinito ni un error.
 
 Cada paso termina con lint + tests + build y un **commit en GitHub**.
 
-| # | Paso | Resultado |
-|---|---|---|
-| 0 | **Preparar entorno** | Instalar Node.js LTS. Crear `.env.local` con las claves de Supabase (las pegas tú). Vincular la CLI de Supabase |
-| 1 | **Esqueleto del proyecto** | Next.js + TS + Tailwind + shadcn + ESLint + Vitest + carpetas |
-| 2 | **Base de datos** | Migraciones de las tablas de la Fase 1, constraints, índices, **RLS**, función de transición de estados |
-| 3 | **Ubigeo** | Seed INEI (1,891) + 2 distritos provisionales + test de conteos e integridad |
-| 4 | **Autenticación** | Registro → creación de la tienda (onboarding), login, logout, recuperar contraseña, middleware que protege rutas |
-| 5 | **Dashboard base** | Sidebar con las 10 secciones (las de fases futuras dicen "Próximamente"), métricas básicas de pedidos y filtros de fecha |
-| 6 | **Productos** | CRUD; imágenes con drag & drop, preview, principal, orden y borrado; compresión a WebP de 1600 px antes de subir |
-| 6b | **Ofertas por cantidad** | Paquetes por producto (1, 2, 3 unidades) con precio, precio tachado, etiqueta e imagen |
-| 7 | **Constructor de landing** | Dos pestañas: **Página** y **Formulario**, ambas con bloques. Página: **imagen a todo el ancho**, botón, carrusel, marquee, testimonios y los demás del documento, más el **botón fijo**. Formulario: **imagen**, ofertas, campos, resumen y botón confirmar; agregar/eliminar/duplicar/ordenar/editar, colores y tipografía, vista previa móvil, guardar borrador y publicar |
-| 8 | **Landing pública + formulario COD** | Renderizado rápido (SSR + caché), mobile-first, Open Graph; formulario **emergente o incrustado** con selector de ofertas; ubigeo con búsqueda de distrito; cálculo de total, adelanto y saldo; captura de atribución; página de gracias |
-| 9 | **Pedidos y clientes** | Tabla con filtros, detalle, cambio de estado con historial, marca de duplicados, CRM básico con historial del cliente |
-| 10 | **Configuración** | Datos de la tienda y configuración COD |
-| 11 | **Cierre** | Tests de RLS (un usuario no ve otra tienda), creación de pedido, idempotencia, precios manipulados, ubigeo inválido; build; despliegue en Vercel |
+Estado: ✅ hecho · 🔄 en curso · ⬜ pendiente
+
+| # | Estado | Paso | Resultado |
+|---|---|---|---|
+| 0 | 🔄 | **Preparar entorno** | ✅ Git + GitHub conectados. ✅ Node.js 24 LTS instalado. ⬜ `.env.local` con las claves de Supabase (las pegas tú). ⬜ Vincular la CLI de Supabase |
+| 1 | ⬜ | **Esqueleto del proyecto** | Next.js + TS + Tailwind + shadcn + ESLint + Vitest + carpetas |
+| 2 | ⬜ | **Base de datos** | Migraciones de las tablas de la Fase 1, constraints, índices, **RLS**, función de transición de estados |
+| 3 | ⬜ | **Ubigeo** | Seed INEI (1,891) + 2 distritos provisionales + test de conteos e integridad |
+| 4 | ⬜ | **Autenticación** | Registro → creación de la tienda (onboarding), login, logout, recuperar contraseña, middleware que protege rutas |
+| 5 | ⬜ | **Dashboard base** | Sidebar con las 10 secciones (las de fases futuras dicen "Próximamente"), métricas básicas de pedidos y filtros de fecha |
+| 6 | ⬜ | **Productos** | CRUD; imágenes con drag & drop, preview, principal, orden y borrado; compresión a WebP de 1600 px antes de subir |
+| 6b | ⬜ | **Ofertas por cantidad** | Paquetes por producto (1, 2, 3 unidades) con precio, precio tachado, etiqueta e imagen |
+| 7 | ⬜ | **Constructor de landing** | Dos pestañas: **Página** y **Formulario**, ambas con bloques. Página: **imagen a todo el ancho**, botón, carrusel, marquee, testimonios y los demás del documento, más el **botón fijo**. Formulario: **imagen**, ofertas, campos, resumen y botón confirmar; agregar/eliminar/duplicar/ordenar/editar, colores y tipografía, vista previa móvil, guardar borrador y publicar |
+| 8 | ⬜ | **Landing pública + formulario COD** | Renderizado rápido (SSR + caché), mobile-first, Open Graph; formulario **emergente o incrustado** con selector de ofertas; ubigeo con búsqueda de distrito; cálculo de total, adelanto y saldo; captura de atribución; página de gracias |
+| 9 | ⬜ | **Pedidos y clientes** | Tabla con filtros, detalle, cambio de estado con historial, marca de duplicados, CRM básico con historial del cliente |
+| 10 | ⬜ | **Configuración** | Datos de la tienda y configuración COD |
+| 11 | ⬜ | **Cierre** | Tests de RLS (un usuario no ve otra tienda), creación de pedido, idempotencia, precios manipulados, ubigeo inválido; build; despliegue en Vercel |
 
 **Tests de la Fase 1:**
 
@@ -432,9 +436,19 @@ Cada paso termina con lint + tests + build y un **commit en GitHub**.
 
 ---
 
-## 10. Decisiones pendientes del dueño
+## 10. Decisiones
 
-1. **Releasit:** ¿apruebas reemplazarlo por confirmación y logística propias (sección 1.1)? ¿O hoy usas Releasit con una tienda Shopify que necesitas seguir usando?
-2. **Courier principal:** ¿cuál usas hoy (Shalom, Olva, motorizados propios, otro)? Con eso se define el primer adaptador o exportación.
-3. **Supabase:** ¿el proyecto está vacío? Propongo usarlo como **desarrollo** y crear uno de **producción** antes de lanzar.
-4. **Dominio:** ¿ya tienes un dominio (por ejemplo vendia.pe)? No bloquea la Fase 1.
+**Tomadas:**
+
+- ✅ Stack: Next.js + TypeScript + Tailwind + shadcn/ui + Supabase + Vercel.
+- ✅ Prioridad: landing page + flujo COD completo. La product page va después.
+- ✅ Formulario: ventana emergente armada con bloques (imágenes, ofertas, campos, resumen, botón).
+- ✅ Ubigeo: INEI como código principal.
+- ✅ Purchase de Meta: al entregar (configurable). Lead: al enviar el formulario.
+
+**Pendientes (no bloquean la Fase 1):**
+
+1. **Releasit:** no tiene API. ¿Se reemplaza por confirmación y logística propias? Se define antes de la Fase 3.
+2. **Courier principal** (Shalom, Olva, motorizados propios, otro): define el primer adaptador en la Fase 3.
+3. **Supabase:** ¿el proyecto está vacío? Se usa como **desarrollo**; uno de **producción** se crea antes de lanzar.
+4. **Dominio** (por ejemplo vendia.pe): necesario antes de lanzar, no para desarrollar.

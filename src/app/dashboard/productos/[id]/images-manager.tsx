@@ -4,7 +4,7 @@ import { closestCenter, DndContext, type DragEndEvent, PointerSensor, TouchSenso
 import { arrayMove, rectSortingStrategy, SortableContext, useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { GripVertical, Star, Trash2 } from "lucide-react";
-import { useEffect, useState, useTransition } from "react";
+import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import { ImageDropzone } from "@/components/dashboard/image-dropzone";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -63,7 +63,11 @@ export function ImagesManager({ storeId, productId, images: initial }: { storeId
   const [, startTransition] = useTransition();
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }), useSensor(TouchSensor));
 
-  useEffect(() => setImages(initial), [initial]);
+  const [prevInitial, setPrevInitial] = useState(initial);
+  if (initial !== prevInitial) {
+    setPrevInitial(initial);
+    setImages(initial);
+  }
 
   function persistOrder(next: Img[], primaryId: string | null = null) {
     startTransition(async () => {

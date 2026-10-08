@@ -2,7 +2,7 @@
 
 import { ArrowDown, ArrowUp, Plus, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useEffect, useState, useTransition } from "react";
+import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import { ImageDropzone } from "@/components/dashboard/image-dropzone";
 import { Button } from "@/components/ui/button";
@@ -41,7 +41,11 @@ export function OffersManager({
   const [pending, startTransition] = useTransition();
   const router = useRouter();
 
-  useEffect(() => setOffers(initial), [initial]);
+  const [prevInitial, setPrevInitial] = useState(initial);
+  if (initial !== prevInitial) {
+    setPrevInitial(initial);
+    setOffers(initial);
+  }
 
   const update = (index: number, patch: Partial<Offer>) =>
     setOffers((list) =>

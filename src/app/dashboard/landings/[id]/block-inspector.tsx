@@ -3,7 +3,7 @@
 import { ImageDropzone } from "@/components/dashboard/image-dropzone";
 import { publicAssetUrl } from "@/lib/env";
 import type { FormBlock, PageBlock } from "@/modules/landing/schema";
-import { ColorField, ImageField, ListEditor, NumberField, SelectField, TextField, ToggleField } from "./fields";
+import { ColorField, ImageField, ListEditor, NumberField, SelectField, TextField, ToggleField } from "@/components/dashboard/fields";
 
 const ALIGN_OPTIONS = [
   { value: "left" as const, label: "Izquierda" },

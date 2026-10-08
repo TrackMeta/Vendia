@@ -2,7 +2,7 @@
 
 import { CheckCircle2, Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { publicAssetUrl } from "@/lib/env";
 import { formatMoney } from "@/lib/format";
 import { readAttribution } from "@/modules/attribution/capture";
@@ -63,7 +63,7 @@ export function CodForm({ data, preview }: { data: LandingRenderData; preview: b
   const total = subtotal + (shipping ?? 0);
   const advance = Math.min(data.advanceAmount, total);
 
-  const validationError = useMemo(() => {
+  const validationError = (() => {
     if (!offer) return "Selecciona una oferta";
     const name = fieldsBlock?.singleNameField ? fullName : firstName;
     if (name.trim().length < 2) return "Ingresa tu nombre";
@@ -73,7 +73,7 @@ export function CodForm({ data, preview }: { data: LandingRenderData; preview: b
     if (fieldsBlock?.requireReference && reference.trim().length < 3) return "Ingresa una referencia de tu dirección";
     if (fieldsBlock?.askDni && dni && !/^\d{8}$/.test(dni)) return "El DNI debe tener 8 dígitos";
     return null;
-  }, [offer, fieldsBlock, fullName, firstName, phone, ubigeo.district, address, reference, dni]);
+  })();
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();

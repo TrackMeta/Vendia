@@ -228,7 +228,7 @@ create table public.landing_pages (
   published_at timestamptz,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
-  foreign key (product_id, store_id) references public.products (id, store_id) on delete restrict,
+  foreign key (product_id, store_id) references public.products (id, store_id),
   unique (store_id, slug),
   unique (id, store_id),
   check (status = 'draft' or published_content is not null)
@@ -306,7 +306,7 @@ create table public.orders (
   failed_at timestamptz,
   returned_at timestamptz,
 
-  foreign key (customer_id, store_id) references public.customers (id, store_id) on delete restrict,
+  foreign key (customer_id, store_id) references public.customers (id, store_id),
   foreign key (landing_page_id, store_id) references public.landing_pages (id, store_id) on delete set null (landing_page_id),
   unique (store_id, order_number),
   unique (store_id, idempotency_key),

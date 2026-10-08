@@ -82,15 +82,13 @@ export function LandingRenderer({
   };
 
   const hasEmbeddedBlock = content.page_blocks.some((b) => b.type === "embedded_form");
-  let firstImageSeen = false;
+  const firstImageId = content.page_blocks.find((b) => b.type === "image" && b.src)?.id;
 
   const renderBlock = (block: PageBlock) => {
     const common = { onOrder: openForm };
     switch (block.type) {
       case "image": {
-        const priority = !firstImageSeen && Boolean(block.src);
-        if (block.src) firstImageSeen = true;
-        return <ImageBlockView block={block} {...common} priority={priority} />;
+        return <ImageBlockView block={block} {...common} priority={block.id === firstImageId} />;
       }
       case "button":
         return <ButtonBlockView block={block} {...common} />;

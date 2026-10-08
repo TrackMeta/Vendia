@@ -51,7 +51,7 @@ import {
 import type { LandingRenderData, PublicOffer } from "@/modules/landing/types";
 import { deleteLanding, duplicateLanding, publishLanding, saveLanding, unpublishLanding } from "../actions";
 import { FormBlockInspector, PageBlockInspector } from "./block-inspector";
-import { ColorField, SelectField, TextField, ToggleField } from "./fields";
+import { ColorField, SelectField, TextField, ToggleField } from "@/components/dashboard/fields";
 
 type AnyBlock = PageBlock | FormBlock;
 

@@ -6,7 +6,7 @@ Mide lo que importa: **CPA por pedido entregado y utilidad real**, no formulario
 - Plan y arquitectura: [docs/PLAN.md](docs/PLAN.md)
 - Reporte de la Fase 1: [docs/FASE-1.md](docs/FASE-1.md)
 - Reporte de Gastos, Meta, Logística, Analítica y Admin: [docs/FASES-2-5.md](docs/FASES-2-5.md)
-- Publicar en Vercel: [docs/DEPLOY.md](docs/DEPLOY.md)
+- Publicar en Vercel: [docs/DEPLOY.md](docs/DEPLOY.md) — proyecto conectado a Vercel (despliegue automático en cada push a `main`)
 
 ## Stack
 

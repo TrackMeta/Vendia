@@ -1,7 +1,11 @@
 # Vendia: mejoras elegidas (pendientes)
 
 > Elegidas por el dueño el 2026-10-08, a partir del análisis completo de la plataforma.
-> Estado: **pendientes**. Antes de implementarlas se definirán algunas decisiones de producto.
+> Estado: **pendientes**. Decisiones de producto en [PRODUCTO.md](PRODUCTO.md).
+
+## 🆕 Producto
+- **Product page por producto** (además de la landing): ver [PRODUCTO.md](PRODUCTO.md).
+- **Preparar multi-país**: moneda, ubicaciones, couriers y teléfono por país.
 
 ## 🔴 Crítico
 

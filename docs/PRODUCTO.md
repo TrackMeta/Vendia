@@ -99,3 +99,6 @@ Vendia **solo** usa la parte de escritura para crear y leer Pixels; **nunca** mo
 ### Otros proyectos del dueño
 - **Nodo:** COD por WhatsApp. Aporta el **kit de exportación a couriers** (ver [NODO-COURIERS.md](NODO-COURIERS.md)).
 - **Kontrol:** gestionador de pedidos COD en Perú. **Pendiente:** el dueño lo enviará para analizar qué sirve.
+
+### Monitoreo de errores
+- **Opción B:** registro de errores propio en Supabase (navegador y servidor), visible en **/admin → Errores**, con aviso. Sentry queda para más adelante.

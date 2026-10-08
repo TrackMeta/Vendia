@@ -73,3 +73,8 @@ Es el exportador de **Nodo** (otro proyecto COD del dueño, por WhatsApp), separ
 - Mover las plantillas a `public/couriers/` para generar el archivo en el navegador, como en Nodo.
 - La reserva atómica y el registro del lote se hacen en el servidor.
 - Tests: generar los dos Excel, abrir el ZIP resultante y verificar celdas, DNI como texto, rango de la tabla y XML válido.
+
+## Decisiones del dueño (2026-10-08)
+- **Olva:** se deja como **«Próximamente»**, sin construir por ahora.
+- **Lima:** **Eva Courier** es el delivery actual. Hay muchos otros con carga masiva; el catálogo de couriers debe permitir **agregar más empresas de delivery** después (una plantilla y una entrada más cada una).
+- **Agencia de origen Shalom:** **seleccionable al exportar**, con una **predeterminada** que configura cada usuario.

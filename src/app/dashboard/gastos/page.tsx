@@ -9,7 +9,7 @@ import { formatMoney } from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
 import { EXPENSE_CATEGORIES, type ExpenseCategory, REFERENCE_ONLY_CATEGORIES } from "@/modules/expenses/categories";
 import { resolveRange } from "@/modules/metrics/date-range";
-import { DeleteExpenseButton, ExpenseDialog, ImportMetaDialog } from "./expense-dialogs";
+import { type AdDefaults, DeleteExpenseButton, ExpenseDialog, ImportMetaDialog } from "./expense-dialogs";
 
 export const metadata: Metadata = { title: "Gastos" };
 
@@ -20,10 +20,12 @@ export default async function ExpensesPage({ searchParams }: PageProps<"/dashboa
   const { store } = await requireOwner();
   const supabase = await createClient();
 
-  const [{ data: expenses }, { data: totals }, { data: products }] = await Promise.all([
+  const [{ data: expenses }, { data: totals }, { data: products }, { data: settings }] = await Promise.all([
     supabase
       .from("expenses")
-      .select("id, expense_date, category, description, amount, campaign_id, campaign_name, product_id, source, products (name)")
+      .select(
+        "id, expense_date, category, description, amount, currency, exchange_rate, igv_rate, amount_pen, campaign_id, campaign_name, product_id, source, products (name)",
+      )
       .eq("store_id", store.id)
       .gte("expense_date", range.startDate)
       .lte("expense_date", range.endDate)
@@ -32,9 +34,15 @@ export default async function ExpensesPage({ searchParams }: PageProps<"/dashboa
       .limit(500),
     supabase.rpc("get_expense_totals", { p_store_id: store.id, p_from: range.startDate, p_to: range.endDate }),
     supabase.from("products").select("id, name").eq("store_id", store.id).neq("status", "archived").order("name"),
+    supabase.from("store_settings").select("ad_currency, usd_rate, apply_igv").eq("store_id", store.id).single(),
   ]);
+  const defaults: AdDefaults = {
+    currency: settings?.ad_currency === "USD" ? "USD" : "PEN",
+    usdRate: Number(settings?.usd_rate ?? 3.75),
+    applyIgv: Boolean(settings?.apply_igv),
+  };
 
-  const t = (totals ?? {}) as { ad_spend?: number; meta_spend?: number; other_expenses?: number; reference_only?: number };
+  const t = (totals ?? {}) as { ad_spend?: number; meta_spend?: number; igv?: number; other_expenses?: number; reference_only?: number };
 
   return (
     <div className="flex flex-col gap-6">
@@ -43,8 +51,8 @@ export default async function ExpensesPage({ searchParams }: PageProps<"/dashboa
         description="Registra tu gasto publicitario y otros gastos para calcular tu CPA real, ROAS real y utilidad."
         actions={
           <>
-            <ImportMetaDialog products={products ?? []} />
-            <ExpenseDialog products={products ?? []} />
+            <ImportMetaDialog products={products ?? []} defaults={defaults} />
+            <ExpenseDialog products={products ?? []} defaults={defaults} />
           </>
         }
       />
@@ -54,7 +62,10 @@ export default async function ExpensesPage({ searchParams }: PageProps<"/dashboa
         <div className="rounded-xl border border-primary/40 bg-primary/5 p-4">
           <p className="text-xs text-muted-foreground">Gasto publicitario</p>
           <p className="text-2xl font-semibold">{formatMoney(t.ad_spend ?? 0)}</p>
-          <p className="text-xs text-muted-foreground">Meta: {formatMoney(t.meta_spend ?? 0)}</p>
+          <p className="text-xs text-muted-foreground">
+            Meta: {formatMoney(t.meta_spend ?? 0)}
+            {Number(t.igv ?? 0) > 0 ? ` · incluye IGV ${formatMoney(t.igv)}` : ""}
+          </p>
         </div>
         <div className="rounded-xl border p-4">
           <p className="text-xs text-muted-foreground">Otros gastos</p>
@@ -111,11 +122,20 @@ export default async function ExpensesPage({ searchParams }: PageProps<"/dashboa
                         {productName ? <span className="text-xs text-muted-foreground">Producto: {productName}</span> : null}
                       </div>
                     </TableCell>
-                    <TableCell className="text-right tabular-nums">{formatMoney(e.amount)}</TableCell>
+                    <TableCell className="text-right tabular-nums">
+                      {formatMoney(e.amount_pen)}
+                      {e.currency === "USD" || Number(e.igv_rate) > 0 ? (
+                        <span className="block text-xs text-muted-foreground">
+                          {e.currency === "USD" ? `US$ ${Number(e.amount).toFixed(2)} × ${Number(e.exchange_rate)}` : formatMoney(e.amount)}
+                          {Number(e.igv_rate) > 0 ? " + IGV" : ""}
+                        </span>
+                      ) : null}
+                    </TableCell>
                     <TableCell>
                       <div className="flex justify-end gap-1">
                         <ExpenseDialog
                           products={products ?? []}
+                          defaults={defaults}
                           expense={{
                             id: e.id,
                             expense_date: e.expense_date,
@@ -125,6 +145,9 @@ export default async function ExpensesPage({ searchParams }: PageProps<"/dashboa
                             campaign_id: e.campaign_id ?? "",
                             campaign_name: e.campaign_name ?? "",
                             product_id: e.product_id ?? "",
+                            currency: e.currency === "USD" ? "USD" : "PEN",
+                            exchange_rate: Number(e.exchange_rate),
+                            igv_rate: Number(e.igv_rate),
                           }}
                         />
                         <DeleteExpenseButton id={e.id} />

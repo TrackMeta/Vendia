@@ -6,11 +6,19 @@ export const RANGE_PRESETS = {
   hoy: "Hoy",
   ayer: "Ayer",
   "7d": "Últimos 7 días",
+  "14d": "Últimos 14 días",
+  "28d": "Últimos 28 días",
   "30d": "Últimos 30 días",
+  semana: "Esta semana",
+  "semana-pasada": "La semana pasada",
   mes: "Este mes",
-  "mes-anterior": "Mes anterior",
+  "mes-anterior": "El mes pasado",
+  maximo: "Máximo",
   personalizado: "Personalizado",
 } as const;
+
+/** Inicio de «Máximo»: antes de cualquier pedido posible en Vendia. */
+export const MAX_RANGE_START = "2024-01-01";
 
 export type RangePreset = keyof typeof RANGE_PRESETS;
 
@@ -26,7 +34,7 @@ function limaMidnight(date: string): Date {
   return new Date(`${date}T0${LIMA_OFFSET_HOURS}:00:00.000Z`);
 }
 
-function addDays(date: string, days: number): string {
+export function addDays(date: string, days: number): string {
   const d = new Date(`${date}T00:00:00.000Z`);
   d.setUTCDate(d.getUTCDate() + days);
   return d.toISOString().slice(0, 10);
@@ -50,7 +58,21 @@ export function resolveRange(preset: string | undefined, desde?: string, hasta?:
       start = end = addDays(today, -1);
       break;
     case "7d":
-      start = addDays(today, -6);
+    case "14d":
+    case "28d":
+      start = addDays(today, -(Number(p.slice(0, -1)) - 1));
+      end = today;
+      break;
+    case "semana":
+      start = mondayOf(today);
+      end = today;
+      break;
+    case "semana-pasada":
+      start = addDays(mondayOf(today), -7);
+      end = addDays(start, 6);
+      break;
+    case "maximo":
+      start = MAX_RANGE_START;
       end = today;
       break;
     case "mes":
@@ -82,8 +104,27 @@ export function resolveRange(preset: string | undefined, desde?: string, hasta?:
     preset: p,
     from: limaMidnight(start).toISOString(),
     to: limaMidnight(addDays(end, 1)).toISOString(),
-    label: p === "personalizado" ? `${start} → ${end}` : RANGE_PRESETS[p],
+    label: p === "personalizado" ? formatRangeLabel(start, end) : RANGE_PRESETS[p],
     startDate: start,
     endDate: end,
   };
+}
+
+/** Lunes de la semana de una fecha (la semana empieza el lunes, como en Meta). */
+export function mondayOf(date: string): string {
+  const day = new Date(`${date}T00:00:00.000Z`).getUTCDay(); // 0 = domingo
+  return addDays(date, -((day + 6) % 7));
+}
+
+export const MONTHS_SHORT = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
+
+/** "9 sep 2026" (fijo: no depende del idioma del navegador o servidor) */
+export function formatShortDate(date: string): string {
+  const [y, m, d] = date.split("-").map(Number);
+  return `${d} ${MONTHS_SHORT[m - 1]} ${y}`;
+}
+
+/** "9 sep 2026 – 8 oct 2026" */
+export function formatRangeLabel(start: string, end: string): string {
+  return start === end ? formatShortDate(start) : `${formatShortDate(start)} – ${formatShortDate(end)}`;
 }

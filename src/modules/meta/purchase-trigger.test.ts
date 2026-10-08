@@ -1,27 +1,29 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
+import { isRealSale, saleStatusLabel } from "@/modules/metrics/real-sale";
 
-vi.mock("server-only", () => ({}));
-const { reachedPurchaseTrigger } = await import("./capi");
+const base = { delivered_at: null, collected_at: null };
 
-const base = { confirmed_at: null, shipped_at: null, delivered_at: null, collected_at: null, status: "new" };
-
-describe("Disparador de Purchase (venta real)", () => {
-  it("por defecto dispara solo al entregar", () => {
-    expect(reachedPurchaseTrigger({ ...base, status: "confirmed", confirmed_at: "x" }, "delivered")).toBe(false);
-    expect(reachedPurchaseTrigger({ ...base, status: "delivered", confirmed_at: "x", shipped_at: "x", delivered_at: "x" }, "delivered")).toBe(true);
+describe("Venta real (dispara Purchase en Meta)", () => {
+  it("por zona: Lima al entregar, provincia al cobrar el saldo", () => {
+    expect(isRealSale({ ...base, status: "delivered", zone: "lima", delivered_at: "x" }, "zone")).toBe(true);
+    expect(isRealSale({ ...base, status: "shipped", zone: "lima" }, "zone")).toBe(false);
+    expect(isRealSale({ ...base, status: "collected", zone: "provincia", collected_at: "x" }, "zone")).toBe(true);
+    expect(isRealSale({ ...base, status: "at_agency", zone: "provincia" }, "zone")).toBe(false);
   });
 
-  it("nunca dispara si el pedido no se entregó o fue devuelto/cancelado", () => {
-    expect(reachedPurchaseTrigger({ ...base, status: "failed_delivery", shipped_at: "x" }, "shipped")).toBe(false);
-    expect(reachedPurchaseTrigger({ ...base, status: "returned", shipped_at: "x" }, "shipped")).toBe(false);
-    expect(reachedPurchaseTrigger({ ...base, status: "cancelled", confirmed_at: "x" }, "confirmed")).toBe(false);
+  it("«Entregado» en ambas: provincia espera a que recoja", () => {
+    expect(isRealSale({ ...base, status: "collected", zone: "provincia", collected_at: "x" }, "delivered")).toBe(false);
+    expect(isRealSale({ ...base, status: "delivered", zone: "provincia", collected_at: "x", delivered_at: "x" }, "delivered")).toBe(true);
   });
 
-  it("respeta el estado configurado por la tienda", () => {
-    const shipped = { ...base, status: "shipped", confirmed_at: "x", shipped_at: "x" };
-    expect(reachedPurchaseTrigger(shipped, "confirmed")).toBe(true);
-    expect(reachedPurchaseTrigger(shipped, "shipped")).toBe(true);
-    expect(reachedPurchaseTrigger(shipped, "delivered")).toBe(false);
-    expect(reachedPurchaseTrigger({ ...shipped, status: "collected", delivered_at: "x", collected_at: "x" }, "collected")).toBe(true);
+  it("nunca cuenta lo cancelado, no entregado o devuelto", () => {
+    expect(isRealSale({ status: "failed_delivery", zone: "lima", delivered_at: "x", collected_at: null }, "zone")).toBe(false);
+    expect(isRealSale({ status: "returned", zone: "provincia", delivered_at: null, collected_at: "x" }, "zone")).toBe(false);
+  });
+
+  it("etiqueta del estado de venta", () => {
+    expect(saleStatusLabel("provincia", "zone")).toBe("Cobrado");
+    expect(saleStatusLabel("provincia", "delivered")).toBe("Entregado");
+    expect(saleStatusLabel("lima", "zone")).toBe("Entregado");
   });
 });

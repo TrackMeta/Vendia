@@ -42,7 +42,10 @@ const settingsSchema = z.object({
         .slice(0, 10),
     ),
   confirmation_message: z.string().trim().min(1, "Escribe un mensaje de confirmación").max(1000),
-  purchase_trigger_status: z.enum(["confirmed", "shipped", "delivered", "collected"]),
+  real_sale_mode: z.enum(["zone", "delivered"]),
+  ad_currency: z.enum(["PEN", "USD"]),
+  usd_rate: z.coerce.number().min(1, "Tipo de cambio inválido").max(20, "Tipo de cambio inválido"),
+  apply_igv: z.literal("on").optional(),
   contact_calls: z.coerce.number().int().min(0).max(6),
   contact_whatsapp: z.literal("on").optional(),
 });
@@ -51,8 +54,8 @@ export async function saveSettings(_prev: ActionResult | undefined, formData: Fo
   const { store } = await requireOwner();
   const parsed = settingsSchema.safeParse(Object.fromEntries(formData.entries()));
   if (!parsed.success) return { ok: false, error: parsed.error.issues[0].message };
-  const { name, contact_calls, contact_whatsapp, ...rest } = parsed.data;
-  const settings = { ...rest, contact_sequence: buildSequence(contact_calls, Boolean(contact_whatsapp)) };
+  const { name, contact_calls, contact_whatsapp, apply_igv, ...rest } = parsed.data;
+  const settings = { ...rest, apply_igv: Boolean(apply_igv), contact_sequence: buildSequence(contact_calls, Boolean(contact_whatsapp)) };
 
   for (const path of [settings.logo_path, settings.favicon_path]) {
     if (path && !path.startsWith(`${store.id}/`)) return { ok: false, error: "Imagen inválida" };

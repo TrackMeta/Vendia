@@ -58,3 +58,13 @@ describe("Importar gasto de Meta Ads", () => {
     expect(parseDate("31/13/2026")).toBeNull();
   });
 });
+
+describe("Gasto en soles", () => {
+  it("convierte dólares con el tipo de cambio y suma IGV si aplica", async () => {
+    const { toPen, IGV_RATE } = await import("./categories");
+    expect(toPen(100)).toBe(100);
+    expect(toPen(100, 3.8)).toBe(380);
+    expect(toPen(100, 3.8, IGV_RATE)).toBe(448.4);
+    expect(toPen(59.9, 1, IGV_RATE)).toBe(70.68);
+  });
+});

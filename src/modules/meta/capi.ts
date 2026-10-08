@@ -2,6 +2,7 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { decryptSecret } from "@/lib/crypto";
 import { buildServerEvent, isTooOld, leadEventId, META_GRAPH_VERSION, type MetaEventName, purchaseEventId, type ServerEvent } from "./events";
+import { isRealSale, parseSaleMode } from "@/modules/metrics/real-sale";
 import { buildUserData } from "./user-data";
 
 const MAX_ATTEMPTS = 5;
@@ -191,33 +192,15 @@ export async function retryMarketingEvents(admin: SupabaseClient, limit = 50) {
   return { processed: data?.length ?? 0, sent };
 }
 
-/** ¿El pedido ya alcanzó el estado configurado como venta real? */
-export function reachedPurchaseTrigger(
-  order: { confirmed_at: string | null; shipped_at: string | null; delivered_at: string | null; collected_at: string | null; status: string },
-  trigger: string,
-): boolean {
-  if (order.status === "failed_delivery" || order.status === "returned" || order.status === "cancelled") return false;
-  switch (trigger) {
-    case "confirmed":
-      return Boolean(order.confirmed_at);
-    case "shipped":
-      return Boolean(order.shipped_at);
-    case "collected":
-      return Boolean(order.collected_at);
-    default:
-      return Boolean(order.delivered_at);
-  }
-}
-
-/** Llamar después de cada cambio de estado: si llegó a la venta real, registra y envía Purchase. */
+/** Llamar después de cada cambio de estado: si llegó a la venta real (por zona), registra y envía Purchase. */
 export async function maybeSendPurchase(admin: SupabaseClient, orderId: string) {
   const { data: order } = await admin
     .from("orders")
-    .select("id, store_id, status, confirmed_at, shipped_at, delivered_at, collected_at")
+    .select("id, store_id, status, zone, delivered_at, collected_at")
     .eq("id", orderId)
     .single();
   if (!order) return null;
-  const { data: settings } = await admin.from("store_settings").select("purchase_trigger_status").eq("store_id", order.store_id).single();
-  if (!reachedPurchaseTrigger(order, settings?.purchase_trigger_status ?? "delivered")) return null;
+  const { data: settings } = await admin.from("store_settings").select("real_sale_mode").eq("store_id", order.store_id).single();
+  if (!isRealSale(order, parseSaleMode(settings?.real_sale_mode))) return null;
   return enqueueOrderEvent(admin, orderId, "Purchase");
 }

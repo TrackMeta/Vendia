@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { formatMoney } from "@/lib/format";
 import { ImageField } from "@/components/dashboard/fields";
+import { REAL_SALE_MODES } from "@/modules/metrics/real-sale";
 import { saveSettings } from "./actions";
 
 type Values = {
@@ -24,7 +25,10 @@ type Values = {
   advance_amount: number;
   payment_methods: string;
   confirmation_message: string;
-  purchase_trigger_status: string;
+  real_sale_mode: string;
+  ad_currency: string;
+  usd_rate: number;
+  apply_igv: boolean;
   contact_calls: number;
   contact_whatsapp: boolean;
 };
@@ -172,16 +176,45 @@ export function SettingsForm({ storeId, storeSlug, initial }: { storeId: string;
         <CardHeader>
           <CardTitle>Venta real</CardTitle>
           <CardDescription>
-            ¿Qué estado cuenta como venta real? Al llegar a ese estado, Vendia envía «Purchase» a Meta (si conectaste tu Pixel en Marketing). Recomendado: Entregado.
+            Un pedido no es una venta. Elige cuándo cuenta como venta: se usa en todas tus métricas (CPA real, ROAS real, utilidad) y para enviar «Purchase» a Meta.
           </CardDescription>
         </CardHeader>
-        <CardContent>
-          <select name="purchase_trigger_status" defaultValue={initial.purchase_trigger_status} className="h-9 w-full max-w-xs rounded-lg border border-input bg-transparent px-2.5 text-sm">
-            <option value="delivered">Entregado (recomendado)</option>
-            <option value="collected">Cobrado (el courier ya te pagó)</option>
-            <option value="shipped">Enviado</option>
-            <option value="confirmed">Confirmado</option>
-          </select>
+        <CardContent className="flex flex-col gap-2">
+          {(Object.entries(REAL_SALE_MODES) as [string, string][]).map(([value, label]) => (
+            <label key={value} className="flex items-start gap-2 text-sm">
+              <input type="radio" name="real_sale_mode" value={value} defaultChecked={initial.real_sale_mode === value} className="mt-0.5 size-4" />
+              <span>
+                <span className="font-medium">{label}</span>
+                <span className="block text-xs text-muted-foreground">
+                  {value === "zone"
+                    ? "Recomendado: en provincia el cliente ya pagó el saldo en la agencia aunque aún no recoja."
+                    : "Más conservador: en provincia espera a que el cliente recoja su pedido."}
+                </span>
+              </span>
+            </label>
+          ))}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Gasto publicitario</CardTitle>
+          <CardDescription>Moneda de tu cuenta publicitaria. Vendia convierte cada gasto a soles y guarda el tipo de cambio usado.</CardDescription>
+        </CardHeader>
+        <CardContent className="grid gap-4 sm:grid-cols-3">
+          <Field label="Moneda de la cuenta">
+            <select name="ad_currency" defaultValue={initial.ad_currency} className="h-9 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm">
+              <option value="PEN">Soles (S/)</option>
+              <option value="USD">Dólares (US$)</option>
+            </select>
+          </Field>
+          <Field label="Tipo de cambio (S/ por US$)" hint="Valor sugerido al registrar gastos en dólares. Lo puedes cambiar en cada gasto.">
+            <Input name="usd_rate" type="number" step="0.0001" min="1" defaultValue={initial.usd_rate} />
+          </Field>
+          <label className="flex items-center gap-2 self-center text-sm">
+            <input type="checkbox" name="apply_igv" defaultChecked={initial.apply_igv} className="size-4" />
+            Sumar IGV 18 % al gasto en publicidad
+          </label>
         </CardContent>
       </Card>
 

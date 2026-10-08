@@ -6,6 +6,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { requireOwner } from "@/lib/auth";
 import { formatDateTime } from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
+import { parseSaleMode, REAL_SALE_MODES } from "@/modules/metrics/real-sale";
 import { MetaSettingsForm, RetryButton, TestEventButton, UrlTemplate } from "./meta-forms";
 
 export const metadata: Metadata = { title: "Marketing" };
@@ -29,12 +30,10 @@ export default async function MarketingPage() {
       .eq("store_id", store.id)
       .order("created_at", { ascending: false })
       .limit(50),
-    supabase.from("store_settings").select("purchase_trigger_status").eq("store_id", store.id).single(),
+    supabase.from("store_settings").select("real_sale_mode").eq("store_id", store.id).single(),
   ]);
 
-  const triggerLabel = { confirmed: "Confirmado", shipped: "Enviado", delivered: "Entregado", collected: "Cobrado" }[
-    (storeSettings?.purchase_trigger_status ?? "delivered") as "confirmed" | "shipped" | "delivered" | "collected"
-  ];
+  const triggerLabel = REAL_SALE_MODES[parseSaleMode(storeSettings?.real_sale_mode)];
   const failed = (events ?? []).filter((e) => e.status === "failed").length;
 
   return (
@@ -53,7 +52,7 @@ export default async function MarketingPage() {
           <div className="rounded-lg bg-muted/50 p-3">
             <p className="font-medium">Servidor (Conversions API)</p>
             <p className="text-muted-foreground">
-              Lead (mismo event_id que el Pixel → Meta lo deduplica) · <b>Purchase cuando el pedido llega a «{triggerLabel}»</b>, con el valor real
+              Lead (mismo event_id que el Pixel → Meta lo deduplica) · <b>Purchase cuando hay venta real ({triggerLabel})</b>, con el valor real
               cobrado.
             </p>
           </div>

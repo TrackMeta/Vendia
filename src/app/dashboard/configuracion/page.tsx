@@ -34,7 +34,10 @@ export default async function SettingsPage() {
           advance_amount: Number(settings?.advance_amount ?? 0),
           payment_methods: (settings?.payment_methods ?? ["Contraentrega"]).join(", "),
           confirmation_message: settings?.confirmation_message ?? "",
-          purchase_trigger_status: settings?.purchase_trigger_status ?? "delivered",
+          real_sale_mode: settings?.real_sale_mode ?? "zone",
+          ad_currency: settings?.ad_currency ?? "PEN",
+          usd_rate: Number(settings?.usd_rate ?? 3.75),
+          apply_igv: Boolean(settings?.apply_igv),
           contact_calls: ((settings?.contact_sequence as string[] | null) ?? ["call", "call", "call", "whatsapp"]).filter((s) => s === "call").length,
           contact_whatsapp: ((settings?.contact_sequence as string[] | null) ?? ["whatsapp"]).includes("whatsapp"),
         }}

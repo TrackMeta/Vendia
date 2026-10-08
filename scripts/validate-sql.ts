@@ -255,6 +255,27 @@ async function main() {
   }
   await step("aviso de stock bajo", `select count(*) from public.notifications where store_id = '${storeId}' and type = 'low_stock'`);
   await step("get_order_stats con agencia", `select public.get_order_stats('${storeId}', now() - interval '1 day', now() + interval '1 day') -> 'in_progress'`);
+
+  // ── Bloque 3: números correctos ──
+  console.log("\nBloque 3:");
+  const range = `'${storeId}', now() - interval '1 day', now() + interval '1 day'`;
+  await step("venta real por zona (provincia entregada = venta)", `select public.get_order_stats(${range}) -> 'delivered'`);
+  await step("venta en provincia cuenta al cobrar", `select public.order_is_sale('collected', 'provincia', null, now(), 'zone')`);
+  await step("…pero no si el modo es «entregado»", `select public.order_is_sale('collected', 'provincia', null, now(), 'delivered')`);
+  await step("Lima cuenta al entregar", `select public.order_is_sale('delivered', 'lima', now(), null, 'zone')`);
+  await step("no entregado con 2 envíos", `select public.order_logistics_cost('failed_delivery', now(), 12, 2::smallint)`);
+  await step("modo entregado", `update public.store_settings set real_sale_mode = 'delivered', ad_currency = 'USD', usd_rate = 3.8, apply_igv = true where store_id = '${storeId}' returning real_sale_mode`);
+  await step(
+    "gasto en USD con IGV → soles",
+    `insert into public.expenses (store_id, expense_date, category, amount, currency, exchange_rate, igv_rate, campaign_id) values ('${storeId}', current_date, 'meta_ads', 100, 'USD', 3.8, 0.18, '120200') returning amount_pen`,
+  );
+  await step("get_expense_totals en soles", `select public.get_expense_totals('${storeId}', current_date - 1, current_date + 1) -> 'ad_spend'`);
+  await step("IGV del periodo", `select public.get_expense_totals('${storeId}', current_date - 1, current_date + 1) -> 'igv'`);
+  await step("% atribuido", `select public.get_order_stats(${range}) -> 'attributed'`);
+  await step("get_campaign_stats", `select jsonb_array_length(public.get_campaign_stats(${range}, current_date - 1, current_date + 1))`);
+  await step("get_product_stats", `select public.get_product_stats(${range}, current_date - 1, current_date + 1) -> 0 -> 'ad_spend'`);
+  await step("get_geo_stats", `select jsonb_array_length(public.get_geo_stats(${range}, 'department'))`);
+  await step("get_funnel", `select public.get_funnel(${range}) -> 'delivered'`);
   console.log("\nOK — prueba de humo completa");
 }
 

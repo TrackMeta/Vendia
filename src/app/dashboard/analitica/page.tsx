@@ -34,11 +34,11 @@ function MetricsTable({ rows, firstColumn, showVisits, showSpend = true }: { row
             {showSpend ? <TableHead className="text-right">Gasto</TableHead> : null}
             <TableHead className="text-right">Pedidos</TableHead>
             <TableHead className="text-right">Confirm.</TableHead>
-            <TableHead className="text-right">Entreg.</TableHead>
-            <TableHead className="text-right">Tasa entrega</TableHead>
-            <TableHead className="text-right">Revenue</TableHead>
+            <TableHead className="text-right">Ventas</TableHead>
+            <TableHead className="text-right" title="Ventas reales ÷ pedidos enviados">Efectividad</TableHead>
+            <TableHead className="text-right">Revenue real</TableHead>
             {showSpend ? <TableHead className="text-right">CPA pedido</TableHead> : null}
-            {showSpend ? <TableHead className="text-right">CPA entregado</TableHead> : null}
+            {showSpend ? <TableHead className="text-right">CPA real</TableHead> : null}
             {showSpend ? <TableHead className="text-right">ROAS real</TableHead> : null}
             <TableHead className="text-right">Utilidad</TableHead>
           </TableRow>

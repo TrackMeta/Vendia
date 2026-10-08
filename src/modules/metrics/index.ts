@@ -17,6 +17,8 @@ export type OrderCounts = {
   cancelled: number;
   failed: number;
   inProgress: number;
+  /** Pedidos con campaña identificada (campaign_id o utm_campaign). */
+  attributed?: number;
 };
 
 export type MoneyTotals = {
@@ -82,6 +84,8 @@ export function computeRates(counts: OrderCounts) {
     /** Entregados / pedidos generados */
     effectiveRate: safeDivide(counts.delivered, counts.orders),
     cancellationRate: safeDivide(counts.cancelled, counts.orders),
+    /** % de pedidos que llegaron con su campaña: sin esto, el CPA por campaña no es confiable */
+    attributionRate: safeDivide(counts.attributed ?? 0, counts.orders),
   };
 }
 
@@ -112,6 +116,7 @@ export function fromOrderStats(row: Record<string, number | string>): { counts: 
       cancelled: n("cancelled"),
       failed: n("failed"),
       inProgress: n("in_progress"),
+      attributed: n("attributed"),
     },
     revenue: n("revenue"),
     productCost: n("product_cost"),

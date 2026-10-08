@@ -28,10 +28,10 @@
 - [x] **Costos por pedido:** costo de envío (valor sugerido por courier y zona, editable) y devolución de 0, 1 o 2 envíos. Ya cuenta en la utilidad del Inicio; las demás tablas de analítica se ajustan en el Bloque 3.
 
 ## Bloque 3: Números correctos
-- [ ] **Venta real por zona:** Lima = Entregado y Provincia = Cobrado, o Entregado en ambos (configurable). Se aplica en todas las métricas y en el Purchase de Meta.
-- [ ] **Moneda de la cuenta publicitaria** (PEN/USD) con tipo de cambio guardado por gasto. **IGV 18 % opcional.**
-- [ ] **Solo CPA real** (sin proyección) y **% de pedidos atribuidos** a campaña.
-- [ ] **Selector de fechas estilo Meta** en toda la app.
+- [x] **Venta real por zona:** Lima = Entregado y Provincia = Cobrado, o Entregado en ambos (configurable). Se aplica en todas las métricas y en el Purchase de Meta.
+- [x] **Moneda de la cuenta publicitaria** (PEN/USD) con tipo de cambio guardado por gasto. **IGV 18 % opcional.**
+- [x] **Solo CPA real** (sin proyección) y **% de pedidos atribuidos** a campaña. El costo de devolución (0/1/2 envíos) ya cuenta en todas las tablas.
+- [x] **Selector de fechas estilo Meta** en toda la app.
 
 ## Bloque 4: Meta total y Rendimiento
 - [ ] **«Conectar Meta» con un token** de usuario del sistema (`ads_read` + `ads_management` + `business_management`): detecta cuentas y moneda, elige o crea el Pixel y activa las conversiones.

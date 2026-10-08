@@ -11,6 +11,7 @@ import { createClient } from "@/lib/supabase/server";
 import { cn } from "@/lib/utils";
 import { computeDashboardMetrics, fromOrderStats } from "@/modules/metrics";
 import { resolveRange } from "@/modules/metrics/date-range";
+import { parseSaleMode, REAL_SALE_MODES } from "@/modules/metrics/real-sale";
 import type { OrderStatus } from "@/modules/orders/state-machine";
 
 export const metadata: Metadata = { title: "Inicio" };
@@ -32,7 +33,7 @@ export default async function DashboardHome({ searchParams }: PageProps<"/dashbo
   const { store } = await requireOwner();
   const supabase = await createClient();
 
-  const [{ data: stats }, { data: recent }, { count: landingsCount }, { data: expenseTotals }] = await Promise.all([
+  const [{ data: stats }, { data: recent }, { count: landingsCount }, { data: expenseTotals }, { data: settings }] = await Promise.all([
     supabase.rpc("get_order_stats", { p_store_id: store.id, p_from: range.from, p_to: range.to }),
     supabase
       .from("orders")
@@ -42,10 +43,12 @@ export default async function DashboardHome({ searchParams }: PageProps<"/dashbo
       .limit(8),
     supabase.from("landing_pages").select("id", { count: "exact", head: true }).eq("store_id", store.id).eq("status", "published"),
     supabase.rpc("get_expense_totals", { p_store_id: store.id, p_from: range.startDate, p_to: range.endDate }),
+    supabase.from("store_settings").select("real_sale_mode").eq("store_id", store.id).single(),
   ]);
+  const saleMode = parseSaleMode(settings?.real_sale_mode);
 
   const base = fromOrderStats((stats ?? {}) as Record<string, number>);
-  const expenses = (expenseTotals ?? {}) as { ad_spend?: number; meta_spend?: number; other_expenses?: number };
+  const expenses = (expenseTotals ?? {}) as { ad_spend?: number; meta_spend?: number; igv?: number; other_expenses?: number };
   const adSpend = Number(expenses.ad_spend ?? 0);
   const metaSpend = Number(expenses.meta_spend ?? 0);
   const otherExpenses = Number(expenses.other_expenses ?? 0);
@@ -80,11 +83,11 @@ export default async function DashboardHome({ searchParams }: PageProps<"/dashbo
       <section className="flex flex-col gap-3">
         <h2 className="text-sm font-medium text-muted-foreground">Ventas</h2>
         <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-          <Metric label="Revenue cobrado (entregados)" value={formatMoney(m.totals.revenue)} highlight />
+          <Metric label="Revenue real" value={formatMoney(m.totals.revenue)} hint={`Venta real: ${REAL_SALE_MODES[saleMode]}`} highlight />
           <Metric label="Pedidos generados" value={formatNumber(m.counts.orders)} hint={`Valor: ${formatMoney(m.counts.ordersValue)} (no es venta)`} />
           <Metric label="Confirmados" value={formatNumber(m.counts.confirmed)} hint={`${formatPercent(m.rates.confirmationRate)} de los pedidos`} />
           <Metric label="Enviados" value={formatNumber(m.counts.shipped)} />
-          <Metric label="Entregados" value={formatNumber(m.counts.delivered)} hint={`Tasa de entrega ${formatPercent(m.rates.deliveryRate)}`} highlight />
+          <Metric label="Ventas reales" value={formatNumber(m.counts.delivered)} hint={`${formatPercent(m.rates.effectiveRate)} de los pedidos`} highlight />
           <Metric label="Cancelados" value={formatNumber(m.counts.cancelled)} hint={formatPercent(m.rates.cancellationRate)} />
           <Metric label="No entregados / devueltos" value={formatNumber(m.counts.failed)} />
           <Metric label="En proceso" value={formatNumber(m.counts.inProgress)} hint="Aún pueden convertirse en venta" />
@@ -94,10 +97,18 @@ export default async function DashboardHome({ searchParams }: PageProps<"/dashbo
       <section className="flex flex-col gap-3">
         <h2 className="text-sm font-medium text-muted-foreground">Marketing</h2>
         <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-6">
-          <Metric label="Gasto publicitario" value={formatMoney(adSpend)} hint={`Meta: ${formatMoney(metaSpend)}`} />
+          <Metric
+            label="Gasto publicitario"
+            value={formatMoney(adSpend)}
+            hint={`Meta: ${formatMoney(metaSpend)}${Number(expenses.igv ?? 0) > 0 ? " · con IGV" : ""}`}
+          />
           <Metric label="CPA pedido" value={formatMoney(m.cpa.perOrder)} />
-          <Metric label="CPA confirmado" value={formatMoney(m.cpa.perConfirmed)} />
-          <Metric label="CPA entregado" value={formatMoney(m.cpa.perDelivered)} highlight />
+          <Metric
+            label="Pedidos atribuidos"
+            value={formatPercent(m.rates.attributionRate)}
+            hint={`${formatNumber(m.counts.attributed ?? 0)} con campaña`}
+          />
+          <Metric label="CPA real" value={formatMoney(m.cpa.perDelivered)} hint="Gasto ÷ ventas reales" highlight />
           <Metric label="ROAS (pedidos)" value={formatRatio(m.roas.orders)} />
           <Metric label="ROAS real" value={formatRatio(m.roas.real)} highlight />
         </div>

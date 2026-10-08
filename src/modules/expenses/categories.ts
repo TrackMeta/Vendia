@@ -1,3 +1,5 @@
+import { DEFAULT_COUNTRY } from "@/modules/country";
+
 export const EXPENSE_CATEGORIES = {
   meta_ads: "Meta Ads",
   tiktok_ads: "TikTok Ads",
@@ -23,7 +25,8 @@ export const AD_CATEGORIES: ExpenseCategory[] = ["meta_ads", "tiktok_ads", "goog
  */
 export const REFERENCE_ONLY_CATEGORIES: ExpenseCategory[] = ["product", "courier", "shipping"];
 
-export const IGV_RATE = 0.18;
+/** IGV del país (módulo de país). */
+export const IGV_RATE = DEFAULT_COUNTRY.tax.rate;
 export type AdCurrency = "PEN" | "USD";
 
 /**

@@ -18,3 +18,13 @@ export async function setStoreStatus(storeId: string, status: "active" | "blocke
   revalidatePath("/admin");
   return { ok: true, message: status === "blocked" ? "Tienda bloqueada" : "Tienda reactivada" };
 }
+
+export async function resolveAppError(id: number): Promise<ActionResult> {
+  await requireUser();
+  if (!Number.isInteger(id) || id <= 0) return { ok: false, error: "Datos inválidos" };
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("admin_resolve_error", { p_id: id });
+  if (error) return { ok: false, error: "Sin permiso o error al actualizar" };
+  revalidatePath("/admin");
+  return { ok: true, message: "Marcado como resuelto" };
+}

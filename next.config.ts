@@ -18,6 +18,13 @@ const nextConfig: NextConfig = {
       ? [{ protocol: "https", hostname: supabaseHost, pathname: "/storage/v1/object/public/**" }]
       : [],
   },
+  // Archivos que casi no cambian: el navegador y la CDN los guardan (las landings cargan más rápido)
+  async headers() {
+    return [
+      { source: "/ubigeo-pe.json", headers: [{ key: "Cache-Control", value: "public, max-age=86400, stale-while-revalidate=604800" }] },
+      { source: "/couriers/:file*", headers: [{ key: "Cache-Control", value: "public, max-age=86400" }] },
+    ];
+  },
   experimental: {
     serverActions: {
       // Las imágenes se suben directo a Supabase Storage desde el navegador;

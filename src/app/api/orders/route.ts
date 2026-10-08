@@ -2,6 +2,7 @@ import { after, NextResponse, type NextRequest } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { leadEventId } from "@/modules/meta/events";
 import { enqueueOrderEvent } from "@/modules/meta/capi";
+import { enqueueTikTokOrderEvent } from "@/modules/tiktok/events-api";
 import { zoneOf } from "@/modules/orders/contact";
 import { orderInput } from "@/modules/orders/order-input";
 
@@ -91,11 +92,23 @@ export async function POST(request: NextRequest) {
 
   // Lead por Conversions API (servidor) en segundo plano. Mismo event_id que el Pixel del navegador.
   if (!result.duplicate_submit) {
+    // Clic de TikTok: se guarda en la atribución del pedido
+    if (input.attribution.ttclid || input.attribution.ttp) {
+      await supabase
+        .from("order_attribution")
+        .update({ ttclid: input.attribution.ttclid ?? null, ttp: input.attribution.ttp ?? null })
+        .eq("order_id", result.order_id);
+    }
     after(async () => {
       try {
         await enqueueOrderEvent(supabase, result.order_id, "Lead");
       } catch (e) {
         console.error("CAPI Lead", e);
+      }
+      try {
+        await enqueueTikTokOrderEvent(supabase, result.order_id, "SubmitForm");
+      } catch (e) {
+        console.error("TikTok SubmitForm", e);
       }
     });
   }

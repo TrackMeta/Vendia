@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { trackEvent } from "@/modules/analytics/track";
 import { captureAttribution } from "@/modules/attribution/capture";
 import { initPixel, trackPixel } from "@/modules/meta/pixel";
+import { initTikTok, trackTikTok } from "@/modules/tiktok/pixel";
 import { FONT_STACK } from "../fonts";
 import type { PageBlock } from "../schema";
 import type { LandingRenderData } from "../types";
@@ -66,6 +67,7 @@ export function LandingRenderer({
       initPixel(data.pixelId);
       trackPixel("PageView");
     }
+    if (data.tiktokPixel) initTikTok(data.tiktokPixel);
     trackEvent(data.landingId, "page_view");
 
     // ViewContent: cuando el visitante realmente mira el producto (scroll o 4 segundos)
@@ -74,6 +76,7 @@ export function LandingRenderer({
       if (done) return;
       done = true;
       trackPixel("ViewContent", contentParams);
+      trackTikTok("ViewContent", { content_id: data.productId, content_type: "product", content_name: data.product.name, value: basePrice, currency: "PEN" });
       trackEvent(data.landingId!, "view_content");
       window.removeEventListener("scroll", onScroll);
     };
@@ -87,7 +90,7 @@ export function LandingRenderer({
       window.removeEventListener("scroll", onScroll);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- solo al montar la landing
-  }, [preview, data.landingId, data.pixelId]);
+  }, [preview, data.landingId, data.pixelId, data.tiktokPixel]);
 
   useEffect(() => {
     if (preview || !isOpen) return;
@@ -101,6 +104,7 @@ export function LandingRenderer({
   const openForm = () => {
     if (live) {
       trackPixel("InitiateCheckout", contentParams);
+      trackTikTok("ClickButton", { content_id: data.productId, content_type: "product", value: basePrice, currency: "PEN" });
       trackEvent(data.landingId!, "initiate_checkout");
     }
     if (popup) {

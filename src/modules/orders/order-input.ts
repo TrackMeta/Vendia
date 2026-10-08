@@ -63,6 +63,8 @@ export const orderInput = z.object({
       fbclid: optionalText(512),
       fbc: optionalText(600),
       fbp: optionalText(255),
+      ttclid: optionalText(500),
+      ttp: optionalText(255),
       campaign_id: optionalText(64),
       adset_id: optionalText(64),
       ad_id: optionalText(64),

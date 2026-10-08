@@ -8,6 +8,7 @@ import { formatMoney } from "@/lib/format";
 import { sessionId } from "@/modules/analytics/track";
 import { readAttribution } from "@/modules/attribution/capture";
 import { trackPixel } from "@/modules/meta/pixel";
+import { trackTikTok } from "@/modules/tiktok/pixel";
 import { zoneOf } from "@/modules/orders/contact";
 import { splitFullName } from "@/modules/orders/order-input";
 import type { FormBlock } from "../schema";
@@ -174,6 +175,8 @@ export function CodForm({ data, preview, preferredOfferId }: { data: LandingRend
       }
       // Lead con el MISMO eventID que el servidor envía por Conversions API → Meta deduplica
       trackPixel("Lead", { value: json.total, currency: "PEN", content_ids: data.productId ? [data.productId] : [] }, json.leadEventId);
+      // TikTok: SubmitForm con el mismo event_id que Events API → TikTok deduplica
+      trackTikTok("SubmitForm", { value: json.total, currency: "PEN", content_id: data.productId, content_type: "product" }, json.leadEventId);
       router.push(`/p/${data.storeSlug}/${data.landingSlug}/gracias?pedido=${json.orderNumber}&o=${json.orderId}`);
     } catch {
       setError("Revisa tu conexión a internet e inténtalo de nuevo.");

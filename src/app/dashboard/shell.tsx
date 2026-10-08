@@ -3,8 +3,10 @@
 import {
   BarChart3,
   Bell,
+  Globe,
   Home,
   LayoutTemplate,
+  LifeBuoy,
   LogOut,
   Megaphone,
   Menu,
@@ -25,6 +27,7 @@ import { useState, useSyncExternalStore } from "react";
 import { logout } from "@/app/(auth)/actions";
 import { NotificationBell } from "@/components/dashboard/notifications";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
+import { StoreSwitcher } from "./store-switcher";
 import { cn } from "@/lib/utils";
 
 type NavItem = { href: string; label: string; icon: typeof Home; exact?: boolean; soon?: boolean; ownerOnly?: boolean };
@@ -43,8 +46,10 @@ const NAV: NavItem[] = [
   { href: "/dashboard/rendimiento", label: "Rendimiento", icon: TrendingUp, ownerOnly: true },
   { href: "/dashboard/analitica", label: "Analítica", icon: BarChart3, ownerOnly: true },
   { href: "/dashboard/integraciones", label: "Integraciones", icon: Plug, ownerOnly: true },
+  { href: "/dashboard/dominios", label: "Dominios", icon: Globe, ownerOnly: true },
   { href: "/dashboard/equipo", label: "Equipo", icon: UserCog, ownerOnly: true },
   { href: "/dashboard/configuracion", label: "Configuración", icon: Settings, ownerOnly: true },
+  { href: "/dashboard/ayuda", label: "Ayuda", icon: LifeBuoy },
 ];
 
 function Nav({ onNavigate, isOwner }: { onNavigate?: () => void; isOwner: boolean }) {
@@ -82,6 +87,7 @@ export function DashboardShell({
   storeId,
   role,
   unread,
+  stores,
 }: {
   children: React.ReactNode;
   storeName: string;
@@ -91,6 +97,7 @@ export function DashboardShell({
   storeId: string;
   role: "owner" | "staff";
   unread: number;
+  stores: { id: string; name: string; role: "owner" | "staff" }[];
 }) {
   const [open, setOpen] = useState(false);
   // Una sola campana montada (una sola suscripción en tiempo real): en el menú en escritorio, en el encabezado en celular.
@@ -110,9 +117,8 @@ export function DashboardShell({
       <div className="flex items-start justify-between gap-2 px-3">
         <div className="min-w-0">
           <p className="text-lg font-semibold tracking-tight">Vendia</p>
-          <p className="truncate text-xs text-muted-foreground">
-            {storeName} · /p/{storeSlug}
-          </p>
+          <StoreSwitcher current={storeId} currentName={storeName} stores={stores} />
+          <p className="truncate text-xs text-muted-foreground">/p/{storeSlug}</p>
           {role === "staff" ? <p className="text-xs font-medium text-sky-600">Confirmador</p> : null}
         </div>
         {isDesktop === true ? bell : null}

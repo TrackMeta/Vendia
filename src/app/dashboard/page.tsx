@@ -1,7 +1,8 @@
-import { ArrowRight, Info } from "lucide-react";
+import { Info } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { DateRangeFilter, rangeParams } from "@/components/dashboard/date-range-filter";
+import { WelcomeChecklist } from "./welcome-checklist";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { OrderStatusBadge } from "@/components/dashboard/status-badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -33,7 +34,7 @@ export default async function DashboardHome({ searchParams }: PageProps<"/dashbo
   const { store } = await requireOwner();
   const supabase = await createClient();
 
-  const [{ data: stats }, { data: recent }, { count: landingsCount }, { data: expenseTotals }, { data: settings }] = await Promise.all([
+  const [{ data: stats }, { data: recent }, { data: expenseTotals }, { data: settings }] = await Promise.all([
     supabase.rpc("get_order_stats", { p_store_id: store.id, p_from: range.from, p_to: range.to }),
     supabase
       .from("orders")
@@ -41,7 +42,6 @@ export default async function DashboardHome({ searchParams }: PageProps<"/dashbo
       .eq("store_id", store.id)
       .order("created_at", { ascending: false })
       .limit(8),
-    supabase.from("landing_pages").select("id", { count: "exact", head: true }).eq("store_id", store.id).eq("status", "published"),
     supabase.rpc("get_expense_totals", { p_store_id: store.id, p_from: range.startDate, p_to: range.endDate }),
     supabase.from("store_settings").select("real_sale_mode").eq("store_id", store.id).single(),
   ]);
@@ -66,19 +66,7 @@ export default async function DashboardHome({ searchParams }: PageProps<"/dashbo
 
       <DateRangeFilter basePath="/dashboard" range={range} />
 
-      {!landingsCount ? (
-        <Card className="border-dashed">
-          <CardContent className="flex flex-wrap items-center justify-between gap-3 py-4">
-            <div>
-              <p className="font-medium">Empieza en 3 pasos</p>
-              <p className="text-sm text-muted-foreground">1. Crea un producto · 2. Crea su landing · 3. Publícala y pega el link en Meta Ads.</p>
-            </div>
-            <Link href="/dashboard/productos/nuevo" className="flex items-center gap-1 text-sm font-medium underline">
-              Crear producto <ArrowRight className="size-4" />
-            </Link>
-          </CardContent>
-        </Card>
-      ) : null}
+      <WelcomeChecklist storeId={store.id} />
 
       <section className="flex flex-col gap-3">
         <h2 className="text-sm font-medium text-muted-foreground">Ventas</h2>

@@ -12,7 +12,9 @@
     "test:watch": "vitest",
     "test:db": "vitest run --config vitest.db.config.ts",
     "ubigeo:build": "tsx scripts/build-ubigeo-seed.ts",
-    "db:migrate": "tsx scripts/db-migrate.ts"
+    "db:migrate": "tsx scripts/db-migrate.ts",
+    "test:e2e": "vitest run --config vitest.e2e.config.ts",
+    "db:validate": "tsx scripts/validate-sql.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.8.0",

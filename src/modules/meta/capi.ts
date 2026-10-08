@@ -3,6 +3,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { decryptSecret } from "@/lib/crypto";
 import { buildServerEvent, isTooOld, leadEventId, META_GRAPH_VERSION, type MetaEventName, purchaseEventId, type ServerEvent } from "./events";
 import { isRealSale, parseSaleMode } from "@/modules/metrics/real-sale";
+import { enqueueTikTokOrderEvent, sendTikTokEvent } from "@/modules/tiktok/events-api";
 import { buildUserData } from "./user-data";
 
 const MAX_ATTEMPTS = 5;
@@ -109,10 +110,12 @@ export async function enqueueOrderEvent(admin: SupabaseClient, orderId: string, 
 export async function sendMarketingEvent(admin: SupabaseClient, marketingEventId: string): Promise<boolean> {
   const { data: row } = await admin
     .from("marketing_events")
-    .select("id, store_id, payload, status, attempts, event_name")
+    .select("id, store_id, payload, status, attempts, event_name, platform")
     .eq("id", marketingEventId)
     .single();
   if (!row || row.status === "sent" || row.status === "skipped" || row.attempts >= MAX_ATTEMPTS) return false;
+  // La bandeja es compartida: los eventos de TikTok los envía su módulo
+  if (row.platform === "tiktok") return sendTikTokEvent(admin, row.id);
 
   const settings = await getSettings(admin, row.store_id);
   const fail = async (message: string, response?: unknown, final = false) => {
@@ -202,5 +205,7 @@ export async function maybeSendPurchase(admin: SupabaseClient, orderId: string) 
   if (!order) return null;
   const { data: settings } = await admin.from("store_settings").select("real_sale_mode").eq("store_id", order.store_id).single();
   if (!isRealSale(order, parseSaleMode(settings?.real_sale_mode))) return null;
+  // TikTok (si está activo): CompletePayment con el mismo criterio de venta real
+  await enqueueTikTokOrderEvent(admin, orderId, "CompletePayment").catch((e) => console.error("TikTok CompletePayment", e));
   return enqueueOrderEvent(admin, orderId, "Purchase");
 }

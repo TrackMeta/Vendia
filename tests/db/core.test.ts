@@ -141,9 +141,12 @@ describe("Seguridad multi-tenant (RLS)", () => {
     expect(error).not.toBeNull();
   });
 
-  it("no se puede crear una segunda tienda", async () => {
-    const { error } = await a.client.rpc("create_store", { p_name: "Otra", p_slug: `otra-${runId}` });
-    expect(error?.message).toMatch(/Ya tienes una tienda/);
+  it("un usuario puede tener varias tiendas (Bloque 6) y no puede usar un enlace reservado", async () => {
+    const { data, error } = await a.client.rpc("create_store", { p_name: "Otra", p_slug: `otra-${runId}` });
+    expect(error).toBeNull();
+    await admin.from("stores").delete().eq("id", data as string);
+    const reserved = await a.client.rpc("create_store", { p_name: "Admin", p_slug: "admin" });
+    expect(reserved.error?.message).toMatch(/reservado/);
   });
 });
 

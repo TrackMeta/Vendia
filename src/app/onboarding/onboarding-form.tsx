@@ -6,6 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { slugify } from "@/lib/format";
+import { COUNTRIES, UPCOMING_COUNTRIES } from "@/modules/country";
 import { createStore } from "./actions";
 
 export function OnboardingForm() {
@@ -18,7 +19,7 @@ export function OnboardingForm() {
     <Card>
       <CardHeader>
         <CardTitle className="text-xl">Crea tu tienda</CardTitle>
-        <CardDescription>Moneda: soles (S/) · País: Perú. Puedes cambiar el nombre después.</CardDescription>
+        <CardDescription>Puedes tener varias tiendas y cambiar el nombre después.</CardDescription>
       </CardHeader>
       <CardContent>
         <form action={action} className="flex flex-col gap-4">
@@ -54,6 +55,17 @@ export function OnboardingForm() {
               />
             </div>
             <p className="text-xs text-muted-foreground">Aparece en los links de tus landings. No se puede cambiar luego.</p>
+          </div>
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="country">País</Label>
+            <select id="country" disabled className="h-10 rounded-lg border bg-muted/50 px-3 text-sm" defaultValue="PE">
+              {Object.values(COUNTRIES).map((c) => (
+                <option key={c.code} value={c.code}>
+                  {c.name} · {c.currency}
+                </option>
+              ))}
+            </select>
+            <p className="text-xs text-muted-foreground">Próximamente: {UPCOMING_COUNTRIES.join(", ")}.</p>
           </div>
           {state?.error ? (
             <p role="alert" className="text-sm text-destructive">

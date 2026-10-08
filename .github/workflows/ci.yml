@@ -1,0 +1,77 @@
+name: CI
+
+# Pruebas automáticas en cada cambio (push y pull request).
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  checks:
+    name: Lint, tipos, tests, SQL y build
+    runs-on: ubuntu-latest
+    env:
+      # Valores de ejemplo solo para compilar (no son secretos reales)
+      NEXT_PUBLIC_SUPABASE_URL: https://ejemplo.supabase.co
+      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: sb_publishable_ejemplo
+      NEXT_PUBLIC_SITE_URL: https://vendia.example
+      NEXT_TELEMETRY_DISABLED: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Lint
+        run: npm run lint
+      - name: Tipos
+        run: npx next typegen && npm run typecheck
+      - name: Tests unitarios
+        run: npm test
+      - name: Migraciones SQL (Postgres local + prueba de humo)
+        run: npx tsx scripts/validate-sql.ts
+      - name: Build
+        run: npm run build
+
+  integration:
+    name: Base de datos y punta a punta
+    runs-on: ubuntu-latest
+    needs: checks
+    # Necesita los secretos del repositorio (Settings → Secrets → Actions). Sin ellos se omite.
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY }}
+      SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+      APP_ENCRYPTION_KEY: ${{ secrets.APP_ENCRYPTION_KEY }}
+      NEXT_PUBLIC_SITE_URL: http://localhost:3001
+      NEXT_TELEMETRY_DISABLED: "1"
+    steps:
+      - name: ¿Hay secretos?
+        id: secrets
+        run: echo "ok=${{ env.SUPABASE_SECRET_KEY != '' }}" >> "$GITHUB_OUTPUT"
+      - uses: actions/checkout@v4
+        if: steps.secrets.outputs.ok == 'true'
+      - uses: actions/setup-node@v4
+        if: steps.secrets.outputs.ok == 'true'
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+        if: steps.secrets.outputs.ok == 'true'
+      - name: Tests contra Supabase
+        if: steps.secrets.outputs.ok == 'true'
+        run: npm run test:db
+      - name: Build y arranque
+        if: steps.secrets.outputs.ok == 'true'
+        run: |
+          npm run build
+          npm run start -- -p 3001 &
+          npx --yes wait-on http://localhost:3001 --timeout 60000
+      - name: Punta a punta
+        if: steps.secrets.outputs.ok == 'true'
+        run: npm run test:e2e

@@ -5,9 +5,11 @@ import { OnboardingForm } from "./onboarding-form";
 
 export const metadata: Metadata = { title: "Crea tu tienda" };
 
-export default async function OnboardingPage() {
+export default async function OnboardingPage({ searchParams }: PageProps<"/onboarding">) {
   await requireUser();
-  if (await getCurrentStore()) redirect("/dashboard");
+  const { nueva } = await searchParams;
+  // ?nueva=1: crear otra tienda (un usuario puede tener varias)
+  if (nueva !== "1" && (await getCurrentStore())) redirect("/dashboard");
 
   return (
     <main className="flex flex-1 flex-col items-center justify-center bg-muted/40 px-4 py-12">

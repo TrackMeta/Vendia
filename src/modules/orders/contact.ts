@@ -1,3 +1,4 @@
+import { DEFAULT_COUNTRY } from "@/modules/country";
 /**
  * Controlador de pedidos: secuencia de contacto, resultados y motivos.
  * ESPEJO de los checks de supabase/migrations/20261008001200_order_controller.sql.
@@ -75,9 +76,9 @@ export function buildSequence(calls: number, whatsappAtEnd: boolean): ContactCha
   return seq.length ? seq : ["call"];
 }
 
-/** Lima Metropolitana (1501) y Callao (0701) = "Lima"; el resto = "Provincia". */
+/** Zona de envío (Lima / provincia): la regla vive en el módulo del país (src/modules/country). */
 export function zoneOf(provinceCode: string | null | undefined): "lima" | "provincia" {
-  return provinceCode === "1501" || provinceCode === "0701" ? "lima" : "provincia";
+  return DEFAULT_COUNTRY.zoneOf(provinceCode);
 }
 
 /** Prioridad en la bandeja «Por confirmar»: primero los que toca llamar ya, luego los nuevos. */

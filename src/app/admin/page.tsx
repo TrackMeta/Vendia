@@ -9,6 +9,7 @@ import { formatDateTime, formatMoney, formatNumber } from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
 import { cn } from "@/lib/utils";
 import type { OrderStatus } from "@/modules/orders/state-machine";
+import { ResolveErrorButton } from "./resolve-error-button";
 import { StoreStatusButton } from "./store-status-button";
 
 export const metadata: Metadata = { title: "Admin" };
@@ -53,7 +54,7 @@ export default async function AdminPage({ searchParams }: PageProps<"/admin">) {
     );
   }
 
-  const { data: overview } = await supabase.rpc("admin_overview");
+  const [{ data: overview }, { data: newErrors }] = await Promise.all([supabase.rpc("admin_overview"), supabase.rpc("admin_error_count")]);
   const o = (overview ?? {}) as Record<string, number>;
 
   let body: React.ReactNode = null;
@@ -160,8 +161,19 @@ export default async function AdminPage({ searchParams }: PageProps<"/admin">) {
     );
   }
   if (tab === "errores") {
-    const { data } = await supabase.rpc("admin_recent_errors");
+    const [{ data }, { data: appErrors }] = await Promise.all([supabase.rpc("admin_recent_errors"), supabase.rpc("admin_app_errors", { p_include_resolved: false })]);
     const e = (data ?? { marketing: [], integrations: [], webhooks: [] }) as Errors;
+    const errs = (appErrors ?? []) as {
+      id: number;
+      source: "server" | "client";
+      message: string;
+      stack: string | null;
+      path: string | null;
+      count: number;
+      first_seen_at: string;
+      last_seen_at: string;
+      store_name: string | null;
+    }[];
     const section = (title: string, rows: { key: string; when: string; store: string | null; text: string }[]) => (
       <Card>
         <CardHeader>
@@ -189,6 +201,43 @@ export default async function AdminPage({ searchParams }: PageProps<"/admin">) {
     );
     body = (
       <div className="flex flex-col gap-4 p-4">
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">
+              Errores de la app <span className="text-muted-foreground">({errs.length} sin resolver)</span>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {errs.length ? (
+              <ul className="flex flex-col divide-y text-sm">
+                {errs.map((x) => (
+                  <li key={x.id} className="flex flex-col gap-1 py-2">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <SimpleBadge tone={x.source === "server" ? "danger" : "info"}>{x.source === "server" ? "Servidor" : "Navegador"}</SimpleBadge>
+                      <span className="font-medium break-words">{x.message}</span>
+                      <span className="ml-auto">
+                        <ResolveErrorButton id={x.id} />
+                      </span>
+                    </div>
+                    <span className="text-xs text-muted-foreground">
+                      {x.count} vez/veces · última {formatDateTime(x.last_seen_at)} · primera {formatDateTime(x.first_seen_at)}
+                      {x.path ? ` · ${x.path}` : ""}
+                      {x.store_name ? ` · ${x.store_name}` : ""}
+                    </span>
+                    {x.stack ? (
+                      <details className="text-xs">
+                        <summary className="cursor-pointer text-muted-foreground">Detalle técnico</summary>
+                        <pre className="mt-1 max-h-48 overflow-auto rounded bg-muted p-2 whitespace-pre-wrap">{x.stack}</pre>
+                      </details>
+                    ) : null}
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-sm text-muted-foreground">Sin errores. 🎉</p>
+            )}
+          </CardContent>
+        </Card>
         {section(
           "Meta Conversions API",
           e.marketing.map((m, i) => ({ key: `m${i}`, when: m.created_at, store: m.store_name, text: `${m.event_name} (${m.attempts} intentos): ${m.last_error ?? ""}` })),
@@ -234,6 +283,7 @@ export default async function AdminPage({ searchParams }: PageProps<"/admin">) {
             className={cn("rounded-full border px-3 py-1 text-sm", tab === t ? "border-foreground bg-foreground text-background" : "hover:bg-muted")}
           >
             {TABS[t]}
+            {t === "errores" && Number(newErrors) > 0 ? <span className="ml-1.5 rounded-full bg-red-600 px-1.5 text-xs text-white">{Number(newErrors)}</span> : null}
           </Link>
         ))}
       </div>

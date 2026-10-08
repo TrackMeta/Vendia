@@ -33,6 +33,7 @@ export function toRenderData(landing: PublicLanding): LandingRenderData {
   return {
     landingId: landing.landing.id,
     pixelId: landing.meta?.pixel_id ?? null,
+    tiktokPixel: landing.tiktok?.pixel_code ?? null,
     productId: landing.product.id,
     storeName: landing.store.name,
     storeSlug: landing.store.slug,

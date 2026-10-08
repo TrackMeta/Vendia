@@ -8,6 +8,7 @@ import { formatDateTime } from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
 import { parseSaleMode, REAL_SALE_MODES } from "@/modules/metrics/real-sale";
 import { MetaConnect } from "./meta-connect";
+import { TikTokSettingsForm } from "./tiktok-form";
 import { MetaSettingsForm, RetryButton, TestEventButton, UrlTemplate } from "./meta-forms";
 
 export const metadata: Metadata = { title: "Marketing" };
@@ -18,7 +19,7 @@ const STATUS_LABEL = { sent: "Enviado", pending: "Pendiente", failed: "Falló", 
 export default async function MarketingPage() {
   const { store } = await requireOwner();
   const supabase = await createClient();
-  const [{ data: settings }, { data: tokenConfigured }, { data: events }, { data: storeSettings }] = await Promise.all([
+  const [{ data: settings }, { data: tokenConfigured }, { data: events }, { data: storeSettings }, { data: tiktok }, { data: tiktokToken }] = await Promise.all([
     supabase
       .from("store_meta_settings")
       .select(
@@ -34,6 +35,8 @@ export default async function MarketingPage() {
       .order("created_at", { ascending: false })
       .limit(50),
     supabase.from("store_settings").select("real_sale_mode").eq("store_id", store.id).single(),
+    supabase.from("store_tiktok_settings").select("pixel_code, test_event_code, enabled, send_lead, send_purchase").eq("store_id", store.id).maybeSingle(),
+    supabase.rpc("tiktok_token_configured", { p_store_id: store.id }),
   ]);
 
   const triggerLabel = REAL_SALE_MODES[parseSaleMode(storeSettings?.real_sale_mode)];
@@ -104,11 +107,22 @@ export default async function MarketingPage() {
         </CardContent>
       </Card>
 
+      <TikTokSettingsForm
+        tokenConfigured={Boolean(tiktokToken)}
+        initial={{
+          pixel_code: tiktok?.pixel_code ?? "",
+          test_event_code: tiktok?.test_event_code ?? "",
+          enabled: tiktok?.enabled ?? false,
+          send_lead: tiktok?.send_lead ?? true,
+          send_purchase: tiktok?.send_purchase ?? true,
+        }}
+      />
+
       <Card>
         <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-2">
           <div>
-            <CardTitle>Eventos enviados a Meta</CardTitle>
-            <CardDescription>Últimos 50 eventos de servidor (Conversions API).</CardDescription>
+            <CardTitle>Eventos enviados (Meta y TikTok)</CardTitle>
+            <CardDescription>Últimos 50 eventos de servidor (Conversions API de Meta y Events API de TikTok).</CardDescription>
           </div>
           <div className="flex gap-2">
             <TestEventButton />

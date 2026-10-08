@@ -13,6 +13,9 @@ export type Attribution = {
   fbclid?: string;
   fbc?: string;
   fbp?: string;
+  /** Clic de TikTok (parámetro ttclid) y su cookie _ttp */
+  ttclid?: string;
+  ttp?: string;
   campaign_id?: string;
   adset_id?: string;
   ad_id?: string;
@@ -29,6 +32,7 @@ export const TRACKED_PARAMS = [
   "utm_content",
   "utm_term",
   "fbclid",
+  "ttclid",
   "campaign_id",
   "adset_id",
   "ad_id",
@@ -93,7 +97,7 @@ export function readAttribution(): Attribution {
   try {
     const stored = readCookie(COOKIE);
     const data: Attribution = stored ? JSON.parse(stored) : {};
-    return { ...data, fbc: readCookie("_fbc") ?? data.fbc, fbp: readCookie("_fbp") };
+    return { ...data, fbc: readCookie("_fbc") ?? data.fbc, fbp: readCookie("_fbp"), ttp: readCookie("_ttp") };
   } catch {
     return {};
   }

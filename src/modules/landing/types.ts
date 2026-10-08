@@ -36,6 +36,7 @@ export type PublicLanding = {
   };
   offers: PublicOffer[];
   meta?: { pixel_id: string | null };
+  tiktok?: { pixel_code: string | null };
 };
 
 export type PublicOffer = {
@@ -54,6 +55,8 @@ export type LandingRenderData = {
   landingId: string | null;
   /** Meta Pixel ID de la tienda (solo en la landing pública) */
   pixelId?: string | null;
+  /** TikTok Pixel code (solo en la landing pública) */
+  tiktokPixel?: string | null;
   productId?: string | null;
   storeName: string;
   storeSlug: string;

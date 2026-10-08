@@ -51,14 +51,14 @@
 - [x] **Correo opcional** en el formulario.
 
 ## Bloque 6: Plataforma
-- [ ] **Varias tiendas por usuario,** con selector de tienda.
-- [ ] **Dominio propio de Vendia** y **dominios propios** por tienda, o uno para todas las tiendas del usuario.
-- [ ] **Multi-país:** moneda, ubicaciones, couriers, teléfono e impuestos como módulos por país. Perú primero.
-- [ ] **TikTok listo** (Pixel + Events API + plantilla de URL).
-- [ ] **Tutorial de bienvenida** y página de ayuda.
-- [ ] **Registro de errores propio** en /admin → Errores.
-- [ ] **Tests automáticos en cada cambio** (GitHub Actions) y pruebas de punta a punta.
-- [ ] **Landing en caché.**
+- [x] **Varias tiendas por usuario,** con selector de tienda.
+- [x] **Dominio propio de Vendia** y **dominios propios** por tienda, o uno para todas las tiendas del usuario.
+- [x] **Multi-país:** moneda, ubicaciones, couriers, teléfono e impuestos como módulos por país (`src/modules/country`). Perú listo; los demás países se agregan como una entrada nueva.
+- [x] **TikTok listo** (Pixel + Events API + plantilla de URL).
+- [x] **Tutorial de bienvenida** y página de ayuda.
+- [x] **Registro de errores propio** en /admin → Errores.
+- [x] **Tests automáticos en cada cambio** (GitHub Actions) y pruebas de punta a punta.
+- [x] **Landing en caché:** datos de la landing en caché (se limpian al publicar o al cambiar la configuración) y archivos grandes (ubicaciones, plantillas) con caché del navegador. La página completa no se guarda en la CDN porque las pruebas A/B dependen de cada visitante.
 
 ## Pendiente del dueño
 - [ ] Enviar **Kontrol** para analizarlo.

@@ -41,12 +41,22 @@ Sin esto, los correos de confirmación y de recuperación de contraseña apuntar
 
 ## 4. Tarea programada
 
-El archivo `vercel.json` programa `/api/cron/daily` una vez al día: reintenta eventos de Meta que fallaron y sincroniza campañas, gasto y métricas de las tiendas conectadas. Vercel la activa sola si `CRON_SECRET` está configurado. En el plan gratis (Hobby) solo se permiten tareas diarias.
+El archivo `vercel.json` programa `/api/cron/daily` una vez al día: reintenta eventos de Meta y TikTok que fallaron, sincroniza campañas, gasto y métricas de las tiendas conectadas y borra los formularios abandonados de más de 30 días. Vercel la activa sola si `CRON_SECRET` está configurado. En el plan gratis (Hobby) solo se permiten tareas diarias.
 
-## 5. Dominio propio (opcional)
+## 5. Dominios
+
+**Dominio de Vendia (el panel):**
 
 1. En Vercel → Project → **Settings → Domains**, agrega tu dominio (por ejemplo `vendia.pe`) y sigue las instrucciones de DNS.
 2. Después actualiza `NEXT_PUBLIC_SITE_URL` y las URLs de Supabase (paso 3).
+
+**Dominios de los vendedores (sus landings):** se agregan en el panel → **Dominios**. Vendia muestra el registro DNS que deben crear y verifica que apunte a Vercel. Cada dominio también debe existir en Vercel → Settings → Domains. Para que Vendia lo agregue solo, configura en Vercel estas variables (opcional):
+
+| Variable | Dónde se obtiene |
+|---|---|
+| `VERCEL_TOKEN` | Vercel → Account Settings → Tokens (crea uno solo para Vendia) |
+| `VERCEL_PROJECT_ID` | Vercel → Project → Settings → General → Project ID |
+| `VERCEL_TEAM_ID` | Solo si el proyecto está en un equipo de Vercel |
 
 ## 6. Después de publicar
 
@@ -64,3 +74,9 @@ El archivo `vercel.json` programa `/api/cron/daily` una vez al día: reintenta e
 
 - **Proyecto vacío nuevo** (por ejemplo, uno separado para producción): pega `supabase/setup-completo.sql` en el SQL Editor.
 - **Cambios futuros:** se agregan como archivos nuevos en `supabase/migrations/`. Antes de aplicarlos, valídalos con `npx tsx scripts/validate-sql.ts`.
+
+## Pruebas automáticas (GitHub Actions)
+
+Cada `push` a `main` corre `.github/workflows/ci.yml`: lint, tipos, tests unitarios, validación de las migraciones SQL y build. Si quieres que también corran los tests contra Supabase y las pruebas de punta a punta, agrega en GitHub → Settings → Secrets and variables → Actions estos secretos (los mismos valores de `.env.local`): `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SECRET_KEY`, `APP_ENCRYPTION_KEY`. Recomendado: usa un proyecto de Supabase **de pruebas**, no el de producción.
+
+En tu PC: `npm test` (unitarios), `npm run test:db` (base de datos) y `npm run test:e2e` (con la app corriendo en el puerto 3001).

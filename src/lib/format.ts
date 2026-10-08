@@ -1,3 +1,5 @@
+import { DEFAULT_COUNTRY, displayPhone, normalizePhone } from "@/modules/country";
+
 const pen = new Intl.NumberFormat("es-PE", {
   style: "currency",
   currency: "PEN",
@@ -50,19 +52,14 @@ export function formatDate(value: string | null | undefined): string {
   return Number.isNaN(d.getTime()) ? "—" : dateOnly.format(d);
 }
 
-/** Celular peruano → formato 51XXXXXXXXX. Devuelve null si no es válido. */
+/** Celular peruano → formato 51XXXXXXXXX. Devuelve null si no es válido. (Regla del país: src/modules/country) */
 export function normalizePeruPhone(raw: string): string | null {
-  let digits = raw.replace(/\D/g, "");
-  if (digits.startsWith("0051")) digits = digits.slice(2);
-  if (digits.length === 9 && digits.startsWith("9")) return `51${digits}`;
-  if (digits.length === 11 && digits.startsWith("519")) return digits;
-  return null;
+  return normalizePhone(raw, DEFAULT_COUNTRY);
 }
 
 /** 51987654321 → 987 654 321 */
 export function displayPeruPhone(phone: string): string {
-  const local = phone.startsWith("51") ? phone.slice(2) : phone;
-  return local.replace(/(\d{3})(\d{3})(\d{3})/, "$1 $2 $3");
+  return displayPhone(phone, DEFAULT_COUNTRY);
 }
 
 /** Texto → slug para URLs ("Faja Reductora Térmica" → "faja-reductora-termica"). */

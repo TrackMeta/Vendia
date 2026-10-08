@@ -1,6 +1,7 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
+import { landingCacheTag } from "@/modules/landing/public-data";
 import { z } from "zod";
 import { requireOwner } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
@@ -68,8 +69,11 @@ export async function saveSettings(_prev: ActionResult | undefined, formData: Fo
   ]);
   if (storeResult.error || settingsResult.error) return { ok: false, error: "No se pudo guardar la configuración" };
 
+  // Envío, adelanto, WhatsApp y mensaje se ven en las landings: se refresca su caché al instante
+  const { data: landings } = await supabase.from("landing_pages").select("slug").eq("store_id", store.id).eq("status", "published");
+  for (const l of landings ?? []) revalidateTag(landingCacheTag(store.slug, l.slug), { expire: 0 });
   revalidatePath("/dashboard", "layout");
-  return { ok: true, message: "Configuración guardada. Los cambios en landings publicadas se ven en unos minutos." };
+  return { ok: true, message: "Configuración guardada. Tus landings publicadas ya muestran los cambios." };
 }
 
 // ─────────────────────────────────────────────────────────────────────

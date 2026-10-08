@@ -1,4 +1,5 @@
 import "server-only";
+import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { cache } from "react";
 import { createClient } from "@/lib/supabase/server";
@@ -11,9 +12,13 @@ export type CurrentStore = {
   slug: string;
   status: "active" | "blocked";
   currency: string;
+  country: string;
   /** owner = dueño (todo) · staff = Confirmador (pedidos, logística, clientes) */
   role: StoreRole;
 };
+
+/** Cookie con la tienda elegida en el selector. Solo es una preferencia: el acceso lo decide store_members (RLS). */
+export const STORE_COOKIE = "vd_store";
 
 /** Usuario autenticado (verificado con el servidor de Auth) o null. */
 export const getUser = cache(async () => {
@@ -29,21 +34,29 @@ export async function requireUser() {
   return user;
 }
 
-/** Tienda del usuario actual (o null si aún no tiene). Prioriza la tienda propia. */
-export const getCurrentStore = cache(async (): Promise<CurrentStore | null> => {
+/** Todas las tiendas a las que pertenece el usuario (propias y donde es Confirmador). */
+export const getMyStores = cache(async (): Promise<CurrentStore[]> => {
   const user = await getUser();
-  if (!user) return null;
+  if (!user) return [];
   const supabase = await createClient();
   const { data } = await supabase
     .from("store_members")
-    .select("role, created_at, stores (id, name, slug, status, currency)")
+    .select("role, created_at, stores (id, name, slug, status, currency, country)")
     .eq("user_id", user.id)
     .order("created_at", { ascending: true });
   const rows = (data ?? []) as unknown as { role: StoreRole; stores: Omit<CurrentStore, "role"> | Omit<CurrentStore, "role">[] | null }[];
-  const pick = rows.find((r) => r.role === "owner") ?? rows[0];
-  if (!pick?.stores) return null;
-  const store = Array.isArray(pick.stores) ? pick.stores[0] : pick.stores;
-  return store ? { ...store, role: pick.role } : null;
+  return rows.flatMap((r) => {
+    const store = Array.isArray(r.stores) ? r.stores[0] : r.stores;
+    return store ? [{ ...store, role: r.role }] : [];
+  });
+});
+
+/** Tienda activa: la elegida en el selector o, si no, la primera propia. Null si aún no tiene. */
+export const getCurrentStore = cache(async (): Promise<CurrentStore | null> => {
+  const stores = await getMyStores();
+  if (!stores.length) return null;
+  const chosen = (await cookies()).get(STORE_COOKIE)?.value;
+  return stores.find((s) => s.id === chosen) ?? stores.find((s) => s.role === "owner") ?? stores[0];
 });
 
 /** Exige sesión + tienda. Redirige a login u onboarding según corresponda. */

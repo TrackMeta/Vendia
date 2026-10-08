@@ -336,6 +336,31 @@ async function main() {
   await step("abandonado → recuperado", `select status from public.abandoned_checkouts where phone = '51988888888'`);
   await step("rendimiento por ángulo", `select public.get_performance(${range}, current_date - 1, current_date + 1, 'angle') -> 0 -> 'key'`);
   await step("purga de abandonados", `select public.purge_abandoned_checkouts()`);
+
+  // ── Bloque 6: plataforma ──
+  console.log("\nBloque 6:");
+  const store2 = (await step("segunda tienda del mismo usuario", "select public.create_store('Smoke 2', 'smoke-dos')")) as string;
+  await step("tiendas propias", `select count(*) from public.stores where owner_id = '${userId}'`);
+  await step(
+    "dominio para todas las tiendas",
+    `insert into public.custom_domains (domain, owner_id) values ('mitienda.pe', '${userId}') returning domain`,
+  );
+  await step("dominio de una tienda", `insert into public.custom_domains (domain, owner_id, store_id) values ('fajas.pe', '${userId}', '${store2}') returning domain`);
+  await step("pendiente → no resuelve", `select public.resolve_custom_domain('fajas.pe') is null`);
+  await step("activar dominios", `update public.custom_domains set status = 'active' returning status`);
+  await step("resuelve dominio de tienda", `select public.resolve_custom_domain('FAJAS.pe')`);
+  await step("resuelve dominio general", `select public.resolve_custom_domain('mitienda.pe')`);
+  await step("el dominio general sirve sus tiendas", `select public.domain_serves_store('mitienda.pe', 'smoke-store')`);
+  await step("…y no tiendas ajenas", `select public.domain_serves_store('mitienda.pe', 'otra-tienda')`);
+  await step("TikTok configurado", `insert into public.store_tiktok_settings (store_id, pixel_code, enabled) values ('${storeId}', 'C4ABCDEFGHIJ1234', true) returning pixel_code`);
+  await step("landing pública trae Pixel de TikTok", `select public.get_public_landing('smoke-store', 'faja') -> 'tiktok'`);
+  await step("evento TikTok en la bandeja", `insert into public.marketing_events (store_id, platform, event_name, event_id, event_time) values ('${storeId}', 'tiktok', 'CompletePayment', 'tt_purchase_1', now()) returning platform`);
+  await step("registrar error", `select public.log_app_error('{"fingerprint":"abcdef123456","source":"client","message":"Boom","path":"/p/x"}'::jsonb)`);
+  await step("mismo error se agrupa", `select public.log_app_error('{"fingerprint":"abcdef123456","source":"client","message":"Boom"}'::jsonb)`);
+  await step("conteo agrupado", `select count from public.app_errors where fingerprint = 'abcdef123456'`);
+  await step("admin ve errores", `select jsonb_array_length(public.admin_app_errors())`);
+  await step("aviso de errores 24h", `select public.admin_error_count()`);
+  await step("tutorial oculto", `update public.store_settings set onboarding_dismissed = true where store_id = '${storeId}' returning onboarding_dismissed`);
   console.log("\nOK — prueba de humo completa");
 }
 

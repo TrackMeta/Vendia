@@ -422,7 +422,7 @@ Estado: ✅ hecho · 🔄 en curso · ⬜ pendiente
 | 8 | ✅ | **Landing pública + formulario COD** | Renderizado rápido (SSR + caché), mobile-first, Open Graph; formulario **emergente o incrustado** con selector de ofertas; ubigeo con búsqueda de distrito; cálculo de total, adelanto y saldo; captura de atribución; página de gracias |
 | 9 | ✅ | **Pedidos y clientes** | Tabla con filtros, detalle, cambio de estado con historial, marca de duplicados, CRM básico con historial del cliente |
 | 10 | ✅ | **Configuración** | Datos de la tienda y configuración COD |
-| 11 | ✅ | **Cierre** | Tests de RLS (un usuario no ve otra tienda), creación de pedido, idempotencia, precios manipulados, ubigeo inválido; build; despliegue en Vercel |
+| 11 | ✅ | **Cierre** | Tests de RLS (un usuario no ve otra tienda), creación de pedido, idempotencia, precios manipulados, ubigeo inválido; build. ⬜ Despliegue en Vercel pendiente (requiere tu cuenta de Vercel) |
 
 **Tests de la Fase 1:**
 

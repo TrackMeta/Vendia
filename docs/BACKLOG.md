@@ -56,4 +56,5 @@
 - **Controlador de pedidos:** ver [CONTROLADOR-PEDIDOS.md](CONTROLADOR-PEDIDOS.md). Incluye notificaciones, secuencia de llamadas, registro manual de pedidos, zona Lima/Provincia, equipo y couriers.
 - **Selector de fechas estilo Meta** en toda la app: ver [UI.md](UI.md).
 - **Origen del pedido estilo Meta:** campaña → conjunto → anuncio con nombres e IDs. La vista previa del anuncio (imagen, texto, "Ver anuncio") requiere la API de Marketing de Meta.
+- **Conexión de lectura de Meta (opción B, token de usuario del sistema por tienda):** ver [PRODUCTO.md](PRODUCTO.md).
 - **Sección Rendimiento:** tablas por campaña, conjunto, anuncio, producto y página (landing / product page), con columnas de Meta (impresiones, CPM, clics, CTR, CPC, resultados y costo por resultado según Meta…) y columnas de Vendia (pedidos, confirmados, venta real, **CPA real** junto al costo por resultado de Meta para compararlos, ROAS real, utilidad), más un selector de columnas.

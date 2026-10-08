@@ -31,3 +31,12 @@ Plataforma para vendedores **contraentrega (COD)** que venden con **Meta Ads**: 
 - La misma regla de venta real se usa en **todas** las métricas (revenue, CPA real, ROAS real, utilidad, funnel, tablas) y para enviar **Purchase a Meta**. Nunca dos definiciones distintas.
 - **Tipo de cambio:** se guarda junto con cada gasto (para que los meses pasados no cambien), tomado del tipo de cambio oficial del día o ingresado a mano.
 - El gasto se guarda en su moneda original y su equivalente en soles con IGV (si aplica), para poder auditarlo.
+
+## Lectura de campañas (API de Marketing de Meta)
+
+**Decisión (2026-10-08): opción B.** Cada usuario conecta su cuenta publicitaria con un **token de usuario del sistema** creado en su propio Business Manager, con permiso **solo de lectura** (`ads_read`) y sin caducidad. El dueño no tiene que administrar a nadie.
+
+- Vendia guarda el token **cifrado** (igual que el de Conversions API) junto con el ID de la cuenta publicitaria (`act_…`).
+- Al pegarlo, Vendia lo valida y muestra el nombre y la moneda de la cuenta.
+- Sincronización diaria más un botón "Actualizar ahora": gasto, impresiones, alcance, frecuencia, CPM, clics, CTR, CPC, resultados y datos de los anuncios.
+- Se puede pasar después a la opción C (app con revisión de Meta) sin cambiar el resto.

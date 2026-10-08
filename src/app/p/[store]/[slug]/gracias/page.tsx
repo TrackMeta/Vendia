@@ -4,7 +4,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getPublicLanding } from "@/modules/landing/public-data";
 
-export const metadata: Metadata = { title: "¡Pedido recibido!", robots: { index: false } };
+export const metadata: Metadata = { title: { absolute: "¡Pedido recibido!" }, robots: { index: false } };
 
 export default async function ThankYouPage({ params, searchParams }: PageProps<"/p/[store]/[slug]/gracias">) {
   const { store, slug } = await params;

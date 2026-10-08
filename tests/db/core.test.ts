@@ -186,8 +186,9 @@ describe("Pedidos COD", () => {
     expect(order.district_name).toBe("San Juan de Miraflores");
     expect(order.status).toBe("new");
     expect(order.order_items[0].quantity).toBe(2);
-    expect(order.order_attribution.campaign_id).toBe("120200");
-    expect(order.order_attribution.utm_source).toBe("facebook");
+    const attribution = Array.isArray(order.order_attribution) ? order.order_attribution[0] : order.order_attribution;
+    expect(attribution.campaign_id).toBe("120200");
+    expect(attribution.utm_source).toBe("facebook");
   });
 
   it("provincia cobra envío de provincia", async () => {

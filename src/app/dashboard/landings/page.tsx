@@ -5,7 +5,7 @@ import { EmptyState, PageHeader } from "@/components/dashboard/page-header";
 import { SimpleBadge } from "@/components/dashboard/status-badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { requireStore } from "@/lib/auth";
-import { formatDateTime } from "@/lib/format";
+import { formatDateTime, one } from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
 import { NewLandingDialog } from "./new-landing-dialog";
 
@@ -81,7 +81,7 @@ export default async function LandingsPage({ searchParams }: PageProps<"/dashboa
                       )}
                     </div>
                   </TableCell>
-                  <TableCell className="hidden md:table-cell">{(l.products as unknown as { name: string } | null)?.name}</TableCell>
+                  <TableCell className="hidden md:table-cell">{one(l.products as unknown as { name: string }[])?.name}</TableCell>
                   <TableCell className="text-right">{counts.get(l.id) ?? 0}</TableCell>
                   <TableCell>
                     <SimpleBadge tone={l.status === "published" ? "success" : "neutral"}>

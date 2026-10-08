@@ -6,7 +6,7 @@ import { OrderStatusBadge } from "@/components/dashboard/status-badge";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { requireStore } from "@/lib/auth";
-import { displayPeruPhone, formatDateTime, formatMoney } from "@/lib/format";
+import { displayPeruPhone, formatDateTime, formatMoney, one } from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
 import { cn } from "@/lib/utils";
 import { ORDER_STATUS_LABELS, ORDER_STATUSES, type OrderStatus } from "@/modules/orders/state-machine";
@@ -114,7 +114,7 @@ export default async function OrdersPage({ searchParams }: PageProps<"/dashboard
               <TableBody>
                 {orders.map((o) => {
                   const item = (o.order_items as { product_name: string; offer_name: string | null; quantity: number }[])[0];
-                  const attr = o.order_attribution as unknown as { utm_source: string | null; utm_campaign: string | null } | null;
+                  const attr = one(o.order_attribution as unknown as { utm_source: string | null; utm_campaign: string | null }[]);
                   return (
                     <TableRow key={o.id}>
                       <TableCell>

@@ -3,6 +3,7 @@
 import { X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { captureAttribution } from "@/modules/attribution/capture";
+import { FONT_STACK } from "../fonts";
 import type { PageBlock } from "../schema";
 import type { LandingRenderData } from "../types";
 import { CodForm } from "./cod-form";
@@ -22,19 +23,6 @@ import {
   TestimonialsBlockView,
   TextBlockView,
 } from "./page-blocks";
-
-const FONT_STACK: Record<string, string> = {
-  system: "system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif",
-  Poppins: "'Poppins', system-ui, sans-serif",
-  Montserrat: "'Montserrat', system-ui, sans-serif",
-  Inter: "'Inter', system-ui, sans-serif",
-  Roboto: "'Roboto', system-ui, sans-serif",
-};
-
-export function googleFontHref(font: string): string | null {
-  if (font === "system") return null;
-  return `https://fonts.googleapis.com/css2?family=${encodeURIComponent(font)}:wght@400;600;700;800;900&display=swap`;
-}
 
 /**
  * Renderiza una landing completa.
@@ -82,6 +70,12 @@ export function LandingRenderer({
   };
 
   const hasEmbeddedBlock = content.page_blocks.some((b) => b.type === "embedded_form");
+  // En la landing pública no se muestran bloques de imagen vacíos (en el editor sí, como recordatorio).
+  const visibleBlocks = preview
+    ? content.page_blocks
+    : content.page_blocks.filter(
+        (b) => !(b.type === "image" && !b.src) && !(b.type === "carousel" && !b.images.some((i) => i.src)),
+      );
   const firstImageId = content.page_blocks.find((b) => b.type === "image" && b.src)?.id;
 
   const renderBlock = (block: PageBlock) => {
@@ -137,7 +131,7 @@ export function LandingRenderer({
       className={`relative mx-auto w-full max-w-[480px] ${preview ? "min-h-full" : "min-h-svh"}`}
       style={{ fontFamily: FONT_STACK[content.theme.font], backgroundColor: content.theme.pageBg, color: content.theme.textColor }}
     >
-      {content.page_blocks.map((block) => (
+      {visibleBlocks.map((block) => (
         <div
           key={block.id}
           onClickCapture={

@@ -66,3 +66,9 @@ export function slugify(value: string): string {
     .replace(/^-+|-+$/g, "")
     .slice(0, 60);
 }
+
+/** Relación "uno a uno" de Supabase: puede llegar como objeto o como lista de un elemento. */
+export function one<T>(value: T | T[] | null | undefined): T | null {
+  if (Array.isArray(value)) return value[0] ?? null;
+  return value ?? null;
+}

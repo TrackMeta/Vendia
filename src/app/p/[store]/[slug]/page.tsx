@@ -2,7 +2,8 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { publicAssetUrl } from "@/lib/env";
 import { getPublicLanding, toRenderData } from "@/modules/landing/public-data";
-import { googleFontHref, LandingRenderer } from "@/modules/landing/render/landing-renderer";
+import { googleFontHref } from "@/modules/landing/fonts";
+import { LandingRenderer } from "@/modules/landing/render/landing-renderer";
 
 function firstImage(landing: NonNullable<Awaited<ReturnType<typeof getPublicLanding>>>): string | null {
   const block = landing.landing.content.page_blocks.find((b) => b.type === "image" && b.src);

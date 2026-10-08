@@ -1,6 +1,6 @@
 # Vendia — Plan de arquitectura y Fase 1
 
-> Estado: **aprobado. Fase 1 en curso.** Fecha: 2026-10-07.
+> Estado: **Fase 1 completada** (2026-10-08) — ver [FASE-1.md](FASE-1.md). Siguiente: Gastos + Fase 2 (Meta).
 >
 > **Enfoque acordado:** primero la **landing page** (imágenes + botones + botón fijo + formulario emergente) y que todo el flujo alrededor funcione perfecto: pedido, ubigeo, atribución, estados y seguridad. La **product page** queda para después (sección 8).
 
@@ -410,19 +410,19 @@ Estado: ✅ hecho · 🔄 en curso · ⬜ pendiente
 
 | # | Estado | Paso | Resultado |
 |---|---|---|---|
-| 0 | 🔄 | **Preparar entorno** | ✅ Git + GitHub conectados. ✅ Node.js 24 LTS instalado. ⬜ `.env.local` con las claves de Supabase (las pegas tú). ⬜ Vincular la CLI de Supabase |
-| 1 | ⬜ | **Esqueleto del proyecto** | Next.js + TS + Tailwind + shadcn + ESLint + Vitest + carpetas |
-| 2 | ⬜ | **Base de datos** | Migraciones de las tablas de la Fase 1, constraints, índices, **RLS**, función de transición de estados |
-| 3 | ⬜ | **Ubigeo** | Seed INEI (1,891) + 2 distritos provisionales + test de conteos e integridad |
-| 4 | ⬜ | **Autenticación** | Registro → creación de la tienda (onboarding), login, logout, recuperar contraseña, middleware que protege rutas |
-| 5 | ⬜ | **Dashboard base** | Sidebar con las 10 secciones (las de fases futuras dicen "Próximamente"), métricas básicas de pedidos y filtros de fecha |
-| 6 | ⬜ | **Productos** | CRUD; imágenes con drag & drop, preview, principal, orden y borrado; compresión a WebP de 1600 px antes de subir |
-| 6b | ⬜ | **Ofertas por cantidad** | Paquetes por producto (1, 2, 3 unidades) con precio, precio tachado, etiqueta e imagen |
-| 7 | ⬜ | **Constructor de landing** | Dos pestañas: **Página** y **Formulario**, ambas con bloques. Página: **imagen a todo el ancho**, botón, carrusel, marquee, testimonios y los demás del documento, más el **botón fijo**. Formulario: **imagen**, ofertas, campos, resumen y botón confirmar; agregar/eliminar/duplicar/ordenar/editar, colores y tipografía, vista previa móvil, guardar borrador y publicar |
-| 8 | ⬜ | **Landing pública + formulario COD** | Renderizado rápido (SSR + caché), mobile-first, Open Graph; formulario **emergente o incrustado** con selector de ofertas; ubigeo con búsqueda de distrito; cálculo de total, adelanto y saldo; captura de atribución; página de gracias |
-| 9 | ⬜ | **Pedidos y clientes** | Tabla con filtros, detalle, cambio de estado con historial, marca de duplicados, CRM básico con historial del cliente |
-| 10 | ⬜ | **Configuración** | Datos de la tienda y configuración COD |
-| 11 | ⬜ | **Cierre** | Tests de RLS (un usuario no ve otra tienda), creación de pedido, idempotencia, precios manipulados, ubigeo inválido; build; despliegue en Vercel |
+| 0 | ✅ | **Preparar entorno** | Git + GitHub, Node.js 24 LTS, `.env.local` con claves de Supabase, tablas creadas (SQL Editor) |
+| 1 | ✅ | **Esqueleto del proyecto** | Next.js + TS + Tailwind + shadcn + ESLint + Vitest + carpetas |
+| 2 | ✅ | **Base de datos** | Migraciones de las tablas de la Fase 1, constraints, índices, **RLS**, función de transición de estados |
+| 3 | ✅ | **Ubigeo** | Seed INEI (1,891) + 2 distritos provisionales + test de conteos e integridad |
+| 4 | ✅ | **Autenticación** | Registro → creación de la tienda (onboarding), login, logout, recuperar contraseña, middleware que protege rutas |
+| 5 | ✅ | **Dashboard base** | Sidebar con las 10 secciones (las de fases futuras dicen "Próximamente"), métricas básicas de pedidos y filtros de fecha |
+| 6 | ✅ | **Productos** | CRUD; imágenes con drag & drop, preview, principal, orden y borrado; compresión a WebP de 1600 px antes de subir |
+| 6b | ✅ | **Ofertas por cantidad** | Paquetes por producto (1, 2, 3 unidades) con precio, precio tachado, etiqueta e imagen |
+| 7 | ✅ | **Constructor de landing** | Dos pestañas: **Página** y **Formulario**, ambas con bloques. Página: **imagen a todo el ancho**, botón, carrusel, marquee, testimonios y los demás del documento, más el **botón fijo**. Formulario: **imagen**, ofertas, campos, resumen y botón confirmar; agregar/eliminar/duplicar/ordenar/editar, colores y tipografía, vista previa móvil, guardar borrador y publicar |
+| 8 | ✅ | **Landing pública + formulario COD** | Renderizado rápido (SSR + caché), mobile-first, Open Graph; formulario **emergente o incrustado** con selector de ofertas; ubigeo con búsqueda de distrito; cálculo de total, adelanto y saldo; captura de atribución; página de gracias |
+| 9 | ✅ | **Pedidos y clientes** | Tabla con filtros, detalle, cambio de estado con historial, marca de duplicados, CRM básico con historial del cliente |
+| 10 | ✅ | **Configuración** | Datos de la tienda y configuración COD |
+| 11 | ✅ | **Cierre** | Tests de RLS (un usuario no ve otra tienda), creación de pedido, idempotencia, precios manipulados, ubigeo inválido; build; despliegue en Vercel |
 
 **Tests de la Fase 1:**
 

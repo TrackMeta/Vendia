@@ -5,7 +5,7 @@ import { notFound } from "next/navigation";
 import { OrderStatusBadge } from "@/components/dashboard/status-badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { requireStore } from "@/lib/auth";
-import { displayPeruPhone, formatDateTime, formatMoney } from "@/lib/format";
+import { displayPeruPhone, formatDateTime, formatMoney, one } from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
 import { ORDER_STATUS_LABELS, type OrderStatus } from "@/modules/orders/state-machine";
 import { OrderDetailsForm } from "./details-form";
@@ -38,11 +38,11 @@ export default async function OrderDetailPage({ params }: PageProps<"/dashboard/
   if (!order) notFound();
 
   const items = order.order_items as { id: string; product_name: string; offer_name: string | null; quantity: number; line_price: number; unit_cost: number }[];
-  const attr = order.order_attribution as Record<string, string | null> | null;
+  const attr = one(order.order_attribution as Record<string, string | null>[]);
   const history = [...(order.order_status_history as { id: number; from_status: string | null; to_status: string; source: string; note: string | null; created_at: string }[])].sort(
     (a, b) => b.id - a.id,
   );
-  const landing = order.landing_pages as { title: string; slug: string } | null;
+  const landing = one(order.landing_pages as { title: string; slug: string }[]);
   const firstName = String(order.customer_name).split(" ")[0];
   const item = items[0];
   const waText = encodeURIComponent(

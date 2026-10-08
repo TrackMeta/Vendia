@@ -80,6 +80,7 @@ export default async function OrderDetailPage({ params }: PageProps<"/dashboard/
     unit_cost: number;
     product_id: string | null;
     offer_id: string | null;
+    kind: "main" | "bump" | "upsell";
   }[];
   const attr = one(order.order_attribution as Record<string, string | null>[]);
   const history = [...(order.order_status_history as { id: number; from_status: string | null; to_status: string; source: string; note: string | null; created_at: string }[])].sort(
@@ -211,6 +212,7 @@ export default async function OrderDetailPage({ params }: PageProps<"/dashboard/
                   <span className="text-sm text-muted-foreground">
                     {displayPeruPhone(order.customer_phone)}
                     {order.dni ? ` · DNI ${order.dni}` : ""}
+                    {order.customer_email ? ` · ${order.customer_email}` : ""}
                   </span>
                 </div>
                 <a
@@ -243,6 +245,8 @@ export default async function OrderDetailPage({ params }: PageProps<"/dashboard/
                 <div key={i.id} className="flex justify-between gap-4 border-b py-2 text-sm last:border-b-0">
                   <span>
                     <span className="font-medium">{i.product_name}</span>
+                    {i.kind === "bump" ? <SimpleBadge tone="info">Adicional del formulario</SimpleBadge> : null}
+                    {i.kind === "upsell" ? <SimpleBadge tone="success">Agregado en gracias</SimpleBadge> : null}
                     {i.offer_name ? <span className="text-muted-foreground"> · {i.offer_name}</span> : null}
                     <span className="text-muted-foreground"> · {i.quantity} u.</span>
                   </span>

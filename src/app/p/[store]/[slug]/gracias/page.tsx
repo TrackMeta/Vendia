@@ -2,16 +2,20 @@ import { CheckCircle2, MessageCircle } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { normalizeContent } from "@/modules/landing/defaults";
 import { getPublicLanding } from "@/modules/landing/public-data";
+import { UpsellOffer } from "./upsell-offer";
 
 export const metadata: Metadata = { title: { absolute: "¡Pedido recibido!" }, robots: { index: false } };
 
 export default async function ThankYouPage({ params, searchParams }: PageProps<"/p/[store]/[slug]/gracias">) {
   const { store, slug } = await params;
-  const { pedido } = await searchParams;
+  const { pedido, o } = await searchParams;
   const landing = await getPublicLanding(store, slug);
   if (!landing) notFound();
 
+  const orderId = typeof o === "string" && /^[0-9a-f-]{36}$/i.test(o) ? o : null;
+  const upsell = normalizeContent(landing.landing.content).thank_you_upsell;
   const orderNumber = typeof pedido === "string" && /^\d{1,10}$/.test(pedido) ? pedido : null;
   const whatsapp = landing.store.whatsapp?.replace(/\D/g, "");
   const waNumber = whatsapp ? (whatsapp.length === 9 ? `51${whatsapp}` : whatsapp) : null;
@@ -26,6 +30,7 @@ export default async function ThankYouPage({ params, searchParams }: PageProps<"
         <h1 className="text-2xl font-extrabold text-zinc-900">¡Pedido recibido!</h1>
         {orderNumber ? <p className="text-sm text-zinc-500">Número de pedido: #{orderNumber}</p> : null}
         <p className="whitespace-pre-line text-base text-zinc-700">{landing.store.confirmation_message}</p>
+        {upsell.enabled && orderId ? <UpsellOffer upsell={upsell} orderId={orderId} landingId={landing.landing.id} /> : null}
         {waNumber ? (
           <a
             href={`https://wa.me/${waNumber}?text=${waText}`}

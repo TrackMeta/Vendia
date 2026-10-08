@@ -6,6 +6,7 @@ import { CSS } from "@dnd-kit/utilities";
 import {
   ArrowLeft,
   Copy,
+  CopyPlus,
   ExternalLink,
   Eye,
   GripVertical,
@@ -49,8 +50,10 @@ import {
   type PageBlockType,
 } from "@/modules/landing/schema";
 import type { LandingRenderData, PublicOffer } from "@/modules/landing/types";
-import { deleteLanding, duplicateLanding, publishLanding, saveLanding, unpublishLanding } from "../actions";
+import { ImageDropzone } from "@/components/dashboard/image-dropzone";
+import { deleteLanding, duplicateLanding, getLandingBlocks, type LandingSettings, publishLanding, saveLanding, unpublishLanding } from "../actions";
 import { FormBlockInspector, PageBlockInspector } from "./block-inspector";
+import { SalesPanel } from "./sales-panel";
 import { ColorField, SelectField, TextField, ToggleField } from "@/components/dashboard/fields";
 
 type AnyBlock = PageBlock | FormBlock;
@@ -207,8 +210,9 @@ const ADDABLE_PAGE_BLOCKS: PageBlockType[] = [
   "faq",
   "divider",
   "embedded_form",
+  "product_hero",
 ];
-const ADDABLE_FORM_BLOCKS: FormBlockType[] = ["form_image", "form_text", "form_summary"];
+const ADDABLE_FORM_BLOCKS: FormBlockType[] = ["form_image", "form_text", "form_summary", "form_bumps"];
 
 export function LandingBuilder({
   landing,
@@ -218,12 +222,25 @@ export function LandingBuilder({
   products,
   offersByProduct,
   pricing,
+  otherLandings,
+  storeWhatsapp,
 }: {
-  landing: { id: string; title: string; slug: string; product_id: string; status: "draft" | "published"; content: LandingContent; hasUnpublishedChanges: boolean };
+  landing: {
+    id: string;
+    title: string;
+    slug: string;
+    product_id: string;
+    status: "draft" | "published";
+    content: LandingContent;
+    settings: LandingSettings;
+    hasUnpublishedChanges: boolean;
+  };
+  otherLandings: { id: string; title: string; slug: string; status: string }[];
+  storeWhatsapp: string | null;
   storeId: string;
   storeSlug: string;
   storeName: string;
-  products: { id: string; name: string; price: number; compare_at_price: number | null }[];
+  products: { id: string; name: string; price: number; compare_at_price: number | null; description: string | null; images: string[] }[];
   offersByProduct: Record<string, PublicOffer[]>;
   pricing: { shippingLima: number; shippingProvince: number; advance: number };
 }) {
@@ -235,7 +252,9 @@ export function LandingBuilder({
   const [status, setStatus] = useState(landing.status);
   const [dirty, setDirty] = useState(false);
   const [pendingChanges, setPendingChanges] = useState(landing.hasUnpublishedChanges);
-  const [tab, setTab] = useState<"page" | "form" | "style">("page");
+  const [tab, setTab] = useState<"page" | "form" | "sales" | "style">("page");
+  const [settings, setSettings] = useState<LandingSettings>(landing.settings);
+  const [copyFrom, setCopyFrom] = useState<null | { landingId: string; blocks: PageBlock[] | null; picked: string[] }>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [adding, setAdding] = useState<null | "page" | "form">(null);
   const [saving, startSaving] = useTransition();
@@ -251,7 +270,7 @@ export function LandingBuilder({
   const selectedForm = content.form_blocks.find((b) => b.id === selectedId) ?? null;
   const product = products.find((p) => p.id === productId) ?? products[0];
   const publicPath = `/p/${storeSlug}/${slug}`;
-  const ctx = { storeId, folder: `landings/${landing.id}` };
+  const ctx = { storeId, folder: `landings/${landing.id}`, products };
 
   const renderData: LandingRenderData = useMemo(
     () => ({
@@ -260,18 +279,25 @@ export function LandingBuilder({
       storeSlug,
       landingSlug: slug,
       content,
-      product: { name: product?.name ?? "", price: product?.price ?? 0, compare_at_price: product?.compare_at_price ?? null },
+      product: {
+        name: product?.name ?? "",
+        price: product?.price ?? 0,
+        compare_at_price: product?.compare_at_price ?? null,
+        description: product?.description ?? null,
+        images: product?.images ?? [],
+      },
+      whatsapp: storeWhatsapp,
       offers: offersByProduct[productId] ?? [],
       shipping: { lima: pricing.shippingLima, province: pricing.shippingProvince },
       advanceAmount: pricing.advance,
     }),
-    [content, product, productId, offersByProduct, pricing, slug, storeName, storeSlug],
+    [content, product, productId, offersByProduct, pricing, slug, storeName, storeSlug, storeWhatsapp],
   );
 
   const save = useCallback(
     (then?: () => void) =>
       startSaving(async () => {
-        const result = await saveLanding(landing.id, { title, slug, product_id: productId, content });
+        const result = await saveLanding(landing.id, { title, slug, product_id: productId, content, settings });
         if (!result.ok) {
           toast.error(result.error);
           return;
@@ -280,7 +306,7 @@ export function LandingBuilder({
         if (then) then();
         else toast.success(result.message ?? "Guardado");
       }),
-    [content, landing.id, productId, slug, title],
+    [content, landing.id, productId, slug, title, settings],
   );
 
   const publish = () =>
@@ -331,6 +357,37 @@ export function LandingBuilder({
     });
     setSelectedId(block.id);
     setAdding(null);
+  };
+
+  /** Varias imágenes de una vez: un bloque de imagen por cada una, en orden. */
+  const addImageBlocks = (paths: string[]) => {
+    const blocks = paths.map((src) => ({ ...(createPageBlock("image") as Extract<PageBlock, { type: "image" }>), src }));
+    update((c) => {
+      const index = c.page_blocks.findIndex((b) => b.id === selectedId);
+      const next = [...c.page_blocks];
+      next.splice(index === -1 ? next.length : index + 1, 0, ...blocks);
+      return { ...c, page_blocks: next };
+    });
+    toast.success(`${blocks.length} bloque(s) de imagen agregados`);
+  };
+
+  const openCopy = async (landingId: string) => {
+    setCopyFrom({ landingId, blocks: null, picked: [] });
+    const r = await getLandingBlocks(landingId);
+    if (!r.ok) {
+      toast.error(r.error);
+      setCopyFrom(null);
+      return;
+    }
+    setCopyFrom({ landingId, blocks: r.blocks, picked: [] });
+  };
+
+  const pasteBlocks = () => {
+    if (!copyFrom?.blocks) return;
+    const copies = copyFrom.blocks.filter((b) => copyFrom.picked.includes(b.id)).map((b) => ({ ...structuredClone(b), id: newBlockId() }));
+    update((c) => ({ ...c, page_blocks: [...c.page_blocks, ...copies].slice(0, 80) }));
+    toast.success(`${copies.length} bloque(s) copiados al final`);
+    setCopyFrom(null);
   };
 
   const addFormBlock = (type: FormBlockType) => {
@@ -422,6 +479,7 @@ export function LandingBuilder({
               <TabsList className="w-full">
                 <TabsTrigger value="page">Página</TabsTrigger>
                 <TabsTrigger value="form">Formulario</TabsTrigger>
+                <TabsTrigger value="sales">Ventas</TabsTrigger>
                 <TabsTrigger value="style">Estilo</TabsTrigger>
               </TabsList>
             </div>
@@ -455,6 +513,31 @@ export function LandingBuilder({
                 onSelect={setSelectedId}
                 onChange={(page_blocks) => update((c) => ({ ...c, page_blocks }))}
               />
+              <ImageDropzone
+                compact
+                storeId={storeId}
+                folder={ctx.folder}
+                label="Subir varias imágenes (o GIF) de una vez: se crea un bloque por cada una"
+                onUploaded={(imgs) => addImageBlocks(imgs.map((i) => i.path))}
+              />
+              {otherLandings.length ? (
+                <div className="flex items-center gap-2">
+                  <CopyPlus className="size-4 text-muted-foreground" />
+                  <select
+                    value=""
+                    onChange={(e) => e.target.value && void openCopy(e.target.value)}
+                    className="h-8 flex-1 rounded-lg border border-input bg-transparent px-2 text-sm"
+                    aria-label="Copiar bloques de otra landing"
+                  >
+                    <option value="">Copiar bloques de otra landing…</option>
+                    {otherLandings.map((l) => (
+                      <option key={l.id} value={l.id}>
+                        {l.title}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              ) : null}
               <div className="flex flex-col gap-3 rounded-lg border p-3">
                 <ToggleField
                   label="Botón fijo abajo"
@@ -527,6 +610,22 @@ export function LandingBuilder({
                   Este producto no tiene ofertas activas. Agrégalas en el producto para poder publicar.
                 </p>
               ) : null}
+            </TabsContent>
+
+            <TabsContent value="sales" className="flex flex-col gap-4 p-4">
+              <SalesPanel
+                content={content}
+                update={update}
+                settings={settings}
+                onSettings={(s) => {
+                  setSettings(s);
+                  setDirty(true);
+                }}
+                landingId={landing.id}
+                otherLandings={otherLandings}
+                storeWhatsapp={storeWhatsapp}
+                ctx={ctx}
+              />
             </TabsContent>
 
             <TabsContent value="style" className="flex flex-col gap-4 p-4">
@@ -602,17 +701,70 @@ export function LandingBuilder({
             <DialogTitle>Agregar bloque {adding === "form" ? "al formulario" : "a la página"}</DialogTitle>
           </DialogHeader>
           <div className="grid grid-cols-2 gap-2">
-            {adding === "page"
-              ? ADDABLE_PAGE_BLOCKS.map((type) => (
+            {adding === "page" ? (
+              <>
+                {ADDABLE_PAGE_BLOCKS.map((type) => (
                   <button key={type} type="button" onClick={() => addPageBlock(type)} className="rounded-lg border p-3 text-left text-sm font-medium hover:bg-muted">
                     {PAGE_BLOCK_LABELS[type]}
                   </button>
-                ))
-              : ADDABLE_FORM_BLOCKS.map((type) => (
+                ))}
+                <span className="rounded-lg border border-dashed p-3 text-left text-sm text-muted-foreground">
+                  Video <span className="block text-xs">Próximamente · por ahora usa un GIF en un bloque de imagen</span>
+                </span>
+              </>
+            ) : (
+              ADDABLE_FORM_BLOCKS.filter((type) => type !== "form_bumps" || !content.form_blocks.some((b) => b.type === "form_bumps")).map((type) => (
                   <button key={type} type="button" onClick={() => addFormBlock(type)} className="rounded-lg border p-3 text-left text-sm font-medium hover:bg-muted">
                     {FORM_BLOCK_LABELS[type]}
                   </button>
-                ))}
+                ))
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={copyFrom !== null} onOpenChange={(open) => !open && setCopyFrom(null)}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Copiar bloques de «{otherLandings.find((l) => l.id === copyFrom?.landingId)?.title}»</DialogTitle>
+          </DialogHeader>
+          {!copyFrom?.blocks ? (
+            <p className="text-sm text-muted-foreground">Cargando bloques…</p>
+          ) : (
+            <div className="flex max-h-96 flex-col gap-1.5 overflow-y-auto">
+              {copyFrom.blocks.map((b) => {
+                const checked = copyFrom.picked.includes(b.id);
+                const thumb = blockThumb(b);
+                return (
+                  <label key={b.id} className="flex items-center gap-2 rounded-lg border px-2 py-1.5 text-sm">
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      onChange={() =>
+                        setCopyFrom((s) => (s ? { ...s, picked: checked ? s.picked.filter((x) => x !== b.id) : [...s.picked, b.id] } : s))
+                      }
+                      className="size-4"
+                    />
+                    {thumb ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={thumb} alt="" className="size-8 rounded object-cover" />
+                    ) : null}
+                    <span className="flex min-w-0 flex-col">
+                      <span className="font-medium">{PAGE_BLOCK_LABELS[b.type]}</span>
+                      <span className="truncate text-xs text-muted-foreground">{blockSummary(b)}</span>
+                    </span>
+                  </label>
+                );
+              })}
+            </div>
+          )}
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => setCopyFrom(null)}>
+              Cancelar
+            </Button>
+            <Button disabled={!copyFrom?.picked.length} onClick={pasteBlocks}>
+              Copiar {copyFrom?.picked.length || ""} bloque(s)
+            </Button>
           </div>
         </DialogContent>
       </Dialog>

@@ -2,6 +2,7 @@ import "server-only";
 import { createClient } from "@supabase/supabase-js";
 import { unstable_cache } from "next/cache";
 import { env } from "@/lib/env";
+import { normalizeContent } from "./defaults";
 import type { LandingRenderData, PublicLanding } from "./types";
 
 export function landingCacheTag(storeSlug: string, slug: string) {
@@ -36,9 +37,12 @@ export function toRenderData(landing: PublicLanding): LandingRenderData {
     storeName: landing.store.name,
     storeSlug: landing.store.slug,
     landingSlug: landing.landing.slug,
-    content: landing.landing.content,
+    content: normalizeContent(landing.landing.content),
+    whatsapp: landing.store.whatsapp,
     product: {
       name: landing.product.name,
+      description: landing.product.description,
+      images: landing.product.images.map((i) => i.path),
       price: Number(landing.product.price),
       compare_at_price: landing.product.compare_at_price === null ? null : Number(landing.product.compare_at_price),
     },

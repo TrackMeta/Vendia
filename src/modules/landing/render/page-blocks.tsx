@@ -307,3 +307,110 @@ export function DividerBlockView({ block }: BlockProps<"divider">) {
     </div>
   );
 }
+
+/** Cabecera de product page: galería, nombre, precio, ofertas y botón de compra. */
+export function ProductHeroBlockView({
+  block,
+  onOrder,
+  product,
+  offers,
+  selectedOfferId,
+  onSelectOffer,
+}: BlockProps<"product_hero"> & {
+  product: { name: string; price: number; compare_at_price: number | null; description?: string | null; images?: string[] };
+  offers: { id: string; name: string; price: number; compare_at_price: number | null; badge: string | null; is_default: boolean }[];
+  selectedOfferId: string | null;
+  onSelectOffer: (id: string) => void;
+}) {
+  const images = (product.images ?? []).map((p) => publicAssetUrl(p)).filter((x): x is string => Boolean(x));
+  const [index, setIndex] = useState(0);
+  const offer = offers.find((o) => o.id === selectedOfferId) ?? offers.find((o) => o.is_default) ?? offers[0];
+  const price = offer?.price ?? product.price;
+  const compareAt = offer?.compare_at_price ?? product.compare_at_price;
+  const discount = compareAt && compareAt > price ? Math.round((1 - price / compareAt) * 100) : null;
+
+  return (
+    <div className="flex flex-col gap-3 bg-white pb-4">
+      <div className="relative">
+        {images.length ? (
+          // eslint-disable-next-line @next/next/no-img-element -- imágenes ya optimizadas (WebP) en Supabase Storage
+          <img src={images[Math.min(index, images.length - 1)]} alt={product.name} className="block aspect-square w-full object-cover" fetchPriority="high" />
+        ) : (
+          <Placeholder label="Sube fotos al producto para la galería" />
+        )}
+        {block.badge || discount ? (
+          <span className="absolute top-3 left-3 rounded-full bg-red-600 px-2.5 py-1 text-xs font-bold text-white">
+            {block.badge || ""}
+            {block.badge && discount ? " · " : ""}
+            {discount ? `-${discount}%` : ""}
+          </span>
+        ) : null}
+      </div>
+      {images.length > 1 ? (
+        <div className="flex gap-2 overflow-x-auto px-4 [scrollbar-width:none]">
+          {images.map((src, i) => (
+            <button
+              key={src}
+              type="button"
+              onClick={() => setIndex(i)}
+              className={`size-16 shrink-0 overflow-hidden rounded-lg border-2 ${i === index ? "border-zinc-900" : "border-transparent"}`}
+              aria-label={`Foto ${i + 1}`}
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={src} alt="" className="size-full object-cover" loading="lazy" />
+            </button>
+          ))}
+        </div>
+      ) : null}
+      <div className="flex flex-col gap-1 px-4">
+        <h1 className="text-xl leading-tight font-extrabold text-zinc-900">{product.name}</h1>
+        <div className="flex items-baseline gap-2">
+          <span className="text-2xl font-black text-zinc-900">{formatMoney(price)}</span>
+          {compareAt && compareAt > price ? <span className="text-base text-zinc-400 line-through">{formatMoney(compareAt)}</span> : null}
+        </div>
+      </div>
+      {offers.length > 1 ? (
+        <div className="flex flex-col gap-2 px-4">
+          {offers.map((o) => (
+            <button
+              key={o.id}
+              type="button"
+              onClick={() => onSelectOffer(o.id)}
+              className={`flex items-center justify-between rounded-xl border-2 px-3 py-2 text-left text-sm ${o.id === offer?.id ? "border-zinc-900 bg-zinc-50" : "border-zinc-200"}`}
+            >
+              <span className="font-semibold text-zinc-900">
+                {o.name}
+                {o.badge ? <span className="ml-2 rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-bold text-amber-800 uppercase">{o.badge}</span> : null}
+              </span>
+              <span className="font-bold text-zinc-900">{formatMoney(o.price)}</span>
+            </button>
+          ))}
+        </div>
+      ) : null}
+      <div className="px-4">
+        <OrderButton text={block.buttonText} subtext={block.buttonSubtext} bg={block.bg} color={block.color} pulse onClick={onOrder} />
+      </div>
+      {block.showDescription && product.description ? <p className="px-4 text-sm whitespace-pre-line text-zinc-600">{product.description}</p> : null}
+    </div>
+  );
+}
+
+/** Botón flotante de WhatsApp (abajo a la derecha). */
+export function WhatsappFloat({ phone, message, size, raised }: { phone: string; message: string; size: number; raised: boolean }) {
+  const digits = phone.replace(/\D/g, "");
+  const number = digits.length === 9 ? `51${digits}` : digits;
+  return (
+    <a
+      href={`https://wa.me/${number}?text=${encodeURIComponent(message)}`}
+      target="_blank"
+      rel="noopener noreferrer"
+      aria-label="Escríbenos por WhatsApp"
+      className="fixed right-3 z-40 flex items-center justify-center rounded-full bg-[#25D366] text-white shadow-lg transition-transform active:scale-95"
+      style={{ width: size, height: size, bottom: raised ? 96 : 16 }}
+    >
+      <svg viewBox="0 0 24 24" fill="currentColor" style={{ width: size * 0.55, height: size * 0.55 }} aria-hidden="true">
+        <path d="M17.47 14.38c-.3-.15-1.76-.87-2.03-.97-.27-.1-.47-.15-.67.15-.2.3-.77.97-.94 1.17-.17.2-.35.22-.64.07-.3-.15-1.26-.46-2.4-1.48-.89-.79-1.49-1.77-1.66-2.07-.17-.3-.02-.46.13-.61.13-.13.3-.35.45-.52.15-.17.2-.3.3-.5.1-.2.05-.37-.03-.52-.07-.15-.67-1.62-.92-2.22-.24-.58-.49-.5-.67-.51h-.57c-.2 0-.52.07-.79.37-.27.3-1.04 1.02-1.04 2.48 0 1.46 1.07 2.88 1.21 3.08.15.2 2.1 3.2 5.08 4.49.71.31 1.26.49 1.69.63.71.22 1.36.19 1.87.12.57-.09 1.76-.72 2.01-1.41.25-.69.25-1.29.17-1.41-.07-.12-.27-.2-.57-.35M12.05 21.79h-.01a9.87 9.87 0 0 1-5.03-1.38l-.36-.21-3.74.98 1-3.65-.24-.37a9.86 9.86 0 0 1-1.51-5.26c0-5.45 4.44-9.88 9.9-9.88a9.83 9.83 0 0 1 6.99 2.9 9.82 9.82 0 0 1 2.89 6.99c0 5.45-4.44 9.88-9.89 9.88m8.41-18.3A11.82 11.82 0 0 0 12.05 0C5.5 0 .16 5.34.16 11.89c0 2.1.55 4.14 1.59 5.95L.06 24l6.31-1.65a11.88 11.88 0 0 0 5.68 1.45h.01c6.55 0 11.89-5.34 11.89-11.89 0-3.18-1.24-6.16-3.49-8.41" />
+      </svg>
+    </a>
+  );
+}

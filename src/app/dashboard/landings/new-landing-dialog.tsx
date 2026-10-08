@@ -8,6 +8,8 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { slugify } from "@/lib/format";
+import { cn } from "@/lib/utils";
+import { TEMPLATES, type TemplateKey } from "@/modules/landing/defaults";
 import { createLanding } from "./actions";
 
 export function NewLandingDialog({
@@ -23,6 +25,7 @@ export function NewLandingDialog({
   const [title, setTitle] = useState(initialProduct?.name ?? "");
   const [slug, setSlug] = useState(slugify(initialProduct?.name ?? ""));
   const [slugTouched, setSlugTouched] = useState(false);
+  const [template, setTemplate] = useState<TemplateKey>("clasica");
   const [state, action, pending] = useActionState(createLanding, undefined);
 
   useEffect(() => {
@@ -40,9 +43,23 @@ export function NewLandingDialog({
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Nueva landing</DialogTitle>
-            <DialogDescription>Se crea con la plantilla «Landing COD clásica» usando las imágenes del producto.</DialogDescription>
+            <DialogDescription>Elige una plantilla: se arma con las imágenes del producto y luego la editas a tu gusto.</DialogDescription>
           </DialogHeader>
           <form action={action} className="flex flex-col gap-4">
+            <input type="hidden" name="template" value={template} />
+            <div className="grid grid-cols-2 gap-2">
+              {(Object.keys(TEMPLATES) as TemplateKey[]).map((key) => (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => setTemplate(key)}
+                  className={cn("flex flex-col gap-0.5 rounded-lg border p-2.5 text-left", template === key ? "border-primary bg-primary/5 ring-2 ring-primary/20" : "hover:bg-muted")}
+                >
+                  <span className="text-sm font-medium">{TEMPLATES[key].label}</span>
+                  <span className="text-xs text-muted-foreground">{TEMPLATES[key].description}</span>
+                </button>
+              ))}
+            </div>
             <div className="flex flex-col gap-2">
               <Label htmlFor="product_id">Producto</Label>
               <select

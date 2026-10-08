@@ -1,10 +1,11 @@
 "use client";
 
-import { CheckCircle2, Loader2 } from "lucide-react";
+import { Check, CheckCircle2, Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { publicAssetUrl } from "@/lib/env";
 import { formatMoney } from "@/lib/format";
+import { sessionId } from "@/modules/analytics/track";
 import { readAttribution } from "@/modules/attribution/capture";
 import { trackPixel } from "@/modules/meta/pixel";
 import { zoneOf } from "@/modules/orders/contact";
@@ -36,14 +37,22 @@ function newIdempotencyKey() {
     : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
 }
 
-export function CodForm({ data, preview }: { data: LandingRenderData; preview: boolean }) {
+export const PRIVACY_NOTICE =
+  "Usamos tus datos solo para coordinar tu pedido por llamada o WhatsApp. Si no terminas tu pedido, podemos escribirte para ayudarte.";
+
+const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
+
+export function CodForm({ data, preview, preferredOfferId }: { data: LandingRenderData; preview: boolean; preferredOfferId?: string | null }) {
   const router = useRouter();
   const { content, offers } = data;
   const fieldsBlock = content.form_blocks.find((b) => b.type === "form_fields") as
     | Extract<FormBlock, { type: "form_fields" }>
     | undefined;
 
-  const [offerId, setOfferId] = useState(() => (offers.find((o) => o.is_default) ?? offers[0])?.id ?? "");
+  const bumpsBlock = content.form_blocks.find((b) => b.type === "form_bumps") as Extract<FormBlock, { type: "form_bumps" }> | undefined;
+  const [offerId, setOfferId] = useState(() => (offers.find((o) => o.id === preferredOfferId) ?? offers.find((o) => o.is_default) ?? offers[0])?.id ?? "");
+  const [bumpIds, setBumpIds] = useState<string[]>(() => (bumpsBlock?.items ?? []).filter((i) => i.preChecked).map((i) => i.id));
+  const [email, setEmail] = useState("");
   const [fullName, setFullName] = useState("");
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
@@ -61,7 +70,9 @@ export function CodForm({ data, preview }: { data: LandingRenderData; preview: b
 
   const offer = offers.find((o) => o.id === offerId);
   const shipping = shippingFor(ubigeo.province || null, data.shipping);
-  const subtotal = offer?.price ?? 0;
+  const bumpItems = (bumpsBlock?.items ?? []).filter((i) => bumpIds.includes(i.id));
+  const bumpTotal = bumpItems.reduce((s, i) => s + i.price, 0);
+  const subtotal = (offer?.price ?? 0) + bumpTotal;
   const total = subtotal + (shipping ?? 0);
   // Provincia: adelanto y DNI (para recoger en la agencia). Lima: contraentrega pura.
   const provincia = ubigeo.province ? zoneOf(ubigeo.province) === "provincia" : false;
@@ -78,8 +89,45 @@ export function CodForm({ data, preview }: { data: LandingRenderData; preview: b
     if (fieldsBlock?.requireReference && reference.trim().length < 3) return "Ingresa una referencia de tu dirección";
     if (provincia && !/^\d{8}$/.test(dni)) return "Ingresa tu DNI (8 dígitos): lo pide la agencia para entregarte";
     if (dni && !/^\d{8}$/.test(dni)) return "El DNI debe tener 8 dígitos";
+    if (email.trim() && !EMAIL_RE.test(email.trim())) return "Revisa tu correo";
     return null;
   })();
+
+  // Formulario abandonado: si deja su celular y no termina, el vendedor puede escribirle.
+  const submitted = useRef(false);
+  const lastSent = useRef("");
+  const phoneDigits = phone.replace(/\D/g, "");
+  const typedName = fieldsBlock?.singleNameField ? fullName : `${firstName} ${lastName}`;
+  const abandonPayload = JSON.stringify({
+    landing_page_id: data.landingId,
+    name: typedName.trim().slice(0, 160),
+    phone: phoneDigits,
+    email: email.trim() || undefined,
+    district_code: ubigeo.district || undefined,
+    offer_id: offerId || undefined,
+  });
+  useEffect(() => {
+    if (preview || !data.landingId || phoneDigits.length !== 9) return;
+    const send = () => {
+      if (submitted.current || lastSent.current === abandonPayload) return;
+      lastSent.current = abandonPayload;
+      try {
+        const body = JSON.stringify({ ...JSON.parse(abandonPayload), session_id: sessionId() });
+        navigator.sendBeacon?.("/api/abandoned", new Blob([body], { type: "application/json" }));
+      } catch {
+        // si falla no pasa nada: es solo un respaldo
+      }
+    };
+    const timer = setTimeout(send, 20_000);
+    const onHide = () => {
+      if (document.visibilityState === "hidden") send();
+    };
+    document.addEventListener("visibilitychange", onHide);
+    return () => {
+      clearTimeout(timer);
+      document.removeEventListener("visibilitychange", onHide);
+    };
+  }, [abandonPayload, data.landingId, phoneDigits.length, preview]);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -93,6 +141,7 @@ export function CodForm({ data, preview }: { data: LandingRenderData; preview: b
     }
     setError(null);
     setSubmitting(true);
+    submitted.current = true;
     const names = fieldsBlock?.singleNameField ? splitFullName(fullName) : { first_name: firstName, last_name: lastName };
     try {
       const res = await fetch("/api/orders", {
@@ -106,6 +155,8 @@ export function CodForm({ data, preview }: { data: LandingRenderData; preview: b
           phone,
           whatsapp: whatsapp || undefined,
           dni: dni || undefined,
+          email: email.trim() || undefined,
+          bumps: bumpIds,
           district_code: ubigeo.district,
           address,
           reference: reference || undefined,
@@ -118,14 +169,16 @@ export function CodForm({ data, preview }: { data: LandingRenderData; preview: b
       if (!res.ok) {
         setError(json.error ?? "No pudimos registrar tu pedido. Inténtalo de nuevo.");
         setSubmitting(false);
+        submitted.current = false;
         return;
       }
       // Lead con el MISMO eventID que el servidor envía por Conversions API → Meta deduplica
       trackPixel("Lead", { value: json.total, currency: "PEN", content_ids: data.productId ? [data.productId] : [] }, json.leadEventId);
-      router.push(`/p/${data.storeSlug}/${data.landingSlug}/gracias?pedido=${json.orderNumber}`);
+      router.push(`/p/${data.storeSlug}/${data.landingSlug}/gracias?pedido=${json.orderNumber}&o=${json.orderId}`);
     } catch {
       setError("Revisa tu conexión a internet e inténtalo de nuevo.");
       setSubmitting(false);
+      submitted.current = false;
     }
   }
 
@@ -244,20 +297,83 @@ export function CodForm({ data, preview }: { data: LandingRenderData; preview: b
                 <Field label="Referencia" required={block.requireReference}>
                   <input className={inputClass} value={reference} onChange={(e) => setReference(e.target.value)} placeholder="Frente al parque, casa verde" />
                 </Field>
+                {block.askEmail ? (
+                  <Field label="Correo (opcional)">
+                    <input
+                      className={inputClass}
+                      type="email"
+                      inputMode="email"
+                      autoComplete="email"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      placeholder="tucorreo@gmail.com"
+                    />
+                  </Field>
+                ) : null}
                 {block.askNotes ? (
                   <Field label="Observaciones">
                     <textarea className={`${inputClass} h-20 py-2`} value={notes} onChange={(e) => setNotes(e.target.value)} />
                   </Field>
                 ) : null}
+                <p className="text-[11px] leading-snug text-zinc-500">{PRIVACY_NOTICE}</p>
+              </div>
+            );
+          case "form_bumps":
+            return (
+              <div key={block.id} className="flex flex-col gap-2">
+                {block.title ? <p className="text-base font-bold text-zinc-900">{block.title}</p> : null}
+                {block.items.map((item) => {
+                  const checked = bumpIds.includes(item.id);
+                  const img = publicAssetUrl(item.image);
+                  return (
+                    <button
+                      type="button"
+                      key={item.id}
+                      onClick={() => setBumpIds((ids) => (checked ? ids.filter((x) => x !== item.id) : [...ids, item.id]))}
+                      aria-pressed={checked}
+                      style={{ backgroundColor: block.bg, borderColor: checked ? block.accent : undefined }}
+                      className="flex items-center gap-3 rounded-xl border-2 border-dashed border-zinc-300 p-2.5 text-left"
+                    >
+                      <span
+                        className="flex size-6 shrink-0 items-center justify-center rounded-md border-2"
+                        style={{ borderColor: block.accent, backgroundColor: checked ? block.accent : "#ffffff" }}
+                      >
+                        {checked ? <Check className="size-4 text-white" strokeWidth={3} /> : null}
+                      </span>
+                      {img ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={img} alt="" className="size-12 shrink-0 rounded-lg object-cover" />
+                      ) : null}
+                      <span className="flex min-w-0 flex-1 flex-col">
+                        <span className="font-bold text-zinc-900">{item.name}</span>
+                        {item.text ? (
+                          <span className="text-xs font-semibold" style={{ color: block.accent }}>
+                            {item.text}
+                          </span>
+                        ) : null}
+                      </span>
+                      <span className="flex flex-col items-end">
+                        {item.compareAt && item.compareAt > item.price ? <span className="text-xs text-zinc-400 line-through">{formatMoney(item.compareAt)}</span> : null}
+                        <span className="font-extrabold text-zinc-900">+{formatMoney(item.price)}</span>
+                      </span>
+                    </button>
+                  );
+                })}
               </div>
             );
           case "form_summary":
             return (
               <div key={block.id} className="flex flex-col gap-1.5 rounded-xl border border-zinc-200 bg-zinc-50 p-3 text-sm text-zinc-700">
                 <div className="flex justify-between">
-                  <span>Subtotal</span>
-                  <span className="font-semibold text-zinc-900">{formatMoney(subtotal)}</span>
+                  <span>{offer?.name ?? "Producto"}</span>
+                  <span className="font-semibold text-zinc-900">{formatMoney(offer?.price ?? 0)}</span>
                 </div>
+                {bumpItems.map((i) => (
+                  <div key={i.id} className="flex justify-between">
+                    <span>+ {i.name}</span>
+                    <span className="font-semibold text-zinc-900">{formatMoney(i.price)}</span>
+                  </div>
+                ))}
                 <div className="flex justify-between">
                   <span>Envío</span>
                   <span className="font-semibold text-zinc-900">
@@ -299,6 +415,7 @@ export function CodForm({ data, preview }: { data: LandingRenderData; preview: b
                   <span className="flex items-center gap-2 text-lg font-extrabold">
                     {submitting ? <Loader2 className="size-5 animate-spin" /> : null}
                     {submitting ? "Enviando…" : block.text}
+                    {!submitting && bumpTotal > 0 ? ` · ${formatMoney(total)}` : ""}
                   </span>
                   {block.subtext && !submitting ? <span className="text-xs font-medium opacity-90">{block.subtext}</span> : null}
                 </button>

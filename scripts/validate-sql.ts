@@ -295,6 +295,47 @@ async function main() {
   for (const level of ["campaign", "adset", "ad", "page"]) {
     await step(`get_performance (${level})`, `select public.get_performance(${range}, current_date - 1, current_date + 1, '${level}') -> 0`);
   }
+
+  // ── Bloque 5: landing y ventas ──
+  console.log("\nBloque 5:");
+  await step("stock libre", `update public.products set stock = null where id = '${productId}' returning id`);
+  await step(
+    "landing con order bump, upsell, ángulo y A/B",
+    `update public.landing_pages set
+       content = jsonb_set(jsonb_set(content, '{form_blocks}', coalesce(content -> 'form_blocks', '[]'::jsonb) || '[{"id":"bmp","type":"form_bumps","title":"Agrega","items":[{"id":"b1","name":"Crema","price":25,"cost":5},{"id":"b2","name":"Gorro","price":15}]}]'::jsonb),
+                        '{thank_you_upsell}', '{"enabled":true,"name":"Segunda faja","price":49,"cost":20}'::jsonb),
+       settings = jsonb_build_object('angle', 'Dolor de espalda', 'ab', jsonb_build_object('enabled', true, 'variants', jsonb_build_array(jsonb_build_object('landing_id', id, 'weight', 50))))
+     where id = '${landingId}' returning settings ->> 'angle'`,
+  );
+  await step("publicar", `select (public.publish_landing_page('${landingId}')).status`);
+  await step("landing pública trae A/B y ángulo", `select public.get_public_landing('smoke-store', 'faja') -> 'landing' -> 'ab_variants'`);
+  const withBump = (await step(
+    "pedido con bump (precio del servidor, no del navegador)",
+    `select public.create_cod_order('{"landing_page_id":"${landingId}","offer_id":"${offerId}","idempotency_key":"k8","first_name":"Bump","phone":"51977777777","district_code":"150101","address":"Calle 8","email":"Ana@Mail.com","bumps":["b1","no-existe"],"price":1}'::jsonb)`,
+  )) as { order_id: string };
+  await step("subtotal = oferta + bump", `select subtotal || ' / costo ' || product_cost_total || ' / ' || customer_email from public.orders where id = '${withBump.order_id}'`);
+  await step("ítems del pedido", `select string_agg(kind || ':' || product_name || ':' || line_price, ', ' order by kind) from public.order_items where order_id = '${withBump.order_id}'`);
+  await step("upsell en gracias", `select public.add_order_upsell('${withBump.order_id}', '${landingId}') -> 'total'`);
+  try {
+    await db.query(`select public.add_order_upsell('${withBump.order_id}', '${landingId}')`);
+    console.error("  ✗ upsell dos veces: debería fallar");
+    process.exit(1);
+  } catch {
+    console.log("  ✓ el upsell se agrega una sola vez");
+  }
+  await step("saldo actualizado", `select total || ' / saldo ' || balance_due from public.orders where id = '${withBump.order_id}'`);
+  await step(
+    "formulario abandonado",
+    `select public.upsert_abandoned_checkout('{"landing_page_id":"${landingId}","session_id":"sess-abandon-1","name":"Rosa","phone":"51988888888","district_code":"040101","offer_id":"${offerId}"}'::jsonb)`,
+  );
+  await step("abandonado guardado", `select status || ' · ' || province_name from public.abandoned_checkouts where phone = '51988888888'`);
+  await step(
+    "ese celular hace el pedido",
+    `select public.create_cod_order('{"landing_page_id":"${landingId}","offer_id":"${offerId}","idempotency_key":"k9","first_name":"Rosa","phone":"51988888888","district_code":"040101","address":"Calle 9","dni":"11112222"}'::jsonb) -> 'order_number'`,
+  );
+  await step("abandonado → recuperado", `select status from public.abandoned_checkouts where phone = '51988888888'`);
+  await step("rendimiento por ángulo", `select public.get_performance(${range}, current_date - 1, current_date + 1, 'angle') -> 0 -> 'key'`);
+  await step("purga de abandonados", `select public.purge_abandoned_checkouts()`);
   console.log("\nOK — prueba de humo completa");
 }
 

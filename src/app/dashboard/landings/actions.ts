@@ -5,9 +5,9 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { requireOwner } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
-import { createClassicTemplate } from "@/modules/landing/defaults";
+import { createTemplate, TEMPLATES, type TemplateKey } from "@/modules/landing/defaults";
 import { landingCacheTag } from "@/modules/landing/public-data";
-import { type LandingContent, landingContent } from "@/modules/landing/schema";
+import { type LandingContent, landingContent, type PageBlock } from "@/modules/landing/schema";
 
 export type ActionResult = { ok: true; message?: string } | { ok: false; error: string };
 
@@ -23,6 +23,7 @@ const createSchema = z.object({
   product_id: z.uuid("Elige un producto"),
   title: z.string().trim().min(1, "Ponle un título").max(160),
   slug: slugSchema,
+  template: z.enum(Object.keys(TEMPLATES) as [TemplateKey, ...TemplateKey[]]).default("clasica"),
 });
 
 export async function createLanding(_prev: ActionResult | undefined, formData: FormData): Promise<ActionResult> {
@@ -38,10 +39,11 @@ export async function createLanding(_prev: ActionResult | undefined, formData: F
     .eq("store_id", store.id)
     .order("position");
 
-  const content = createClassicTemplate((images ?? []).map((i) => i.storage_path));
+  const { template, ...fields } = parsed.data;
+  const content = createTemplate(template, (images ?? []).map((i) => i.storage_path));
   const { data, error } = await supabase
     .from("landing_pages")
-    .insert({ ...parsed.data, store_id: store.id, content })
+    .insert({ ...fields, store_id: store.id, content })
     .select("id")
     .single();
   if (error) {
@@ -61,13 +63,37 @@ function collectImagePaths(content: LandingContent): string[] {
     if (b.type === "carousel") paths.push(...b.images.map((i) => i.src));
     if (b.type === "testimonials") paths.push(...b.items.map((i) => i.avatar));
   }
-  for (const b of content.form_blocks) if (b.type === "form_image") paths.push(b.src);
+  for (const b of content.form_blocks) {
+    if (b.type === "form_image") paths.push(b.src);
+    if (b.type === "form_bumps") paths.push(...b.items.map((i) => i.image));
+  }
+  paths.push(content.thank_you_upsell.image);
   return paths.filter(Boolean);
 }
 
+/** Productos usados en adicionales y en la oferta de gracias (deben ser de la tienda). */
+function collectProductIds(content: LandingContent): string[] {
+  const ids: string[] = [];
+  for (const b of content.form_blocks) if (b.type === "form_bumps") ids.push(...b.items.map((i) => i.productId));
+  if (content.thank_you_upsell.enabled) ids.push(content.thank_you_upsell.productId);
+  return [...new Set(ids.filter(Boolean))];
+}
+
+/** Ángulo creativo y prueba A/B (se guardan en landing_pages.settings). */
+const settingsSchema = z.object({
+  angle: z.string().trim().max(60).default(""),
+  ab: z
+    .object({
+      enabled: z.boolean(),
+      variants: z.array(z.object({ landing_id: z.uuid(), weight: z.number().int().min(0).max(100) })).max(5),
+    })
+    .default({ enabled: false, variants: [] }),
+});
+export type LandingSettings = z.infer<typeof settingsSchema>;
+
 export async function saveLanding(
   landingId: string,
-  input: { title: string; slug: string; product_id: string; content: unknown },
+  input: { title: string; slug: string; product_id: string; content: unknown; settings?: unknown },
 ): Promise<ActionResult> {
   const { store } = await requireOwner();
   const meta = z.object({ title: z.string().trim().min(1).max(160), slug: slugSchema, product_id: z.uuid() }).safeParse(input);
@@ -77,11 +103,29 @@ export async function saveLanding(
   if (collectImagePaths(content.data).some((p) => !p.startsWith(`${store.id}/`))) {
     return { ok: false, error: "Hay imágenes que no pertenecen a tu tienda" };
   }
+  const settings = settingsSchema.safeParse(input.settings ?? {});
+  if (!settings.success) return { ok: false, error: "Revisa el ángulo y la prueba A/B" };
+  const ab = settings.data.ab;
+  if (ab.enabled) {
+    if (ab.variants.length < 2) return { ok: false, error: "La prueba A/B necesita al menos 2 landings" };
+    if (!ab.variants.some((v) => v.landing_id === landingId)) return { ok: false, error: "Incluye esta landing en la prueba A/B" };
+    if (ab.variants.reduce((s, v) => s + v.weight, 0) <= 0) return { ok: false, error: "Reparte el tráfico de la prueba A/B (los porcentajes suman 0)" };
+  }
 
   const supabase = await createClient();
+  const productIds = collectProductIds(content.data);
+  if (productIds.length) {
+    const { data: own } = await supabase.from("products").select("id").eq("store_id", store.id).in("id", productIds);
+    if ((own ?? []).length !== productIds.length) return { ok: false, error: "Hay productos adicionales que no son de tu tienda" };
+  }
+  const variantIds = ab.variants.map((v) => v.landing_id);
+  if (variantIds.length) {
+    const { data: own } = await supabase.from("landing_pages").select("id").eq("store_id", store.id).in("id", variantIds);
+    if ((own ?? []).length !== new Set(variantIds).size) return { ok: false, error: "Hay landings de la prueba A/B que no son de tu tienda" };
+  }
   const { error } = await supabase
     .from("landing_pages")
-    .update({ ...meta.data, content: content.data })
+    .update({ ...meta.data, content: content.data, settings: settings.data })
     .eq("id", landingId)
     .eq("store_id", store.id);
   if (error) {
@@ -126,7 +170,15 @@ export async function duplicateLanding(landingId: string): Promise<ActionResult>
   const slug = `${source.slug}-copia-${Math.random().toString(36).slice(2, 6)}`.slice(0, 80);
   const { data, error } = await supabase
     .from("landing_pages")
-    .insert({ store_id: store.id, product_id: source.product_id, title: `${source.title} (copia)`, slug, content: source.content, settings: source.settings })
+    .insert({
+      store_id: store.id,
+      product_id: source.product_id,
+      title: `${source.title} (copia)`,
+      slug,
+      content: source.content,
+      // La copia hereda el ángulo, no la prueba A/B
+      settings: { angle: (source.settings as { angle?: string } | null)?.angle ?? "" },
+    })
     .select("id")
     .single();
   if (error) return { ok: false, error: "No se pudo duplicar" };
@@ -143,4 +195,15 @@ export async function deleteLanding(landingId: string): Promise<ActionResult> {
   if (data) revalidateTag(landingCacheTag(store.slug, data.slug), { expire: 0 });
   revalidatePath("/dashboard/landings");
   redirect("/dashboard/landings");
+}
+
+/** Bloques de otra landing de la tienda (para copiarlos). */
+export async function getLandingBlocks(landingId: string): Promise<{ ok: true; blocks: PageBlock[] } | { ok: false; error: string }> {
+  const { store } = await requireOwner();
+  if (!z.uuid().safeParse(landingId).success) return { ok: false, error: "Landing inválida" };
+  const supabase = await createClient();
+  const { data } = await supabase.from("landing_pages").select("content").eq("id", landingId).eq("store_id", store.id).maybeSingle();
+  const parsed = landingContent.safeParse(data?.content);
+  if (!parsed.success) return { ok: false, error: "No se pudo leer esa landing" };
+  return { ok: true, blocks: parsed.data.page_blocks };
 }

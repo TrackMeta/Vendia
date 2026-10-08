@@ -17,7 +17,7 @@ const LEVELS = {
   campanas: { label: "Campañas", first: "Campaña", rpc: "campaign" },
   conjuntos: { label: "Conjuntos", first: "Conjunto", rpc: "adset" },
   anuncios: { label: "Anuncios", first: "Anuncio", rpc: "ad" },
-  angulos: { label: "Ángulos", first: "Ángulo", rpc: null },
+  angulos: { label: "Ángulos", first: "Ángulo", rpc: "angle" },
   productos: { label: "Productos", first: "Producto", rpc: null },
   paginas: { label: "Páginas", first: "Página", rpc: "page" },
 } as const;
@@ -57,7 +57,7 @@ export default async function PerformancePage({ searchParams }: PageProps<"/dash
     status: (r.status as string | null) ?? null,
     thumbnail: (r.thumbnail_url as string | null) ?? null,
   }));
-  const showMeta = cfg.rpc === "campaign" || cfg.rpc === "adset" || cfg.rpc === "ad";
+  const showMeta = cfg.rpc === "campaign" || cfg.rpc === "adset" || cfg.rpc === "ad" || cfg.rpc === "angle";
 
   const href = (nivel: Level) => {
     const q = new URLSearchParams();
@@ -103,19 +103,19 @@ export default async function PerformancePage({ searchParams }: PageProps<"/dash
         ))}
       </div>
 
-      {level === "angulos" ? (
-        <EmptyState
-          icon={BarChart3}
-          title="Ángulos creativos: próximamente"
-          description="Cuando crees ángulos (ej: «dolor de espalda», «postparto») en tus landings, aquí verás cuál vende más con su CPA real."
-        />
-      ) : rows.length ? (
+      {rows.length ? (
         <PerformanceTable rows={rows} firstColumn={cfg.first} showMeta={showMeta} />
       ) : (
         <EmptyState
           icon={BarChart3}
           title="Sin datos en este periodo"
-          description={showMeta ? "Conecta Meta en Marketing para ver tus campañas, o cambia las fechas." : "Aún no hay pedidos en este periodo."}
+          description={
+            level === "angulos"
+              ? "Ponle un ángulo a cada landing (Editor → Ventas → Ángulo creativo) para comparar cuál vende más."
+              : showMeta
+                ? "Conecta Meta en Marketing para ver tus campañas, o cambia las fechas."
+                : "Aún no hay pedidos en este periodo."
+          }
         />
       )}
       <p className="text-xs text-muted-foreground">

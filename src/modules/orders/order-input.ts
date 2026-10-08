@@ -36,11 +36,21 @@ export const orderInput = z.object({
     .optional()
     .refine((v) => !v || /^\d{8}$/.test(v), "El DNI debe tener 8 dígitos")
     .transform((v) => (v ? v : undefined)),
+  email: z
+    .string()
+    .trim()
+    .toLowerCase()
+    .max(200)
+    .optional()
+    .refine((v) => !v || /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(v), "Revisa tu correo")
+    .transform((v) => (v ? v : undefined)),
   district_code: z.string().regex(/^\d{6}$/, "Selecciona tu distrito"),
   address: z.string().trim().min(5, "Ingresa tu dirección completa").max(300),
   reference: optionalText(300),
   delivery_method: optionalText(60),
   notes: optionalText(500),
+  /** IDs de los productos adicionales marcados (el precio lo pone el servidor). */
+  bumps: z.array(z.string().min(1).max(40)).max(10).optional(),
   /** Campo trampa anti-bots: debe llegar vacío. */
   website: z.string().max(0).optional(),
   attribution: z

@@ -22,8 +22,10 @@ import {
   MarqueeBlockView,
   OrderButton,
   PriceBlockView,
+  ProductHeroBlockView,
   TestimonialsBlockView,
   TextBlockView,
+  WhatsappFloat,
 } from "./page-blocks";
 
 /**
@@ -45,6 +47,8 @@ export function LandingRenderer({
   forceFormOpen?: boolean;
 }) {
   const [formOpen, setFormOpen] = useState(false);
+  // Oferta elegida en el bloque «Producto»: el formulario la trae marcada
+  const [preferredOfferId, setPreferredOfferId] = useState<string | null>(null);
   const { content } = data;
   const preview = mode === "preview";
   const popup = content.theme.formMode === "popup";
@@ -157,8 +161,19 @@ export function LandingRenderer({
       case "embedded_form":
         return (
           <div id="vd-form" className="scroll-mt-4 bg-white px-4 py-5">
-            <CodForm data={data} preview={preview} />
+            <CodForm key={preferredOfferId ?? "base"} data={data} preview={preview} preferredOfferId={preferredOfferId} />
           </div>
+        );
+      case "product_hero":
+        return (
+          <ProductHeroBlockView
+            block={block}
+            {...common}
+            product={data.product}
+            offers={data.offers}
+            selectedOfferId={preferredOfferId}
+            onSelectOffer={setPreferredOfferId}
+          />
         );
     }
   };
@@ -195,8 +210,12 @@ export function LandingRenderer({
       {/* Si el modo es "incrustado" y no hay bloque de formulario, lo agregamos al final */}
       {!popup && !hasEmbeddedBlock ? (
         <div id="vd-form" className="scroll-mt-4 bg-white px-4 py-5">
-          <CodForm data={data} preview={preview} />
+          <CodForm key={preferredOfferId ?? "base"} data={data} preview={preview} preferredOfferId={preferredOfferId} />
         </div>
+      ) : null}
+
+      {content.whatsapp_button?.enabled && data.whatsapp && !isOpen ? (
+        <WhatsappFloat phone={data.whatsapp} message={content.whatsapp_button.message} size={content.whatsapp_button.size} raised={content.sticky_button.enabled} />
       ) : null}
 
       {content.sticky_button.enabled ? (
@@ -234,7 +253,7 @@ export function LandingRenderer({
             >
               <X className="size-5" />
             </button>
-            <CodForm data={data} preview={preview} />
+            <CodForm data={data} preview={preview} preferredOfferId={preferredOfferId} />
           </div>
         </div>
       ) : null}

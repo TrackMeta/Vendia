@@ -66,6 +66,8 @@ export async function POST(request: NextRequest) {
       phone: input.phone,
       whatsapp: input.whatsapp,
       dni: input.dni,
+      email: input.email,
+      bumps: input.bumps ?? [],
       district_code: input.district_code,
       address: input.address,
       reference: input.reference,
@@ -99,6 +101,7 @@ export async function POST(request: NextRequest) {
   }
 
   return NextResponse.json({
+    orderId: result.order_id,
     orderNumber: result.order_number,
     total: Number(result.total),
     leadEventId: leadEventId(result.order_id),

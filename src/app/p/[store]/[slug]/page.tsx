@@ -1,7 +1,10 @@
 import type { Metadata } from "next";
-import { notFound } from "next/navigation";
+import { cookies } from "next/headers";
+import { notFound, redirect } from "next/navigation";
 import { publicAssetUrl } from "@/lib/env";
+import { abCookieName, pickVariant, variantUrl } from "@/modules/landing/ab";
 import { getPublicLanding, toRenderData } from "@/modules/landing/public-data";
+import { AbRemember } from "@/modules/landing/render/ab-remember";
 import { googleFontHref } from "@/modules/landing/fonts";
 import { LandingRenderer } from "@/modules/landing/render/landing-renderer";
 
@@ -34,10 +37,25 @@ export async function generateMetadata({ params }: PageProps<"/p/[store]/[slug]"
   };
 }
 
-export default async function PublicLandingPage({ params }: PageProps<"/p/[store]/[slug]">) {
+export default async function PublicLandingPage({ params, searchParams }: PageProps<"/p/[store]/[slug]">) {
   const { store, slug } = await params;
+  const query = await searchParams;
   const landing = await getPublicLanding(store, slug);
   if (!landing) notFound();
+
+  // Prueba A/B: el visitante va a una variante según su peso y siempre ve la misma
+  let remember: { cookie: string; slug: string } | null = null;
+  const variants = landing.landing.ab_variants ?? [];
+  const fromTest = typeof query.vab === "string" && /^[0-9a-f-]{36}$/i.test(query.vab) ? query.vab : null;
+  if (fromTest) {
+    remember = { cookie: abCookieName(fromTest), slug: landing.landing.slug };
+  } else if (variants.length) {
+    const cookie = abCookieName(landing.landing.id);
+    const saved = (await cookies()).get(cookie)?.value;
+    const chosen = saved && variants.some((v) => v.slug === saved) ? saved : pickVariant(variants);
+    if (chosen && chosen !== landing.landing.slug) redirect(variantUrl(store, chosen, query, landing.landing.id));
+    remember = { cookie, slug: landing.landing.slug };
+  }
 
   const data = toRenderData(landing);
   const fontHref = googleFontHref(data.content.theme.font);
@@ -55,6 +73,7 @@ export default async function PublicLandingPage({ params }: PageProps<"/p/[store
       {heroImage ? <link rel="preload" as="image" href={heroImage} fetchPriority="high" /> : null}
       <div className="flex-1" style={{ backgroundColor: data.content.theme.pageBg }}>
         <LandingRenderer data={data} mode="live" />
+        {remember ? <AbRemember cookie={remember.cookie} slug={remember.slug} /> : null}
       </div>
     </>
   );

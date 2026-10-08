@@ -2,7 +2,8 @@
 
 import { ImageDropzone } from "@/components/dashboard/image-dropzone";
 import { publicAssetUrl } from "@/lib/env";
-import type { FormBlock, PageBlock } from "@/modules/landing/schema";
+import { newBlockId } from "@/modules/landing/defaults";
+import type { BumpItem, FormBlock, PageBlock } from "@/modules/landing/schema";
 import { ColorField, ImageField, ListEditor, NumberField, SelectField, TextField, ToggleField } from "@/components/dashboard/fields";
 
 const ALIGN_OPTIONS = [
@@ -11,7 +12,43 @@ const ALIGN_OPTIONS = [
   { value: "right" as const, label: "Derecha" },
 ];
 
-type Ctx = { storeId: string; folder: string };
+type Ctx = { storeId: string; folder: string; products?: { id: string; name: string; price: number }[] };
+
+const money = (v: string) => Math.max(0, Math.min(100_000, Math.round((Number(v) || 0) * 100) / 100));
+
+function MoneyField({ label, value, onChange, allowEmpty }: { label: string; value: number | null; onChange: (v: number | null) => void; allowEmpty?: boolean }) {
+  return (
+    <div className="flex flex-col gap-1.5">
+      <span className="text-xs font-medium">{label}</span>
+      <input
+        type="number"
+        step="0.1"
+        min={0}
+        value={value ?? ""}
+        placeholder={allowEmpty ? "—" : "0"}
+        onChange={(e) => onChange(e.target.value === "" && allowEmpty ? null : money(e.target.value))}
+        className="h-8 rounded-lg border border-input bg-transparent px-2.5 text-sm"
+      />
+    </div>
+  );
+}
+
+/** Producto del catálogo para un adicional (usa su costo y descuenta stock), o adicional libre. */
+export function ProductLink({ value, onChange, products }: { value: string; onChange: (id: string) => void; products: { id: string; name: string }[] }) {
+  return (
+    <div className="flex flex-col gap-1.5">
+      <span className="text-xs font-medium">Producto de tu catálogo (opcional)</span>
+      <select value={value} onChange={(e) => onChange(e.target.value)} className="h-8 rounded-lg border border-input bg-transparent px-2 text-sm">
+        <option value="">Adicional libre (sin stock)</option>
+        {products.map((p) => (
+          <option key={p.id} value={p.id}>
+            {p.name}
+          </option>
+        ))}
+      </select>
+    </div>
+  );
+}
 
 function Colors<T extends { color: string; bg: string }>({ block, set }: { block: T; set: (patch: Partial<T>) => void }) {
   return (
@@ -227,6 +264,19 @@ export function PageBlockInspector({ block, onChange, ctx }: { block: PageBlock;
           Muestra el formulario directamente en la página. Se configura en la pestaña «Formulario».
         </p>
       );
+    case "product_hero":
+      return (
+        <div className="flex flex-col gap-4">
+          <p className="text-xs text-muted-foreground">
+            Muestra las fotos del producto (se suben en Productos), su nombre, precio y ofertas. El cliente elige la oferta y compra.
+          </p>
+          <TextField label="Etiqueta sobre la foto" value={block.badge} onChange={(badge) => set({ badge })} placeholder="OFERTA" />
+          <TextField label="Texto del botón" value={block.buttonText} onChange={(buttonText) => set({ buttonText })} />
+          <TextField label="Subtítulo del botón" value={block.buttonSubtext} onChange={(buttonSubtext) => set({ buttonSubtext })} />
+          <Colors block={block} set={set} />
+          <ToggleField label="Mostrar la descripción del producto" checked={block.showDescription} onChange={(showDescription) => set({ showDescription })} />
+        </div>
+      );
   }
 }
 
@@ -269,6 +319,10 @@ export function FormBlockInspector({ block, onChange, ctx }: { block: FormBlock;
           <ToggleField label="Pedir DNI" checked={block.askDni} onChange={(askDni) => set({ askDni })} />
           <ToggleField label="Pedir otro número de WhatsApp" checked={block.askWhatsapp} onChange={(askWhatsapp) => set({ askWhatsapp })} />
           <ToggleField label="Campo de observaciones" checked={block.askNotes} onChange={(askNotes) => set({ askNotes })} />
+          <ToggleField label="Pedir correo (opcional para el cliente)" checked={block.askEmail ?? false} onChange={(askEmail) => set({ askEmail })} />
+          <p className="mt-2 text-xs text-muted-foreground">
+            En provincia el DNI se pide siempre (lo exige la agencia). Debajo de los campos se muestra un aviso de privacidad.
+          </p>
         </div>
       );
     case "form_summary":
@@ -286,5 +340,55 @@ export function FormBlockInspector({ block, onChange, ctx }: { block: FormBlock;
           <Colors block={block} set={set} />
         </div>
       );
+    case "form_bumps": {
+      const setItem = (i: number, patch: Partial<BumpItem>) => set({ items: block.items.map((it, j) => (j === i ? { ...it, ...patch } : it)) });
+      return (
+        <div className="flex flex-col gap-4">
+          <p className="text-xs text-muted-foreground">
+            Casillas con productos adicionales (order bumps). El total del botón se actualiza al marcarlas. El precio se valida en el servidor.
+          </p>
+          <TextField label="Título" value={block.title} onChange={(title) => set({ title })} />
+          <div className="grid grid-cols-2 gap-3">
+            <ColorField label="Fondo" value={block.bg} onChange={(bg) => set({ bg })} />
+            <ColorField label="Color de acento" value={block.accent} onChange={(accent) => set({ accent })} />
+          </div>
+          {block.items.map((item, i) => (
+            <div key={item.id} className="flex flex-col gap-3 rounded-lg border bg-background p-3">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold">Adicional {i + 1}</span>
+                {block.items.length > 1 ? (
+                  <button type="button" className="text-xs text-destructive" onClick={() => set({ items: block.items.filter((_, j) => j !== i) })}>
+                    Quitar
+                  </button>
+                ) : null}
+              </div>
+              <TextField label="Nombre" value={item.name} onChange={(name) => setItem(i, { name })} />
+              <div className="grid grid-cols-2 gap-3">
+                <MoneyField label="Precio (S/)" value={item.price} onChange={(price) => setItem(i, { price: price ?? 0 })} />
+                <MoneyField label="Precio antes (tachado)" value={item.compareAt} allowEmpty onChange={(compareAt) => setItem(i, { compareAt })} />
+              </div>
+              <TextField label="Texto de urgencia o descuento" value={item.text} onChange={(text) => setItem(i, { text })} placeholder="¡Solo hoy 50% menos!" />
+              <ProductLink value={item.productId} products={ctx.products ?? []} onChange={(productId) => setItem(i, { productId })} />
+              {!item.productId ? <MoneyField label="Tu costo (para la utilidad)" value={item.cost} onChange={(cost) => setItem(i, { cost: cost ?? 0 })} /> : null}
+              <ImageField label="Imagen" value={item.image} onChange={(image) => setItem(i, { image })} storeId={ctx.storeId} folder={ctx.folder} maxSize={400} />
+              <ToggleField label="Marcado por defecto" checked={item.preChecked} onChange={(preChecked) => setItem(i, { preChecked })} />
+            </div>
+          ))}
+          {block.items.length < 4 ? (
+            <button
+              type="button"
+              className="rounded-lg border border-dashed p-2 text-sm hover:bg-muted"
+              onClick={() =>
+                set({
+                  items: [...block.items, { id: newBlockId(), name: "Otro adicional", price: 9.9, compareAt: null, image: "", text: "", productId: "", cost: 0, preChecked: false }],
+                })
+              }
+            >
+              + Agregar otro adicional
+            </button>
+          ) : null}
+        </div>
+      );
+    }
   }
 }

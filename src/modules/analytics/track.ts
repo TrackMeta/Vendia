@@ -8,7 +8,7 @@ export type TrackEvent = "page_view" | "view_content" | "initiate_checkout";
 
 const SESSION_KEY = "vd_sid";
 
-function sessionId(): string {
+export function sessionId(): string {
   try {
     let id = sessionStorage.getItem(SESSION_KEY);
     if (!id) {

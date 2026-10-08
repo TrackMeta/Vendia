@@ -40,15 +40,15 @@
 - [x] **Tarjeta del anuncio** en cada pedido (miniatura, texto, «Ver anuncio»).
 
 ## Bloque 5: Landing y ventas
-- [ ] **Product page** por producto, además de la landing.
-- [ ] **GIF** en la landing. **Video: próximamente.**
-- [ ] **Botón flotante de WhatsApp:** opcional, abajo a la derecha, tamaño personalizable.
-- [ ] **Upsells en el formulario** (*order bumps* personalizables) y **en la página de gracias**.
-- [ ] **Formularios abandonados**, con aviso de privacidad.
-- [ ] **Subir varias imágenes de una vez** y crear sus bloques.
-- [ ] **Más plantillas** (Clásica, Video primero, Packs) y copiar bloques entre landings.
-- [ ] **Pruebas A/B y ángulos creativos** con redirección a la landing del ángulo.
-- [ ] **Correo opcional** en el formulario.
+- [x] **Product page** por producto, además de la landing (plantilla «Product page» con el bloque «Producto»: galería, precio, ofertas y botón).
+- [x] **GIF** en la landing. **Video: próximamente.**
+- [x] **Botón flotante de WhatsApp:** opcional, abajo a la derecha, tamaño personalizable.
+- [x] **Upsells en el formulario** (*order bumps* personalizables) y **en la página de gracias**.
+- [x] **Formularios abandonados**, con aviso de privacidad.
+- [x] **Subir varias imágenes de una vez** y crear sus bloques.
+- [x] **Más plantillas** (Clásica, Video primero, Packs) y copiar bloques entre landings.
+- [x] **Pruebas A/B y ángulos creativos** con redirección a la landing del ángulo.
+- [x] **Correo opcional** en el formulario.
 
 ## Bloque 6: Plataforma
 - [ ] **Varias tiendas por usuario,** con selector de tienda.

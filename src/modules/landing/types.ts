@@ -7,8 +7,10 @@ export type PublicLanding = {
     slug: string;
     title: string;
     content: LandingContent;
-    settings: Record<string, unknown>;
+    settings: { angle?: string | null };
     published_at: string | null;
+    /** Variantes de la prueba A/B (solo si está activa) */
+    ab_variants?: { slug: string; weight: number }[] | null;
   };
   store: {
     id: string;
@@ -57,8 +59,10 @@ export type LandingRenderData = {
   storeSlug: string;
   landingSlug: string;
   content: LandingContent;
-  product: { name: string; price: number; compare_at_price: number | null };
+  product: { name: string; price: number; compare_at_price: number | null; description?: string | null; images?: string[] };
   offers: PublicOffer[];
+  /** WhatsApp de la tienda (botón flotante) */
+  whatsapp?: string | null;
   shipping: { lima: number; province: number };
   advanceAmount: number;
 };

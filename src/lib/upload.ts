@@ -43,6 +43,8 @@ export type UploadedImage = { path: string; width: number | null; height: number
 export async function uploadStoreImage(storeId: string, folder: string, file: File, maxSize = DEFAULT_MAX_WIDTH): Promise<UploadedImage> {
   if (!file.type.startsWith("image/")) throw new Error("El archivo debe ser una imagen");
   if (file.size > 15 * 1024 * 1024) throw new Error("La imagen pesa más de 15 MB");
+  // Los GIF se suben tal cual (recomprimirlos rompe la animación): máximo 5 MB
+  if (file.type === "image/gif" && file.size > 5 * 1024 * 1024) throw new Error("El GIF pesa más de 5 MB. Redúcelo (por ejemplo en ezgif.com) y vuelve a subirlo.");
 
   const compressed = await compressImage(file, maxSize);
   const ext = compressed.type === "image/webp" ? "webp" : (compressed.name.split(".").pop() ?? "img");

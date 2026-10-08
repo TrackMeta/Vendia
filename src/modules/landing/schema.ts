@@ -146,6 +146,21 @@ export const dividerBlock = z.object({
   line: z.boolean().default(false),
 });
 
+/**
+ * Cabecera de product page: galería con las fotos del producto, nombre, precio,
+ * ofertas y botón de compra (al estilo de una tienda Shopify).
+ */
+export const productHeroBlock = z.object({
+  id,
+  type: z.literal("product_hero"),
+  badge: shortText.default(""),
+  showDescription: z.boolean().default(true),
+  buttonText: shortText.default("COMPRAR AHORA"),
+  buttonSubtext: shortText.default("Pagas al recibir"),
+  bg: color,
+  color,
+});
+
 /** Formulario incrustado en la página (además del emergente). */
 export const embeddedFormBlock = z.object({
   id,
@@ -167,6 +182,7 @@ export const pageBlock = z.discriminatedUnion("type", [
   faqBlock,
   dividerBlock,
   embeddedFormBlock,
+  productHeroBlock,
 ]);
 
 // ---------------------------------------------------------------------
@@ -184,8 +200,38 @@ export const formFieldsBlock = z.object({
   askWhatsapp: z.boolean().default(false),
   requireReference: z.boolean().default(true),
   askNotes: z.boolean().default(false),
+  askEmail: z.boolean().default(false),
 });
 export const formSummaryBlock = z.object({ id, type: z.literal("form_summary") });
+
+const money = z.number().min(0).max(100_000);
+const optionalProductId = z.union([z.literal(""), z.uuid()]).default("");
+
+/**
+ * Order bumps: casillas con productos adicionales. El precio se toma de la landing
+ * PUBLICADA en el servidor (el navegador solo manda qué casillas marcó).
+ */
+export const bumpItem = z.object({
+  id,
+  name: shortText,
+  price: money,
+  compareAt: money.nullable().default(null),
+  image: imagePath.default(""),
+  text: shortText.default(""),
+  /** Producto de tu catálogo (descuenta stock y usa su costo); vacío = adicional libre */
+  productId: optionalProductId,
+  /** Costo si no está atado a un producto */
+  cost: money.default(0),
+  preChecked: z.boolean().default(false),
+});
+export const formBumpsBlock = z.object({
+  id,
+  type: z.literal("form_bumps"),
+  title: shortText.default("Agrega a tu pedido"),
+  items: z.array(bumpItem).min(1).max(4),
+  bg: color,
+  accent: color,
+});
 export const formSubmitBlock = z.object({
   id,
   type: z.literal("form_submit"),
@@ -202,6 +248,7 @@ export const formBlock = z.discriminatedUnion("type", [
   formFieldsBlock,
   formSummaryBlock,
   formSubmitBlock,
+  formBumpsBlock,
 ]);
 
 // ---------------------------------------------------------------------
@@ -225,6 +272,26 @@ export const stickyButton = z.object({
   color,
 });
 
+/** Botón flotante de WhatsApp (abajo a la derecha). */
+export const whatsappButton = z.object({
+  enabled: z.boolean().default(false),
+  size: z.number().int().min(40).max(80).default(56),
+  message: shortText.default("Hola, tengo una consulta sobre el producto"),
+});
+
+/** Oferta en la página de gracias: se agrega al mismo pedido con un clic. */
+export const thankYouUpsell = z.object({
+  enabled: z.boolean().default(false),
+  name: shortText.default(""),
+  price: money.default(0),
+  compareAt: money.nullable().default(null),
+  image: imagePath.default(""),
+  text: longText.default(""),
+  buttonText: shortText.default("SÍ, AGREGAR A MI PEDIDO"),
+  productId: optionalProductId,
+  cost: money.default(0),
+});
+
 const REQUIRED_FORM_BLOCKS = ["form_offers", "form_fields", "form_submit"] as const;
 
 export const landingContent = z
@@ -234,6 +301,18 @@ export const landingContent = z
     page_blocks: z.array(pageBlock).max(80),
     form_blocks: z.array(formBlock).max(30),
     sticky_button: stickyButton,
+    whatsapp_button: whatsappButton.default({ enabled: false, size: 56, message: "Hola, tengo una consulta sobre el producto" }),
+    thank_you_upsell: thankYouUpsell.default({
+      enabled: false,
+      name: "",
+      price: 0,
+      compareAt: null,
+      image: "",
+      text: "",
+      buttonText: "SÍ, AGREGAR A MI PEDIDO",
+      productId: "",
+      cost: 0,
+    }),
   })
   .superRefine((content, ctx) => {
     for (const type of REQUIRED_FORM_BLOCKS) {
@@ -245,6 +324,12 @@ export const landingContent = z
           message: `El formulario debe tener exactamente un bloque "${FORM_BLOCK_LABELS[type]}"`,
         });
       }
+    }
+    if (content.form_blocks.filter((b) => b.type === "form_bumps").length > 1) {
+      ctx.addIssue({ code: "custom", path: ["form_blocks"], message: "Solo puede haber un bloque de productos adicionales" });
+    }
+    if (content.thank_you_upsell.enabled && (!content.thank_you_upsell.name.trim() || content.thank_you_upsell.price <= 0)) {
+      ctx.addIssue({ code: "custom", path: ["thank_you_upsell"], message: "La oferta de la página de gracias necesita nombre y precio" });
     }
     const ids = [...content.page_blocks, ...content.form_blocks].map((b) => b.id);
     if (new Set(ids).size !== ids.length) {
@@ -258,6 +343,9 @@ export type FormBlock = z.infer<typeof formBlock>;
 export type FormBlockType = FormBlock["type"];
 export type LandingTheme = z.infer<typeof landingTheme>;
 export type StickyButton = z.infer<typeof stickyButton>;
+export type WhatsappButton = z.infer<typeof whatsappButton>;
+export type ThankYouUpsell = z.infer<typeof thankYouUpsell>;
+export type BumpItem = z.infer<typeof bumpItem>;
 export type LandingContent = z.infer<typeof landingContent>;
 
 export const PAGE_BLOCK_LABELS: Record<PageBlockType, string> = {
@@ -275,6 +363,7 @@ export const PAGE_BLOCK_LABELS: Record<PageBlockType, string> = {
   faq: "Preguntas frecuentes",
   divider: "Separador",
   embedded_form: "Formulario en la página",
+  product_hero: "Producto (galería y compra)",
 };
 
 export const FORM_BLOCK_LABELS: Record<FormBlockType, string> = {
@@ -284,6 +373,7 @@ export const FORM_BLOCK_LABELS: Record<FormBlockType, string> = {
   form_fields: "Datos del cliente",
   form_summary: "Resumen del pedido",
   form_submit: "Botón confirmar",
+  form_bumps: "Productos adicionales",
 };
 
 /** Bloques del formulario que no se pueden eliminar ni duplicar. */

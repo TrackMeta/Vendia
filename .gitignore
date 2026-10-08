@@ -22,3 +22,16 @@ Thumbs.db
 .vscode/
 .idea/
 *.log
+
+# Next.js / herramientas
+.next/
+out/
+coverage/
+.vercel
+*.tsbuildinfo
+next-env.d.ts
+.pnp
+.pnp.*
+npm-debug.log*
+supabase/.temp/
+supabase/.branches/

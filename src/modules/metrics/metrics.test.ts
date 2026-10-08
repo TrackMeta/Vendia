@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { computeCpa, computeDashboardMetrics, computeProfit, computeRoas, safeDivide } from ".";
+import { buildFunnel, computeCpa, computeDashboardMetrics, computeProfit, computeRoas, computeRowMetrics, safeDivide } from ".";
 
 describe("CPA", () => {
   it("CPA pedido: S/100 / 20 pedidos = S/5", () => {
@@ -79,5 +79,33 @@ describe("Dashboard", () => {
   it("safeDivide rechaza infinitos", () => {
     expect(safeDivide(1, 0)).toBeNull();
     expect(safeDivide(Number.NaN, 1)).toBeNull();
+  });
+});
+
+
+describe("Métricas por fila (campañas, productos, geografía)", () => {
+  it("calcula CPA entregado, ROAS real y utilidad de una campaña", () => {
+    const m = computeRowMetrics({ orders: 20, confirmed: 18, shipped: 16, delivered: 15, orders_value: 1800, revenue: 1350, product_cost: 375, shipping_cost: 160, ad_spend: 300 });
+    expect(m.cpa.perOrder).toBe(15);
+    expect(m.cpa.perDelivered).toBe(20);
+    expect(m.roas.real).toBe(4.5);
+    expect(m.profit).toBe(515);
+    expect(m.deliveryRate).toBeCloseTo(15 / 16);
+  });
+
+  it("acepta números como texto (numeric de Postgres)", () => {
+    expect(computeRowMetrics({ orders: "2", revenue: "89.90", product_cost: "22", shipping_cost: "0", confirmed: 0, shipped: 0, delivered: 1 }).profit).toBe(67.9);
+  });
+});
+
+describe("Funnel", () => {
+  it("calcula la conversión entre cada etapa (ejemplo del documento)", () => {
+    const f = buildFunnel({ visits: 10000, view_content: 10000, initiate_checkout: 800, orders: 80, confirmed: 60, shipped: 54, delivered: 43, collected: 40 });
+    expect(f[2].rateFromPrevious).toBe(0.08);
+    expect(f[3].rateFromPrevious).toBe(0.1);
+    expect(f[4].rateFromPrevious).toBe(0.75);
+    expect(f[5].rateFromPrevious).toBe(0.9);
+    expect(f[6].rateFromPrevious).toBeCloseTo(0.796, 3);
+    expect(f[0].rateFromPrevious).toBeNull();
   });
 });

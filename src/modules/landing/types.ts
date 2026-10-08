@@ -33,6 +33,7 @@ export type PublicLanding = {
     images: { path: string; width: number | null; height: number | null }[];
   };
   offers: PublicOffer[];
+  meta?: { pixel_id: string | null };
 };
 
 export type PublicOffer = {
@@ -49,6 +50,9 @@ export type PublicOffer = {
 /** Datos mínimos que el renderer necesita (sirve para la landing pública y la vista previa del editor). */
 export type LandingRenderData = {
   landingId: string | null;
+  /** Meta Pixel ID de la tienda (solo en la landing pública) */
+  pixelId?: string | null;
+  productId?: string | null;
   storeName: string;
   storeSlug: string;
   landingSlug: string;

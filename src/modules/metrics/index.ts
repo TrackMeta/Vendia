@@ -118,3 +118,78 @@ export function fromOrderStats(row: Record<string, number | string>): { counts: 
     shippingCost: n("shipping_cost"),
   };
 }
+
+/** Fila de analítica (campaña, producto, departamento/provincia/distrito) tal como llega de SQL. */
+export type StatsRow = {
+  orders: number;
+  confirmed: number;
+  shipped: number;
+  delivered: number;
+  cancelled?: number;
+  failed?: number;
+  visits?: number;
+  orders_value?: number;
+  revenue: number;
+  product_cost: number;
+  shipping_cost: number;
+  ad_spend?: number;
+};
+
+/** Métricas derivadas de una fila. Misma fórmula que el Inicio (sin otros gastos: se asignan solo al total). */
+export function computeRowMetrics(raw: Record<string, unknown>) {
+  const n = (k: string) => Number(raw[k] ?? 0);
+  const row: StatsRow = {
+    orders: n("orders"),
+    confirmed: n("confirmed"),
+    shipped: n("shipped"),
+    delivered: n("delivered"),
+    cancelled: n("cancelled"),
+    failed: n("failed"),
+    visits: n("visits"),
+    orders_value: n("orders_value"),
+    revenue: n("revenue"),
+    product_cost: n("product_cost"),
+    shipping_cost: n("shipping_cost"),
+    ad_spend: n("ad_spend"),
+  };
+  const adSpend = row.ad_spend ?? 0;
+  const { profit, margin } = computeProfit({
+    revenue: row.revenue,
+    productCost: row.product_cost,
+    shippingCost: row.shipping_cost,
+    adSpend,
+    otherExpenses: 0,
+  });
+  return {
+    ...row,
+    cpa: computeCpa(adSpend, row),
+    roas: computeRoas(adSpend, row.orders_value ?? 0, row.revenue),
+    profit,
+    margin,
+    deliveryRate: safeDivide(row.delivered, row.shipped),
+    effectiveRate: safeDivide(row.delivered, row.orders),
+    cancellationRate: safeDivide(row.cancelled ?? 0, row.orders),
+    conversionRate: safeDivide(row.orders, row.visits ?? 0),
+  };
+}
+
+export type FunnelStep = { key: string; label: string; value: number; rateFromPrevious: number | null };
+
+/** Funnel: Visitas → ViewContent → InitiateCheckout → Pedidos → Confirmados → Enviados → Entregados → Cobrados */
+export function buildFunnel(raw: Record<string, unknown>): FunnelStep[] {
+  const steps: [string, string][] = [
+    ["visits", "Visitas"],
+    ["view_content", "Vieron el producto"],
+    ["initiate_checkout", "Abrieron el formulario"],
+    ["orders", "Pedidos"],
+    ["confirmed", "Confirmados"],
+    ["shipped", "Enviados"],
+    ["delivered", "Entregados"],
+    ["collected", "Cobrados"],
+  ];
+  return steps.map(([key, label], i) => {
+    const value = Number(raw[key] ?? 0);
+    const previous = i > 0 ? Number(raw[steps[i - 1][0]] ?? 0) : null;
+    return { key, label, value, rateFromPrevious: previous === null ? null : safeDivide(value, previous) };
+  });
+}

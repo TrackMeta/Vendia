@@ -1,6 +1,7 @@
 import { ArrowRight, Info } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
+import { DateRangeFilter, rangeParams } from "@/components/dashboard/date-range-filter";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { OrderStatusBadge } from "@/components/dashboard/status-badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -9,7 +10,7 @@ import { formatDateTime, formatMoney, formatNumber, formatPercent, formatRatio }
 import { createClient } from "@/lib/supabase/server";
 import { cn } from "@/lib/utils";
 import { computeDashboardMetrics, fromOrderStats } from "@/modules/metrics";
-import { RANGE_PRESETS, resolveRange } from "@/modules/metrics/date-range";
+import { resolveRange } from "@/modules/metrics/date-range";
 import type { OrderStatus } from "@/modules/orders/state-machine";
 
 export const metadata: Metadata = { title: "Inicio" };
@@ -26,15 +27,12 @@ function Metric({ label, value, hint, highlight }: { label: string; value: strin
 
 export default async function DashboardHome({ searchParams }: PageProps<"/dashboard">) {
   const sp = await searchParams;
-  const range = resolveRange(
-    typeof sp.rango === "string" ? sp.rango : undefined,
-    typeof sp.desde === "string" ? sp.desde : undefined,
-    typeof sp.hasta === "string" ? sp.hasta : undefined,
-  );
+  const rp = rangeParams(sp);
+  const range = resolveRange(rp.rango, rp.desde, rp.hasta);
   const { store } = await requireStore();
   const supabase = await createClient();
 
-  const [{ data: stats }, { data: recent }, { count: landingsCount }] = await Promise.all([
+  const [{ data: stats }, { data: recent }, { count: landingsCount }, { data: expenseTotals }] = await Promise.all([
     supabase.rpc("get_order_stats", { p_store_id: store.id, p_from: range.from, p_to: range.to }),
     supabase
       .from("orders")
@@ -43,12 +41,14 @@ export default async function DashboardHome({ searchParams }: PageProps<"/dashbo
       .order("created_at", { ascending: false })
       .limit(8),
     supabase.from("landing_pages").select("id", { count: "exact", head: true }).eq("store_id", store.id).eq("status", "published"),
+    supabase.rpc("get_expense_totals", { p_store_id: store.id, p_from: range.startDate, p_to: range.endDate }),
   ]);
 
   const base = fromOrderStats((stats ?? {}) as Record<string, number>);
-  // Gasto publicitario y otros gastos: módulo de Gastos (Fase 5). Hasta entonces = 0.
-  const adSpend = 0;
-  const otherExpenses = 0;
+  const expenses = (expenseTotals ?? {}) as { ad_spend?: number; meta_spend?: number; other_expenses?: number };
+  const adSpend = Number(expenses.ad_spend ?? 0);
+  const metaSpend = Number(expenses.meta_spend ?? 0);
+  const otherExpenses = Number(expenses.other_expenses ?? 0);
   const m = computeDashboardMetrics(base.counts, {
     revenue: base.revenue,
     productCost: base.productCost,
@@ -61,30 +61,7 @@ export default async function DashboardHome({ searchParams }: PageProps<"/dashbo
     <div className="flex flex-col gap-6">
       <PageHeader title={`Hola, ${store.name}`} description={`Pedidos creados en: ${range.label}`} />
 
-      <div className="-mx-1 flex gap-1.5 overflow-x-auto px-1 pb-1">
-        {(Object.keys(RANGE_PRESETS) as (keyof typeof RANGE_PRESETS)[])
-          .filter((p) => p !== "personalizado")
-          .map((p) => (
-            <Link
-              key={p}
-              href={`/dashboard?rango=${p}`}
-              className={cn(
-                "rounded-full border px-3 py-1 text-sm whitespace-nowrap",
-                range.preset === p ? "border-foreground bg-foreground text-background" : "hover:bg-muted",
-              )}
-            >
-              {RANGE_PRESETS[p]}
-            </Link>
-          ))}
-        <form className="flex items-center gap-1.5">
-          <input type="hidden" name="rango" value="personalizado" />
-          <input type="date" name="desde" defaultValue={range.startDate} className="h-8 rounded-md border bg-transparent px-2 text-sm" aria-label="Desde" />
-          <input type="date" name="hasta" defaultValue={range.endDate} className="h-8 rounded-md border bg-transparent px-2 text-sm" aria-label="Hasta" />
-          <button type="submit" className="h-8 rounded-md border px-2 text-sm hover:bg-muted">
-            Aplicar
-          </button>
-        </form>
-      </div>
+      <DateRangeFilter basePath="/dashboard" range={range} />
 
       {!landingsCount ? (
         <Card className="border-dashed">
@@ -117,25 +94,32 @@ export default async function DashboardHome({ searchParams }: PageProps<"/dashbo
       <section className="flex flex-col gap-3">
         <h2 className="text-sm font-medium text-muted-foreground">Marketing</h2>
         <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-6">
-          <Metric label="Gasto Meta Ads" value={formatMoney(adSpend)} />
+          <Metric label="Gasto publicitario" value={formatMoney(adSpend)} hint={`Meta: ${formatMoney(metaSpend)}`} />
           <Metric label="CPA pedido" value={formatMoney(m.cpa.perOrder)} />
           <Metric label="CPA confirmado" value={formatMoney(m.cpa.perConfirmed)} />
           <Metric label="CPA entregado" value={formatMoney(m.cpa.perDelivered)} highlight />
           <Metric label="ROAS (pedidos)" value={formatRatio(m.roas.orders)} />
           <Metric label="ROAS real" value={formatRatio(m.roas.real)} highlight />
         </div>
-        <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
-          <Info className="size-3.5" /> El gasto publicitario se registrará en el módulo de Gastos (próxima fase). Mientras tanto el CPA y el ROAS se
-          muestran como «—».
-        </p>
+        {adSpend === 0 ? (
+          <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+            <Info className="size-3.5" /> Sin gasto registrado en este periodo.{" "}
+            <Link href="/dashboard/gastos" className="underline">
+              Registra o importa tu gasto de Meta Ads
+            </Link>{" "}
+            para ver tu CPA y ROAS reales.
+          </p>
+        ) : null}
       </section>
 
       <section className="flex flex-col gap-3">
         <h2 className="text-sm font-medium text-muted-foreground">Rentabilidad</h2>
-        <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-6">
           <Metric label="Revenue" value={formatMoney(m.totals.revenue)} />
           <Metric label="Costo de productos" value={formatMoney(m.totals.productCost)} />
           <Metric label="Costo de envíos" value={formatMoney(m.totals.shippingCost)} />
+          <Metric label="Publicidad" value={formatMoney(adSpend)} />
+          <Metric label="Otros gastos" value={formatMoney(otherExpenses)} />
           <Metric label="Utilidad real" value={formatMoney(m.profit)} hint={`Margen ${formatPercent(m.margin)}`} highlight />
         </div>
       </section>

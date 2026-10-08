@@ -145,6 +145,8 @@ export default async function OrderDetailPage({ params }: PageProps<"/dashboard/
               internal_notes: order.internal_notes ?? "",
               address: order.address,
               reference: order.reference ?? "",
+              courier_name: order.courier_name ?? "",
+              tracking_code: order.tracking_code ?? "",
             }}
           />
         </div>

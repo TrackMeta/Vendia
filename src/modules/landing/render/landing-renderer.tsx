@@ -2,7 +2,9 @@
 
 import { X } from "lucide-react";
 import { useEffect, useState } from "react";
+import { trackEvent } from "@/modules/analytics/track";
 import { captureAttribution } from "@/modules/attribution/capture";
+import { initPixel, trackPixel } from "@/modules/meta/pixel";
 import { FONT_STACK } from "../fonts";
 import type { PageBlock } from "../schema";
 import type { LandingRenderData } from "../types";
@@ -48,9 +50,40 @@ export function LandingRenderer({
   const popup = content.theme.formMode === "popup";
   const isOpen = popup && (formOpen || Boolean(forceFormOpen));
 
+  const live = !preview && Boolean(data.landingId);
+  const basePrice = (data.offers.find((o) => o.is_default) ?? data.offers[0])?.price ?? data.product.price;
+  const contentParams = { content_ids: data.productId ? [data.productId] : [], content_type: "product", content_name: data.product.name, value: basePrice, currency: "PEN" };
+
   useEffect(() => {
-    if (!preview) captureAttribution();
-  }, [preview]);
+    if (preview) return;
+    captureAttribution();
+    if (!data.landingId) return;
+    if (data.pixelId) {
+      initPixel(data.pixelId);
+      trackPixel("PageView");
+    }
+    trackEvent(data.landingId, "page_view");
+
+    // ViewContent: cuando el visitante realmente mira el producto (scroll o 4 segundos)
+    let done = false;
+    const fire = () => {
+      if (done) return;
+      done = true;
+      trackPixel("ViewContent", contentParams);
+      trackEvent(data.landingId!, "view_content");
+      window.removeEventListener("scroll", onScroll);
+    };
+    const onScroll = () => {
+      if (window.scrollY > window.innerHeight * 0.3) fire();
+    };
+    const timer = setTimeout(fire, 4000);
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener("scroll", onScroll);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- solo al montar la landing
+  }, [preview, data.landingId, data.pixelId]);
 
   useEffect(() => {
     if (preview || !isOpen) return;
@@ -62,6 +95,10 @@ export function LandingRenderer({
   }, [isOpen, preview]);
 
   const openForm = () => {
+    if (live) {
+      trackPixel("InitiateCheckout", contentParams);
+      trackEvent(data.landingId!, "initiate_checkout");
+    }
     if (popup) {
       setFormOpen(true);
     } else {

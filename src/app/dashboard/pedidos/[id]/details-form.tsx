@@ -14,7 +14,7 @@ export function OrderDetailsForm({
   initial,
 }: {
   orderId: string;
-  initial: { shipping_cost: number; internal_notes: string; address: string; reference: string };
+  initial: { shipping_cost: number; internal_notes: string; address: string; reference: string; courier_name: string; tracking_code: string };
 }) {
   const [state, action, pending] = useActionState(updateOrderDetails.bind(null, orderId), undefined);
 
@@ -27,7 +27,7 @@ export function OrderDetailsForm({
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Costos y notas internas</CardTitle>
+        <CardTitle>Envío, costos y notas internas</CardTitle>
         <CardDescription>El costo de envío es lo que tú pagas al courier. Se descuenta en tu utilidad real.</CardDescription>
       </CardHeader>
       <CardContent>
@@ -35,6 +35,14 @@ export function OrderDetailsForm({
           <div className="flex flex-col gap-2">
             <Label htmlFor="shipping_cost">Costo de envío pagado (S/)</Label>
             <Input id="shipping_cost" name="shipping_cost" type="number" step="0.01" min="0" defaultValue={initial.shipping_cost} />
+          </div>
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="courier_name">Courier</Label>
+            <Input id="courier_name" name="courier_name" defaultValue={initial.courier_name} placeholder="Shalom, Olva, motorizado…" />
+          </div>
+          <div className="flex flex-col gap-2 sm:col-span-2">
+            <Label htmlFor="tracking_code">Código de seguimiento / guía</Label>
+            <Input id="tracking_code" name="tracking_code" defaultValue={initial.tracking_code} />
           </div>
           <div className="flex flex-col gap-2 sm:col-span-2">
             <Label htmlFor="address">Dirección</Label>

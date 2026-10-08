@@ -6,6 +6,7 @@ import { useState } from "react";
 import { publicAssetUrl } from "@/lib/env";
 import { formatMoney } from "@/lib/format";
 import { readAttribution } from "@/modules/attribution/capture";
+import { trackPixel } from "@/modules/meta/pixel";
 import { splitFullName } from "@/modules/orders/order-input";
 import type { FormBlock } from "../schema";
 import { type LandingRenderData, shippingFor } from "../types";
@@ -114,6 +115,8 @@ export function CodForm({ data, preview }: { data: LandingRenderData; preview: b
         setSubmitting(false);
         return;
       }
+      // Lead con el MISMO eventID que el servidor envía por Conversions API → Meta deduplica
+      trackPixel("Lead", { value: json.total, currency: "PEN", content_ids: data.productId ? [data.productId] : [] }, json.leadEventId);
       router.push(`/p/${data.storeSlug}/${data.landingSlug}/gracias?pedido=${json.orderNumber}`);
     } catch {
       setError("Revisa tu conexión a internet e inténtalo de nuevo.");

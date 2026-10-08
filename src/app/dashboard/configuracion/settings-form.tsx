@@ -140,7 +140,7 @@ export function SettingsForm({ storeId, storeSlug, initial }: { storeId: string;
         <CardHeader>
           <CardTitle>Venta real</CardTitle>
           <CardDescription>
-            ¿Qué estado cuenta como venta real? Se usará para enviar «Purchase» a Meta (Fase 2). Recomendado: Entregado.
+            ¿Qué estado cuenta como venta real? Al llegar a ese estado, Vendia envía «Purchase» a Meta (si conectaste tu Pixel en Marketing). Recomendado: Entregado.
           </CardDescription>
         </CardHeader>
         <CardContent>

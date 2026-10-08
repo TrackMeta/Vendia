@@ -12,6 +12,7 @@ import {
   Receipt,
   Settings,
   ShoppingBag,
+  Truck,
   Users,
 } from "lucide-react";
 import Link from "next/link";
@@ -21,16 +22,17 @@ import { logout } from "@/app/(auth)/actions";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
 
-const NAV = [
+const NAV: { href: string; label: string; icon: typeof Home; exact?: boolean; soon?: boolean }[] = [
   { href: "/dashboard", label: "Inicio", icon: Home, exact: true },
   { href: "/dashboard/pedidos", label: "Pedidos", icon: ShoppingBag },
+  { href: "/dashboard/logistica", label: "Logística", icon: Truck },
   { href: "/dashboard/productos", label: "Productos", icon: Package },
   { href: "/dashboard/landings", label: "Landing Pages", icon: LayoutTemplate },
   { href: "/dashboard/clientes", label: "Clientes", icon: Users },
-  { href: "/dashboard/marketing", label: "Marketing", icon: Megaphone, soon: true },
-  { href: "/dashboard/gastos", label: "Gastos", icon: Receipt, soon: true },
-  { href: "/dashboard/analitica", label: "Analítica", icon: BarChart3, soon: true },
-  { href: "/dashboard/integraciones", label: "Integraciones", icon: Plug, soon: true },
+  { href: "/dashboard/marketing", label: "Marketing", icon: Megaphone },
+  { href: "/dashboard/gastos", label: "Gastos", icon: Receipt },
+  { href: "/dashboard/analitica", label: "Analítica", icon: BarChart3 },
+  { href: "/dashboard/integraciones", label: "Integraciones", icon: Plug },
   { href: "/dashboard/configuracion", label: "Configuración", icon: Settings },
 ];
 

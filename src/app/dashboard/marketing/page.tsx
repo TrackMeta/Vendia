@@ -1,24 +1,144 @@
 import type { Metadata } from "next";
-import { ComingSoon } from "@/components/dashboard/page-header";
+import { PageHeader } from "@/components/dashboard/page-header";
+import { SimpleBadge } from "@/components/dashboard/status-badge";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { requireStore } from "@/lib/auth";
+import { formatDateTime } from "@/lib/format";
+import { createClient } from "@/lib/supabase/server";
+import { MetaSettingsForm, RetryButton, TestEventButton, UrlTemplate } from "./meta-forms";
 
 export const metadata: Metadata = { title: "Marketing" };
 
-export default function MarketingPage() {
+const STATUS_TONE = { sent: "success", pending: "info", failed: "danger", skipped: "neutral" } as const;
+const STATUS_LABEL = { sent: "Enviado", pending: "Pendiente", failed: "Falló", skipped: "Omitido" } as const;
+
+export default async function MarketingPage() {
+  const { store } = await requireStore();
+  const supabase = await createClient();
+  const [{ data: settings }, { data: tokenConfigured }, { data: events }, { data: storeSettings }] = await Promise.all([
+    supabase
+      .from("store_meta_settings")
+      .select("pixel_id, test_event_code, enabled, send_lead, send_purchase")
+      .eq("store_id", store.id)
+      .maybeSingle(),
+    supabase.rpc("meta_token_configured", { p_store_id: store.id }),
+    supabase
+      .from("marketing_events")
+      .select("id, event_name, event_id, status, attempts, last_error, created_at, sent_at, orders (order_number)")
+      .eq("store_id", store.id)
+      .order("created_at", { ascending: false })
+      .limit(50),
+    supabase.from("store_settings").select("purchase_trigger_status").eq("store_id", store.id).single(),
+  ]);
+
+  const triggerLabel = { confirmed: "Confirmado", shipped: "Enviado", delivered: "Entregado", collected: "Cobrado" }[
+    (storeSettings?.purchase_trigger_status ?? "delivered") as "confirmed" | "shipped" | "delivered" | "collected"
+  ];
+  const failed = (events ?? []).filter((e) => e.status === "failed").length;
+
   return (
-    <ComingSoon title="Marketing" phase="Fase 2 · Meta Pixel + Conversions API">
-      <p>Aquí conectarás tu Meta Pixel y el token de Conversions API de tu tienda.</p>
-      <ul className="mt-2 list-disc pl-5">
-        <li>PageView, ViewContent e InitiateCheckout desde la landing.</li>
-        <li>Lead al enviar el formulario (navegador + servidor, deduplicado con el mismo event_id).</li>
-        <li>Purchase solo cuando el pedido llega al estado de venta real (por defecto Entregado), enviado desde el servidor.</li>
-      </ul>
-      <p className="mt-2">
-        Desde hoy ya se guardan en cada pedido los UTM, el fbclid/fbc y los IDs de campaña, conjunto y anuncio, así que no se pierde
-        ningún dato de atribución. Usa esta plantilla de URL en tus anuncios:
-      </p>
-      <code className="mt-2 block rounded-md bg-muted p-2 text-xs break-all">
-        ?utm_source=facebook&amp;utm_medium=paid&amp;utm_campaign={"{{campaign.name}}"}&amp;utm_content={"{{ad.name}}"}&amp;utm_term={"{{adset.name}}"}&amp;campaign_id={"{{campaign.id}}"}&amp;adset_id={"{{adset.id}}"}&amp;ad_id={"{{ad.id}}"}
-      </code>
-    </ComingSoon>
+    <div className="flex max-w-4xl flex-col gap-6">
+      <PageHeader title="Marketing" description="Meta Pixel + Conversions API, con deduplicación y Purchase solo cuando hay venta real." />
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Cómo mide Vendia tus conversiones</CardTitle>
+        </CardHeader>
+        <CardContent className="grid gap-3 text-sm sm:grid-cols-2">
+          <div className="rounded-lg bg-muted/50 p-3">
+            <p className="font-medium">Navegador (Pixel)</p>
+            <p className="text-muted-foreground">PageView · ViewContent · InitiateCheckout (abre el formulario) · Lead (envía el pedido)</p>
+          </div>
+          <div className="rounded-lg bg-muted/50 p-3">
+            <p className="font-medium">Servidor (Conversions API)</p>
+            <p className="text-muted-foreground">
+              Lead (mismo event_id que el Pixel → Meta lo deduplica) · <b>Purchase cuando el pedido llega a «{triggerLabel}»</b>, con el valor real
+              cobrado.
+            </p>
+          </div>
+          <p className="text-xs text-muted-foreground sm:col-span-2">
+            Consejo: al inicio optimiza tus campañas por <b>Lead</b> (más volumen) y mide la rentabilidad con <b>Purchase</b>. Cambia el estado de venta
+            real en Configuración.
+          </p>
+        </CardContent>
+      </Card>
+
+      <MetaSettingsForm
+        initial={{
+          pixel_id: settings?.pixel_id ?? "",
+          test_event_code: settings?.test_event_code ?? "",
+          enabled: settings?.enabled ?? false,
+          send_lead: settings?.send_lead ?? true,
+          send_purchase: settings?.send_purchase ?? true,
+        }}
+        tokenConfigured={Boolean(tokenConfigured)}
+      />
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Plantilla de URL para tus anuncios</CardTitle>
+          <CardDescription>
+            Pégala en Meta Ads → Anuncio → Parámetros de URL. Así cada pedido queda atado a su campaña, conjunto y anuncio.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <UrlTemplate />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-2">
+          <div>
+            <CardTitle>Eventos enviados a Meta</CardTitle>
+            <CardDescription>Últimos 50 eventos de servidor (Conversions API).</CardDescription>
+          </div>
+          <div className="flex gap-2">
+            <TestEventButton />
+            {failed ? <RetryButton count={failed} /> : null}
+          </div>
+        </CardHeader>
+        <CardContent>
+          {!events?.length ? (
+            <p className="py-6 text-center text-sm text-muted-foreground">Aún no hay eventos. Se registran cuando llegan pedidos con Meta activado.</p>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Evento</TableHead>
+                  <TableHead>Pedido</TableHead>
+                  <TableHead>Estado</TableHead>
+                  <TableHead className="hidden md:table-cell">Fecha</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {events.map((e) => {
+                  const order = e.orders as unknown as { order_number: number } | { order_number: number }[] | null;
+                  const number = Array.isArray(order) ? order[0]?.order_number : order?.order_number;
+                  return (
+                    <TableRow key={e.id}>
+                      <TableCell>
+                        <div className="flex flex-col">
+                          <span className="font-medium">{e.event_name}</span>
+                          <span className="font-mono text-[11px] text-muted-foreground">{e.event_id.slice(0, 24)}…</span>
+                        </div>
+                      </TableCell>
+                      <TableCell>{number ? `#${number}` : "—"}</TableCell>
+                      <TableCell>
+                        <div className="flex flex-col gap-0.5">
+                          <SimpleBadge tone={STATUS_TONE[e.status as keyof typeof STATUS_TONE]}>{STATUS_LABEL[e.status as keyof typeof STATUS_LABEL]}</SimpleBadge>
+                          {e.last_error ? <span className="max-w-64 truncate text-xs text-destructive">{e.last_error}</span> : null}
+                        </div>
+                      </TableCell>
+                      <TableCell className="hidden text-muted-foreground md:table-cell">{formatDateTime(e.sent_at ?? e.created_at)}</TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
+    </div>
   );
 }

@@ -1,5 +1,7 @@
-import { NextResponse, type NextRequest } from "next/server";
+import { after, NextResponse, type NextRequest } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { leadEventId } from "@/modules/meta/events";
+import { enqueueOrderEvent } from "@/modules/meta/capi";
 import { orderInput } from "@/modules/orders/order-input";
 
 const RATE_LIMIT_WINDOW_MINUTES = 10;
@@ -79,5 +81,21 @@ export async function POST(request: NextRequest) {
   }
 
   const result = data as { order_id: string; order_number: number; total: number; duplicate_submit: boolean };
-  return NextResponse.json({ orderNumber: result.order_number, total: result.total });
+
+  // Lead por Conversions API (servidor) en segundo plano. Mismo event_id que el Pixel del navegador.
+  if (!result.duplicate_submit) {
+    after(async () => {
+      try {
+        await enqueueOrderEvent(supabase, result.order_id, "Lead");
+      } catch (e) {
+        console.error("CAPI Lead", e);
+      }
+    });
+  }
+
+  return NextResponse.json({
+    orderNumber: result.order_number,
+    total: Number(result.total),
+    leadEventId: leadEventId(result.order_id),
+  });
 }

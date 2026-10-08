@@ -51,3 +51,9 @@
 - **Monitoreo de errores** (Sentry). Vercel gratis guarda los registros solo 1 hora.
 - **Landing pre-armada y guardada en caché:** carga más rápido y cuesta menos.
 - **Contraseña de la base de datos:** sin ella, cada cambio de tablas se pega a mano en Supabase.
+
+## 🆕 Controlador de pedidos y rendimiento (2026-10-08)
+- **Controlador de pedidos:** ver [CONTROLADOR-PEDIDOS.md](CONTROLADOR-PEDIDOS.md). Incluye notificaciones, secuencia de llamadas, registro manual de pedidos, zona Lima/Provincia, equipo y couriers.
+- **Selector de fechas estilo Meta** en toda la app: ver [UI.md](UI.md).
+- **Origen del pedido estilo Meta:** campaña → conjunto → anuncio con nombres e IDs. La vista previa del anuncio (imagen, texto, "Ver anuncio") requiere la API de Marketing de Meta.
+- **Sección Rendimiento:** tablas por campaña, conjunto, anuncio, producto y página (landing / product page), con columnas de Meta (impresiones, CPM, clics, CTR, CPC…) y columnas de Vendia (pedidos, confirmados, venta real, CPA real, ROAS real, utilidad), más un selector de columnas.

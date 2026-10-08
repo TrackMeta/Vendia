@@ -276,6 +276,25 @@ async function main() {
   await step("get_product_stats", `select public.get_product_stats(${range}, current_date - 1, current_date + 1) -> 0 -> 'ad_spend'`);
   await step("get_geo_stats", `select jsonb_array_length(public.get_geo_stats(${range}, 'department'))`);
   await step("get_funnel", `select public.get_funnel(${range}) -> 'delivered'`);
+
+  // ── Bloque 4: Meta y Rendimiento ──
+  console.log("\nBloque 4:");
+  await step(
+    "entidades de Meta",
+    `insert into public.meta_entities (store_id, id, level, name, campaign_id, adset_id) values
+      ('${storeId}', '120200', 'campaign', 'Campaña Fajas', null, null),
+      ('${storeId}', '120201', 'adset', 'Mujeres 25-45', '120200', null),
+      ('${storeId}', '120202', 'ad', 'Video testimonio', '120200', '120201') returning name`,
+  );
+  await step(
+    "métricas diarias",
+    `insert into public.meta_insights_daily (store_id, date, ad_id, adset_id, campaign_id, spend, spend_pen, impressions, reach, clicks, results)
+     values ('${storeId}', current_date, '120202', '120201', '120200', 20, 89.68, 5000, 4000, 120, 6) returning spend_pen`,
+  );
+  await step("gasto sincronizado (source meta_sync)", `insert into public.expenses (store_id, expense_date, category, amount, source, import_key, campaign_id) values ('${storeId}', current_date, 'meta_ads', 20, 'meta_sync', 'meta:x', '120200') returning source`);
+  for (const level of ["campaign", "adset", "ad", "page"]) {
+    await step(`get_performance (${level})`, `select public.get_performance(${range}, current_date - 1, current_date + 1, '${level}') -> 0`);
+  }
   console.log("\nOK — prueba de humo completa");
 }
 

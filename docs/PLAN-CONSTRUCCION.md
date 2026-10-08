@@ -25,7 +25,7 @@
 - [x] **Exportación a la plantilla oficial** de Shalom y Eva (kit de Nodo): revisión previa, reserva atómica, lotes y nueva descarga.
 - [x] **Medida y peso** por producto (y editable por pedido). La base de datos ya acepta medida por oferta; falta su pantalla.
 - [x] **Stock:** se descuenta al confirmar; se devuelve al cancelar, en una devolución por falta de pago o en un rechazo en puerta.
-- [x] **Costos por pedido:** costo de envío (valor sugerido por courier y zona, editable) y devolución de 0, 1 o 2 envíos. Ya cuenta en la utilidad del Inicio; las demás tablas de analítica se ajustan en el Bloque 3.
+- [x] **Costos por pedido:** costo de envío (valor sugerido por courier y zona, editable) y devolución de 0, 1 o 2 envíos. Cuenta en todas las métricas.
 
 ## Bloque 3: Números correctos
 - [x] **Venta real por zona:** Lima = Entregado y Provincia = Cobrado, o Entregado en ambos (configurable). Se aplica en todas las métricas y en el Purchase de Meta.
@@ -34,10 +34,10 @@
 - [x] **Selector de fechas estilo Meta** en toda la app.
 
 ## Bloque 4: Meta total y Rendimiento
-- [ ] **«Conectar Meta» con un token** de usuario del sistema (`ads_read` + `ads_management` + `business_management`): detecta cuentas y moneda, elige o crea el Pixel y activa las conversiones.
-- [ ] **Sincronización diaria** de campañas, conjuntos y anuncios, más un botón «Actualizar ahora». Reemplaza la importación por CSV, que se mantiene como alternativa.
-- [ ] **Rendimiento** por campaña, conjunto, anuncio, **ángulo**, producto y página: columnas de Meta junto al **CPA real** y la utilidad, con selector de columnas.
-- [ ] **Tarjeta del anuncio** en cada pedido (miniatura, texto, «Ver anuncio»).
+- [x] **«Conectar Meta» con un token** de usuario del sistema (`ads_read` + `ads_management` + `business_management`): detecta cuentas y moneda, elige o crea el Pixel y activa las conversiones.
+- [x] **Sincronización diaria** de campañas, conjuntos y anuncios, más un botón «Actualizar ahora». Reemplaza la importación por CSV, que se mantiene como alternativa.
+- [x] **Rendimiento** por campaña, conjunto, anuncio, **ángulo**, producto y página: columnas de Meta junto al **CPA real** y la utilidad, con selector de columnas. La pestaña «Ángulos» se llena cuando existan los ángulos (Bloque 5).
+- [x] **Tarjeta del anuncio** en cada pedido (miniatura, texto, «Ver anuncio»).
 
 ## Bloque 5: Landing y ventas
 - [ ] **Product page** por producto, además de la landing.

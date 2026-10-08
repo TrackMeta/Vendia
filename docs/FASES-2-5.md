@@ -32,7 +32,7 @@
   - `user_data` va hasheado con SHA-256 según las reglas de Meta: teléfono 51…, nombre, apellido, ciudad, región, país `pe` y external_id. fbc, fbp, IP y user agent se envían sin hash.
 - **Bandeja `marketing_events`:**
   - `event_id` único por tienda: **un mismo Purchase nunca se envía dos veces**.
-  - Reintentos: botón en Marketing y tarea diaria en Vercel (`/api/cron/meta-retry`).
+  - Reintentos: botón en Marketing y tarea diaria en Vercel (`/api/cron/daily`).
 - **Registro de los últimos 50 eventos**, botón de "evento de prueba" y plantilla de URL para anuncios, con `{{campaign.id}}`, `{{adset.id}}` y `{{ad.id}}`.
 
 ### Logística (`/dashboard/logistica`)

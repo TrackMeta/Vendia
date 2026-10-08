@@ -41,7 +41,7 @@ Sin esto, los correos de confirmación y de recuperación de contraseña apuntar
 
 ## 4. Tarea programada
 
-El archivo `vercel.json` programa `/api/cron/meta-retry` una vez al día para reintentar eventos de Meta que fallaron. Vercel la activa sola si `CRON_SECRET` está configurado. En el plan gratis (Hobby) solo se permiten tareas diarias.
+El archivo `vercel.json` programa `/api/cron/daily` una vez al día: reintenta eventos de Meta que fallaron y sincroniza campañas, gasto y métricas de las tiendas conectadas. Vercel la activa sola si `CRON_SECRET` está configurado. En el plan gratis (Hobby) solo se permiten tareas diarias.
 
 ## 5. Dominio propio (opcional)
 

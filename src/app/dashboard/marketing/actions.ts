@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath, revalidateTag } from "next/cache";
+import { after } from "next/server";
 import { z } from "zod";
 import { requireOwner } from "@/lib/auth";
 import { decryptSecret, encryptSecret } from "@/lib/crypto";
@@ -8,6 +9,8 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { buildServerEvent, META_GRAPH_VERSION } from "@/modules/meta/events";
 import { sendMarketingEvent } from "@/modules/meta/capi";
+import { type AdAccount, createPixel, inspectToken, listPixels, MetaApiError, type Pixel } from "@/modules/meta/marketing-api";
+import { FIRST_SYNC_DAYS, syncMetaStore } from "@/modules/meta/sync";
 import { landingCacheTag } from "@/modules/landing/public-data";
 
 export type ActionResult = { ok: true; message?: string } | { ok: false; error: string };
@@ -123,4 +126,136 @@ export async function retryFailedEvents(): Promise<ActionResult> {
   for (const row of data ?? []) if (await sendMarketingEvent(admin, row.id)) sent++;
   revalidatePath("/dashboard/marketing");
   return { ok: true, message: `Reintentados ${data?.length ?? 0} · enviados ${sent}` };
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// Conectar Meta con un token de usuario del sistema
+// ─────────────────────────────────────────────────────────────────────
+
+const tokenSchema = z.string().trim().min(50, "El token parece incompleto: cópialo completo").max(1000);
+const accountSchema = z.string().regex(/^act_\d{5,25}$/, "Cuenta publicitaria inválida");
+
+const metaError = (e: unknown) => (e instanceof MetaApiError ? e.message : "No se pudo conectar con Meta");
+
+export type TokenCheck = { ok: true; userName: string; accounts: AdAccount[] } | { ok: false; error: string };
+
+/** Paso 1: valida el token y lista las cuentas publicitarias (el token no se guarda todavía). */
+export async function checkMetaToken(token: string): Promise<TokenCheck> {
+  await requireOwner();
+  const t = tokenSchema.safeParse(token);
+  if (!t.success) return { ok: false, error: t.error.issues[0].message };
+  try {
+    const r = await inspectToken(t.data);
+    if (!r.accounts.length) {
+      return { ok: false, error: "El token no tiene cuentas publicitarias asignadas. En el Business Manager, asígnale tu cuenta al usuario del sistema." };
+    }
+    return { ok: true, ...r };
+  } catch (e) {
+    return { ok: false, error: metaError(e) };
+  }
+}
+
+/** Paso 2: Pixels de la cuenta elegida. */
+export async function getMetaPixels(token: string, adAccountId: string): Promise<{ ok: true; pixels: Pixel[] } | { ok: false; error: string }> {
+  await requireOwner();
+  const t = tokenSchema.safeParse(token);
+  const a = accountSchema.safeParse(adAccountId);
+  if (!t.success || !a.success) return { ok: false, error: "Datos inválidos" };
+  try {
+    return { ok: true, pixels: await listPixels(t.data, a.data) };
+  } catch (e) {
+    return { ok: false, error: metaError(e) };
+  }
+}
+
+/** Paso 3: guarda la conexión (token cifrado), elige o crea el Pixel, activa las conversiones y hace la primera sincronización. */
+export async function connectMeta(input: { token: string; adAccountId: string; pixelId?: string; newPixelName?: string }): Promise<ActionResult> {
+  const { store } = await requireOwner();
+  const parsed = z
+    .object({
+      token: tokenSchema,
+      adAccountId: accountSchema,
+      pixelId: z
+        .string()
+        .regex(/^\d{5,20}$/)
+        .optional(),
+      newPixelName: z.string().trim().min(2).max(100).optional(),
+    })
+    .safeParse(input);
+  if (!parsed.success) return { ok: false, error: parsed.error.issues[0].message };
+  const d = parsed.data;
+  if (!d.pixelId && !d.newPixelName) return { ok: false, error: "Elige un Pixel o crea uno nuevo" };
+
+  let account: AdAccount | undefined;
+  let userName: string;
+  let pixelId: string;
+  try {
+    // Se vuelve a validar en el servidor: no se confía en lo que manda el navegador
+    const info = await inspectToken(d.token);
+    userName = info.userName;
+    account = info.accounts.find((x) => x.id === d.adAccountId);
+    if (!account) return { ok: false, error: "Ese token no tiene acceso a esa cuenta publicitaria" };
+    if (d.pixelId) {
+      const pixels = await listPixels(d.token, account.id);
+      if (!pixels.some((p) => p.id === d.pixelId)) return { ok: false, error: "Ese Pixel no pertenece a la cuenta elegida" };
+      pixelId = d.pixelId;
+    } else {
+      pixelId = await createPixel(d.token, account.id, d.newPixelName ?? store.name);
+    }
+  } catch (e) {
+    return { ok: false, error: metaError(e) };
+  }
+
+  const admin = createAdminClient();
+  const values = {
+    pixel_id: pixelId,
+    capi_token_encrypted: encryptSecret(d.token),
+    enabled: true,
+    ad_account_id: account.id,
+    ad_account_name: account.name.slice(0, 200),
+    ad_account_currency: account.currency,
+    meta_user_name: userName.slice(0, 200),
+    connected_at: new Date().toISOString(),
+    sync_enabled: true,
+    last_sync_error: null,
+  };
+  const { error } = await admin.from("store_meta_settings").upsert({ store_id: store.id, ...values }, { onConflict: "store_id" });
+  if (error) return { ok: false, error: "No se pudo guardar la conexión" };
+  if (account.currency === "PEN" || account.currency === "USD") {
+    await admin.from("store_settings").update({ ad_currency: account.currency }).eq("store_id", store.id);
+  }
+
+  after(async () => {
+    try {
+      await syncMetaStore(createAdminClient(), store.id, FIRST_SYNC_DAYS);
+    } catch (e) {
+      console.error("Primera sincronización de Meta", e);
+    }
+  });
+  await revalidateStoreLandings(store.id, store.slug);
+  revalidatePath("/dashboard/marketing");
+  return { ok: true, message: `Conectado a ${account.name}. Estamos trayendo los últimos ${FIRST_SYNC_DAYS} días de tus campañas.` };
+}
+
+/** Botón «Actualizar ahora»: últimos 7 días. */
+export async function syncMetaNow(): Promise<ActionResult> {
+  const { store } = await requireOwner();
+  const r = await syncMetaStore(createAdminClient(), store.id, 7);
+  revalidatePath("/dashboard/marketing");
+  revalidatePath("/dashboard/rendimiento");
+  revalidatePath("/dashboard");
+  if (!r.ok) return { ok: false, error: r.error };
+  return { ok: true, message: `Actualizado: ${r.rows} filas · gasto S/ ${r.spend.toFixed(2)} (últimos 7 días)` };
+}
+
+/** Desconecta la cuenta publicitaria (deja de sincronizar). El Pixel y el historial se conservan. */
+export async function disconnectMeta(): Promise<ActionResult> {
+  const { store } = await requireOwner();
+  const { error } = await createAdminClient()
+    .from("store_meta_settings")
+    .update({ ad_account_id: null, ad_account_name: null, ad_account_currency: null, connected_at: null, sync_enabled: false })
+    .eq("store_id", store.id);
+  if (error) return { ok: false, error: "No se pudo desconectar" };
+  revalidatePath("/dashboard/marketing");
+  return { ok: true, message: "Cuenta publicitaria desconectada. Tus datos anteriores se conservan." };
 }

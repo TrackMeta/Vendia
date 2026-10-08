@@ -109,3 +109,22 @@ describe("Funnel", () => {
     expect(f[0].rateFromPrevious).toBeNull();
   });
 });
+
+describe("Rendimiento: Meta + Vendia", () => {
+  it("pone el costo por resultado de Meta junto al CPA real", async () => {
+    const { computePerformanceRow } = await import("./index");
+    const r = computePerformanceRow({ ad_spend: 300, impressions: 60000, clicks: 600, results: 30, orders: 25, confirmed: 20, shipped: 18, delivered: 12, revenue: 1200, product_cost: 300, shipping_cost: 180 });
+    expect(r.costPerResult).toBe(10); // lo que dice Meta
+    expect(r.cpa.perDelivered).toBe(25); // lo que de verdad cuesta cada venta
+    expect(r.cpm).toBe(5);
+    expect(r.ctr).toBe(0.01);
+    expect(r.cpc).toBe(0.5);
+    expect(r.confirmationRate).toBe(0.8);
+    expect(r.profit).toBe(1200 - 300 - 180 - 300);
+  });
+  it("sin impresiones ni resultados muestra «—» (null), no 0 ni infinito", async () => {
+    const { computePerformanceRow } = await import("./index");
+    const r = computePerformanceRow({ orders: 3 });
+    expect([r.cpm, r.ctr, r.costPerResult, r.cpa.perDelivered]).toEqual([null, null, null, null]);
+  });
+});

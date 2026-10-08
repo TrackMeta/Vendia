@@ -7,6 +7,7 @@ import { requireOwner } from "@/lib/auth";
 import { formatDateTime } from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
 import { parseSaleMode, REAL_SALE_MODES } from "@/modules/metrics/real-sale";
+import { MetaConnect } from "./meta-connect";
 import { MetaSettingsForm, RetryButton, TestEventButton, UrlTemplate } from "./meta-forms";
 
 export const metadata: Metadata = { title: "Marketing" };
@@ -20,7 +21,9 @@ export default async function MarketingPage() {
   const [{ data: settings }, { data: tokenConfigured }, { data: events }, { data: storeSettings }] = await Promise.all([
     supabase
       .from("store_meta_settings")
-      .select("pixel_id, test_event_code, enabled, send_lead, send_purchase")
+      .select(
+        "pixel_id, test_event_code, enabled, send_lead, send_purchase, ad_account_id, ad_account_name, ad_account_currency, meta_user_name, last_sync_at, last_sync_error",
+      )
       .eq("store_id", store.id)
       .maybeSingle(),
     supabase.rpc("meta_token_configured", { p_store_id: store.id }),
@@ -40,6 +43,20 @@ export default async function MarketingPage() {
     <div className="flex max-w-4xl flex-col gap-6">
       <PageHeader title="Marketing" description="Meta Pixel + Conversions API, con deduplicación y Purchase solo cuando hay venta real." />
 
+      <MetaConnect
+        storeName={store.name}
+        connection={{
+          connected: Boolean(settings?.ad_account_id),
+          accountName: settings?.ad_account_name ?? null,
+          accountId: settings?.ad_account_id ?? null,
+          currency: settings?.ad_account_currency ?? null,
+          userName: settings?.meta_user_name ?? null,
+          pixelId: settings?.pixel_id ?? null,
+          lastSyncAt: settings?.last_sync_at ?? null,
+          lastSyncError: settings?.last_sync_error ?? null,
+        }}
+      />
+
       <Card>
         <CardHeader>
           <CardTitle>Cómo mide Vendia tus conversiones</CardTitle>
@@ -52,34 +69,35 @@ export default async function MarketingPage() {
           <div className="rounded-lg bg-muted/50 p-3">
             <p className="font-medium">Servidor (Conversions API)</p>
             <p className="text-muted-foreground">
-              Lead (mismo event_id que el Pixel → Meta lo deduplica) · <b>Purchase cuando hay venta real ({triggerLabel})</b>, con el valor real
-              cobrado.
+              Lead (mismo event_id que el Pixel → Meta lo deduplica) · <b>Purchase cuando hay venta real ({triggerLabel})</b>, con el valor real cobrado.
             </p>
           </div>
           <p className="text-xs text-muted-foreground sm:col-span-2">
-            Consejo: al inicio optimiza tus campañas por <b>Lead</b> (más volumen) y mide la rentabilidad con <b>Purchase</b>. Cambia el estado de venta
-            real en Configuración.
+            Consejo: al inicio optimiza tus campañas por <b>Lead</b> (más volumen) y mide la rentabilidad con <b>Purchase</b>. Cambia el estado de venta real en
+            Configuración.
           </p>
         </CardContent>
       </Card>
 
-      <MetaSettingsForm
-        initial={{
-          pixel_id: settings?.pixel_id ?? "",
-          test_event_code: settings?.test_event_code ?? "",
-          enabled: settings?.enabled ?? false,
-          send_lead: settings?.send_lead ?? true,
-          send_purchase: settings?.send_purchase ?? true,
-        }}
-        tokenConfigured={Boolean(tokenConfigured)}
-      />
+      <details className="group rounded-xl border p-4 [&_[data-slot=card]]:border-0 [&_[data-slot=card]]:shadow-none">
+        <summary className="cursor-pointer text-sm font-medium">Configuración manual del Pixel y Conversions API (avanzado)</summary>
+        <p className="mt-1 text-xs text-muted-foreground">Solo si no usas «Conectar Meta». Aquí también activas o pausas el envío de Lead y Purchase.</p>
+        <MetaSettingsForm
+          initial={{
+            pixel_id: settings?.pixel_id ?? "",
+            test_event_code: settings?.test_event_code ?? "",
+            enabled: settings?.enabled ?? false,
+            send_lead: settings?.send_lead ?? true,
+            send_purchase: settings?.send_purchase ?? true,
+          }}
+          tokenConfigured={Boolean(tokenConfigured)}
+        />
+      </details>
 
       <Card>
         <CardHeader>
           <CardTitle>Plantilla de URL para tus anuncios</CardTitle>
-          <CardDescription>
-            Pégala en Meta Ads → Anuncio → Parámetros de URL. Así cada pedido queda atado a su campaña, conjunto y anuncio.
-          </CardDescription>
+          <CardDescription>Pégala en Meta Ads → Anuncio → Parámetros de URL. Así cada pedido queda atado a su campaña, conjunto y anuncio.</CardDescription>
         </CardHeader>
         <CardContent>
           <UrlTemplate />
@@ -125,7 +143,9 @@ export default async function MarketingPage() {
                       <TableCell>{number ? `#${number}` : "—"}</TableCell>
                       <TableCell>
                         <div className="flex flex-col gap-0.5">
-                          <SimpleBadge tone={STATUS_TONE[e.status as keyof typeof STATUS_TONE]}>{STATUS_LABEL[e.status as keyof typeof STATUS_LABEL]}</SimpleBadge>
+                          <SimpleBadge tone={STATUS_TONE[e.status as keyof typeof STATUS_TONE]}>
+                            {STATUS_LABEL[e.status as keyof typeof STATUS_LABEL]}
+                          </SimpleBadge>
                           {e.last_error ? <span className="max-w-64 truncate text-xs text-destructive">{e.last_error}</span> : null}
                         </div>
                       </TableCell>

@@ -198,3 +198,31 @@ export function buildFunnel(raw: Record<string, unknown>): FunnelStep[] {
     return { key, label, value, rateFromPrevious: previous === null ? null : safeDivide(value, previous) };
   });
 }
+
+/**
+ * Fila de Rendimiento: métricas de Meta (gasto, CPM, CTR, costo por resultado)
+ * junto a las de Vendia (CPA real, ROAS real, utilidad). Mismas fórmulas que el Inicio.
+ */
+export function computePerformanceRow(raw: Record<string, unknown>) {
+  const base = computeRowMetrics(raw);
+  const n = (k: string) => Number(raw[k] ?? 0);
+  const spend = base.ad_spend ?? 0;
+  const impressions = n("impressions");
+  const clicks = n("clicks");
+  const results = n("results");
+  return {
+    ...base,
+    impressions,
+    reach: n("reach"),
+    clicks,
+    results,
+    cpm: safeDivide(spend * 1000, impressions),
+    ctr: safeDivide(clicks, impressions),
+    cpc: safeDivide(spend, clicks),
+    /** Costo por resultado según Meta (leads que Meta cuenta) */
+    costPerResult: safeDivide(spend, results),
+    confirmationRate: safeDivide(base.confirmed, base.orders),
+  };
+}
+
+export type PerformanceRow = ReturnType<typeof computePerformanceRow>;

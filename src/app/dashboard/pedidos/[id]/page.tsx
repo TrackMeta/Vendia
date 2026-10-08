@@ -86,6 +86,15 @@ export default async function OrderDetailPage({ params }: PageProps<"/dashboard/
     (a, b) => b.id - a.id,
   );
   const landing = one(order.landing_pages as { title: string; slug: string }[]);
+
+  // Tarjeta del anuncio que trajo el pedido (si Meta está conectado y el pedido trae su ad_id)
+  const metaIds = [attr?.ad_id, attr?.adset_id, attr?.campaign_id].filter((x): x is string => Boolean(x && /^\d{5,30}$/.test(x)));
+  const { data: metaEntities } = metaIds.length
+    ? await supabase.from("meta_entities").select("id, level, name, status, thumbnail_url, body, title, preview_url").eq("store_id", store.id).in("id", metaIds)
+    : { data: [] as { id: string; level: string; name: string | null; status: string | null; thumbnail_url: string | null; body: string | null; title: string | null; preview_url: string | null }[] };
+  const ad = metaEntities?.find((e) => e.level === "ad");
+  const adCampaign = metaEntities?.find((e) => e.level === "campaign");
+  const adSet = metaEntities?.find((e) => e.level === "adset");
   const firstName = String(order.customer_name).split(" ")[0];
   const item = items[0];
   const pendingContact = order.status === "new" || order.status === "pending_confirmation";
@@ -299,6 +308,40 @@ export default async function OrderDetailPage({ params }: PageProps<"/dashboard/
         </div>
 
         <div className="flex flex-col gap-6">
+          {ad ? (
+            <Card>
+              <CardHeader>
+                <CardTitle>Anuncio</CardTitle>
+              </CardHeader>
+              <CardContent className="flex flex-col gap-3">
+                <div className="flex gap-3">
+                  {ad.thumbnail_url ? (
+                    // Miniatura servida por Meta (dominio externo variable)
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={ad.thumbnail_url} alt="" className="size-20 shrink-0 rounded-lg object-cover" />
+                  ) : null}
+                  <div className="flex min-w-0 flex-col gap-0.5 text-sm">
+                    <span className="font-medium">{ad.name}</span>
+                    {adCampaign?.name ? <span className="truncate text-xs text-muted-foreground">Campaña: {adCampaign.name}</span> : null}
+                    {adSet?.name ? <span className="truncate text-xs text-muted-foreground">Conjunto: {adSet.name}</span> : null}
+                    {ad.status ? <span className="text-xs text-muted-foreground">{ad.status.toLowerCase().replace(/_/g, " ")}</span> : null}
+                  </div>
+                </div>
+                {ad.title || ad.body ? (
+                  <p className="line-clamp-4 text-sm text-muted-foreground">
+                    {ad.title ? <b className="text-foreground">{ad.title}. </b> : null}
+                    {ad.body}
+                  </p>
+                ) : null}
+                {ad.preview_url ? (
+                  <a href={ad.preview_url} target="_blank" rel="noopener noreferrer" className="text-sm font-medium text-primary hover:underline">
+                    Ver anuncio
+                  </a>
+                ) : null}
+              </CardContent>
+            </Card>
+          ) : null}
+
           <Card>
             <CardHeader>
               <CardTitle>Origen del pedido</CardTitle>
@@ -308,8 +351,8 @@ export default async function OrderDetailPage({ params }: PageProps<"/dashboard/
               <Row label="Fuente">{attr?.utm_source ?? "Directo / orgánico"}</Row>
               <Row label="Medio">{attr?.utm_medium ?? "—"}</Row>
               <Row label="Campaña">{attr?.utm_campaign ?? "—"}</Row>
-              <Row label="Anuncio">{attr?.utm_content ?? "—"}</Row>
-              <Row label="Conjunto">{attr?.utm_term ?? "—"}</Row>
+              <Row label="Anuncio">{ad?.name ?? attr?.utm_content ?? "—"}</Row>
+              <Row label="Conjunto">{adSet?.name ?? attr?.utm_term ?? "—"}</Row>
               <Row label="ID campaña">{attr?.campaign_id ?? "—"}</Row>
               <Row label="ID anuncio">{attr?.ad_id ?? "—"}</Row>
               <Row label="Clic de Meta (fbclid)">{attr?.fbclid ? "Sí" : "No"}</Row>

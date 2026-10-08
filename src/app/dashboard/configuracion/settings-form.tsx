@@ -25,6 +25,8 @@ type Values = {
   payment_methods: string;
   confirmation_message: string;
   purchase_trigger_status: string;
+  contact_calls: number;
+  contact_whatsapp: boolean;
 };
 
 function Field({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
@@ -133,6 +135,25 @@ export function SettingsForm({ storeId, storeSlug, initial }: { storeId: string;
               <Textarea name="confirmation_message" defaultValue={initial.confirmation_message} rows={3} />
             </Field>
           </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Secuencia de contacto</CardTitle>
+          <CardDescription>
+            Cómo se confirma cada pedido. Los intentos se hacen seguidos; se puede cancelar desde el primero. Al terminar la secuencia sin respuesta, Vendia
+            te avisa (no cancela solo).
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="flex flex-wrap items-end gap-6">
+          <Field label="Cantidad de llamadas">
+            <Input name="contact_calls" type="number" min={0} max={6} defaultValue={initial.contact_calls} className="w-24" />
+          </Field>
+          <label className="flex items-center gap-2 pb-2 text-sm">
+            <input type="checkbox" name="contact_whatsapp" defaultChecked={initial.contact_whatsapp} className="size-4" />
+            Terminar con un mensaje por WhatsApp
+          </label>
         </CardContent>
       </Card>
 

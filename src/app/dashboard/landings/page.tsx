@@ -4,7 +4,7 @@ import Link from "next/link";
 import { EmptyState, PageHeader } from "@/components/dashboard/page-header";
 import { SimpleBadge } from "@/components/dashboard/status-badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { requireStore } from "@/lib/auth";
+import { requireOwner } from "@/lib/auth";
 import { formatDateTime, one } from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
 import { NewLandingDialog } from "./new-landing-dialog";
@@ -13,7 +13,7 @@ export const metadata: Metadata = { title: "Landing Pages" };
 
 export default async function LandingsPage({ searchParams }: PageProps<"/dashboard/landings">) {
   const { nuevo } = await searchParams;
-  const { store } = await requireStore();
+  const { store } = await requireOwner();
   const supabase = await createClient();
 
   const [{ data: landings }, { data: products }, { data: orderCounts }] = await Promise.all([

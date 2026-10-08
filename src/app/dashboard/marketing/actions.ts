@@ -2,7 +2,7 @@
 
 import { revalidatePath, revalidateTag } from "next/cache";
 import { z } from "zod";
-import { requireStore } from "@/lib/auth";
+import { requireOwner } from "@/lib/auth";
 import { decryptSecret, encryptSecret } from "@/lib/crypto";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
@@ -39,7 +39,7 @@ async function revalidateStoreLandings(storeId: string, storeSlug: string) {
 }
 
 export async function saveMetaSettings(_prev: ActionResult | undefined, formData: FormData): Promise<ActionResult> {
-  const { store } = await requireStore();
+  const { store } = await requireOwner();
   const parsed = schema.safeParse(Object.fromEntries(formData.entries()));
   if (!parsed.success) return { ok: false, error: parsed.error.issues[0].message };
   const d = parsed.data;
@@ -77,7 +77,7 @@ export async function saveMetaSettings(_prev: ActionResult | undefined, formData
 
 /** Envía un PageView de prueba por Conversions API (requiere código de prueba de Events Manager). */
 export async function sendTestEvent(): Promise<ActionResult> {
-  const { store } = await requireStore();
+  const { store } = await requireOwner();
   const admin = createAdminClient();
   const { data: s } = await admin
     .from("store_meta_settings")
@@ -110,7 +110,7 @@ export async function sendTestEvent(): Promise<ActionResult> {
 }
 
 export async function retryFailedEvents(): Promise<ActionResult> {
-  const { store } = await requireStore();
+  const { store } = await requireOwner();
   const admin = createAdminClient();
   const { data } = await admin
     .from("marketing_events")

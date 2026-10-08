@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
-import { requireStore } from "@/lib/auth";
+import { requireOwner } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { offersInput, productInput } from "@/modules/products/schema";
 
@@ -14,7 +14,7 @@ function formToObject(formData: FormData) {
 }
 
 export async function createProduct(_prev: ActionResult | undefined, formData: FormData): Promise<ActionResult> {
-  const { store } = await requireStore();
+  const { store } = await requireOwner();
   const parsed = productInput.safeParse(formToObject(formData));
   if (!parsed.success) return { ok: false, error: parsed.error.issues[0].message };
 
@@ -46,7 +46,7 @@ export async function createProduct(_prev: ActionResult | undefined, formData: F
 }
 
 export async function updateProduct(productId: string, _prev: ActionResult | undefined, formData: FormData): Promise<ActionResult> {
-  const { store } = await requireStore();
+  const { store } = await requireOwner();
   const parsed = productInput.safeParse(formToObject(formData));
   if (!parsed.success) return { ok: false, error: parsed.error.issues[0].message };
 
@@ -62,7 +62,7 @@ export async function updateProduct(productId: string, _prev: ActionResult | und
 }
 
 export async function deleteProduct(productId: string): Promise<ActionResult> {
-  const { store } = await requireStore();
+  const { store } = await requireOwner();
   const supabase = await createClient();
   const { error } = await supabase.from("products").delete().eq("id", productId).eq("store_id", store.id);
   if (error) {
@@ -76,7 +76,7 @@ export async function deleteProduct(productId: string): Promise<ActionResult> {
 }
 
 export async function saveOffers(productId: string, offers: unknown): Promise<ActionResult> {
-  const { store } = await requireStore();
+  const { store } = await requireOwner();
   const parsed = offersInput.safeParse(offers);
   if (!parsed.success) return { ok: false, error: parsed.error.issues[0].message };
 
@@ -117,7 +117,7 @@ export async function saveOffers(productId: string, offers: unknown): Promise<Ac
 const imageRow = z.object({ path: z.string().min(1).max(500), width: z.number().nullable(), height: z.number().nullable() });
 
 export async function addProductImages(productId: string, images: unknown): Promise<ActionResult> {
-  const { store } = await requireStore();
+  const { store } = await requireOwner();
   const parsed = z.array(imageRow).max(20).safeParse(images);
   if (!parsed.success) return { ok: false, error: "Imágenes inválidas" };
   if (parsed.data.some((i) => !i.path.startsWith(`${store.id}/`))) return { ok: false, error: "Ruta de imagen inválida" };
@@ -148,7 +148,7 @@ export async function addProductImages(productId: string, images: unknown): Prom
 }
 
 export async function deleteProductImage(productId: string, imageId: string): Promise<ActionResult> {
-  const { store } = await requireStore();
+  const { store } = await requireOwner();
   const supabase = await createClient();
   const { data: image } = await supabase
     .from("product_images")
@@ -176,7 +176,7 @@ export async function deleteProductImage(productId: string, imageId: string): Pr
 }
 
 export async function reorderProductImages(productId: string, orderedIds: string[], primaryId: string | null): Promise<ActionResult> {
-  const { store } = await requireStore();
+  const { store } = await requireOwner();
   const ids = z.array(z.uuid()).max(50).safeParse(orderedIds);
   if (!ids.success) return { ok: false, error: "Orden inválido" };
 

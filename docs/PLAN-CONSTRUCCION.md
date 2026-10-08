@@ -4,12 +4,12 @@
 > Al final de cada bloque: SQL validado localmente para pegar en Supabase, tests y publicación en Vercel.
 
 ## Bloque 1: Controlador de pedidos
-- [ ] **Notificaciones:** campana con contador, página de historial, sonido y notificación del navegador mientras Vendia esté abierta.
-- [ ] **Secuencia de contacto:** Llamada 1 → 2 → 3 → WhatsApp, seguidas, con resultado de cada intento. Se puede cancelar desde el primer intento. Al terminar, **solo aviso** (no cancela solo).
-- [ ] **Motivos fijos** de cancelación y de no entrega.
-- [ ] **Lista de pedidos mejorada:** etiqueta Lima / Provincia con filtro y orden, próxima acción, intentos, asignado, courier, tiempo real.
-- [ ] **Registro manual de pedidos** (WhatsApp, Instagram, llamada) con origen.
-- [ ] **Equipo:** rol Confirmador, asignación de pedidos, «Mis pendientes».
+- [x] **Notificaciones:** campana con contador, página de historial, sonido y notificación del navegador mientras Vendia esté abierta.
+- [x] **Secuencia de contacto:** Llamada 1 → 2 → 3 → WhatsApp, seguidas, con resultado de cada intento. Se puede cancelar desde el primer intento. Al terminar, **solo aviso** (no cancela solo).
+- [x] **Motivos fijos** de cancelación y de no entrega.
+- [x] **Lista de pedidos mejorada:** etiqueta Lima / Provincia con filtro y orden, próxima acción, intentos, asignado, courier, tiempo real.
+- [x] **Registro manual de pedidos** (WhatsApp, Instagram, llamada) con origen.
+- [x] **Equipo:** rol Confirmador, asignación de pedidos, «Mis pendientes».
 
 ## Bloque 2: Provincia y despacho
 - [ ] **Flujo de provincia:**

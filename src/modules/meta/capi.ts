@@ -108,7 +108,7 @@ export async function enqueueOrderEvent(admin: SupabaseClient, orderId: string, 
 export async function sendMarketingEvent(admin: SupabaseClient, marketingEventId: string): Promise<boolean> {
   const { data: row } = await admin
     .from("marketing_events")
-    .select("id, store_id, payload, status, attempts")
+    .select("id, store_id, payload, status, attempts, event_name")
     .eq("id", marketingEventId)
     .single();
   if (!row || row.status === "sent" || row.status === "skipped" || row.attempts >= MAX_ATTEMPTS) return false;
@@ -124,6 +124,16 @@ export async function sendMarketingEvent(admin: SupabaseClient, marketingEventId
         response: response ?? null,
       })
       .eq("id", row.id);
+    // Aviso en la campana cuando el evento ya no se reintentará (o agotó los intentos)
+    if (final || row.attempts + 1 >= MAX_ATTEMPTS) {
+      await admin.from("notifications").insert({
+        store_id: row.store_id,
+        type: "meta_failed",
+        title: `Meta no recibió un evento ${row.event_name}`,
+        body: message.slice(0, 300),
+        link: "/dashboard/marketing",
+      });
+    }
     return false;
   };
 

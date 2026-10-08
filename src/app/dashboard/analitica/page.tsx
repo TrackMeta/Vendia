@@ -4,7 +4,7 @@ import Link from "next/link";
 import { DateRangeFilter, rangeParams } from "@/components/dashboard/date-range-filter";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { requireStore } from "@/lib/auth";
+import { requireOwner } from "@/lib/auth";
 import { formatMoney, formatNumber, formatPercent, formatRatio } from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
 import { cn } from "@/lib/utils";
@@ -86,7 +86,7 @@ export default async function AnalyticsPage({ searchParams }: PageProps<"/dashbo
   const parent = typeof sp.padre === "string" && /^\d{2,4}$/.test(sp.padre) ? sp.padre : null;
   const parentName = typeof sp.nombre === "string" ? sp.nombre.slice(0, 80) : null;
 
-  const { store } = await requireStore();
+  const { store } = await requireOwner();
   const supabase = await createClient();
   const baseParams = { vista: view, rango: rp.rango, desde: rp.desde, hasta: rp.hasta };
   const qs = (extra: Record<string, string | undefined>) => {

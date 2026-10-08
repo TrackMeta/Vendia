@@ -4,7 +4,7 @@ import { DateRangeFilter, rangeParams } from "@/components/dashboard/date-range-
 import { EmptyState, PageHeader } from "@/components/dashboard/page-header";
 import { SimpleBadge } from "@/components/dashboard/status-badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { requireStore } from "@/lib/auth";
+import { requireOwner } from "@/lib/auth";
 import { formatMoney } from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
 import { EXPENSE_CATEGORIES, type ExpenseCategory, REFERENCE_ONLY_CATEGORIES } from "@/modules/expenses/categories";
@@ -17,7 +17,7 @@ export default async function ExpensesPage({ searchParams }: PageProps<"/dashboa
   const sp = await searchParams;
   const rp = rangeParams(sp);
   const range = resolveRange(rp.rango, rp.desde, rp.hasta);
-  const { store } = await requireStore();
+  const { store } = await requireOwner();
   const supabase = await createClient();
 
   const [{ data: expenses }, { data: totals }, { data: products }] = await Promise.all([

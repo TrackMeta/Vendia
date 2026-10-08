@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import { requireStore } from "@/lib/auth";
+import { requireOwner } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { EXPENSE_CATEGORIES } from "@/modules/expenses/categories";
 
@@ -37,7 +37,7 @@ function revalidate() {
 }
 
 export async function saveExpense(expenseId: string | null, _prev: ActionResult | undefined, formData: FormData): Promise<ActionResult> {
-  const { user, store } = await requireStore();
+  const { user, store } = await requireOwner();
   const parsed = expenseSchema.safeParse(Object.fromEntries(formData.entries()));
   if (!parsed.success) return { ok: false, error: parsed.error.issues[0].message };
 
@@ -51,7 +51,7 @@ export async function saveExpense(expenseId: string | null, _prev: ActionResult 
 }
 
 export async function deleteExpense(expenseId: string): Promise<ActionResult> {
-  const { store } = await requireStore();
+  const { store } = await requireOwner();
   const supabase = await createClient();
   const { error } = await supabase.from("expenses").delete().eq("id", expenseId).eq("store_id", store.id);
   if (error) return { ok: false, error: "No se pudo eliminar" };
@@ -77,7 +77,7 @@ const importSchema = z.object({
 
 /** Importa gasto de Meta Ads. Reimportar el mismo reporte actualiza los montos (no duplica). */
 export async function importMetaExpenses(input: unknown): Promise<ActionResult> {
-  const { user, store } = await requireStore();
+  const { user, store } = await requireOwner();
   const parsed = importSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: "Datos de importación inválidos" };
 

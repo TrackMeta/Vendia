@@ -5,7 +5,7 @@ import { DateRangeFilter, rangeParams } from "@/components/dashboard/date-range-
 import { PageHeader } from "@/components/dashboard/page-header";
 import { OrderStatusBadge } from "@/components/dashboard/status-badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { requireStore } from "@/lib/auth";
+import { requireOwner } from "@/lib/auth";
 import { formatDateTime, formatMoney, formatNumber, formatPercent, formatRatio } from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
 import { cn } from "@/lib/utils";
@@ -29,7 +29,7 @@ export default async function DashboardHome({ searchParams }: PageProps<"/dashbo
   const sp = await searchParams;
   const rp = rangeParams(sp);
   const range = resolveRange(rp.rango, rp.desde, rp.hasta);
-  const { store } = await requireStore();
+  const { store } = await requireOwner();
   const supabase = await createClient();
 
   const [{ data: stats }, { data: recent }, { count: landingsCount }, { data: expenseTotals }] = await Promise.all([

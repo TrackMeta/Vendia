@@ -2,12 +2,27 @@ import { AlertTriangle, ArrowLeft, MessageCircle } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { OrderStatusBadge } from "@/components/dashboard/status-badge";
+import { ContactPanel } from "@/components/dashboard/contact-panel";
+import { LiveRefresh } from "@/components/dashboard/notifications";
+import { OrderStatusBadge, SimpleBadge } from "@/components/dashboard/status-badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { requireStore } from "@/lib/auth";
 import { displayPeruPhone, formatDateTime, formatMoney, one } from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
+import {
+  CANCEL_REASONS,
+  type CancelReason,
+  CONTACT_RESULTS,
+  type ContactChannel,
+  type ContactResult,
+  DEFAULT_SEQUENCE,
+  FAILURE_REASONS,
+  type FailureReason,
+  RISK_LABELS,
+} from "@/modules/orders/contact";
 import { ORDER_STATUS_LABELS, type OrderStatus } from "@/modules/orders/state-machine";
+import { ZoneBadge } from "../../logistica/logistics-table";
+import { AssignSelect } from "./assign-select";
 import { OrderDetailsForm } from "./details-form";
 import { StatusActions } from "./status-actions";
 
@@ -24,8 +39,17 @@ function Row({ label, children }: { label: string; children: React.ReactNode }) 
 
 export default async function OrderDetailPage({ params }: PageProps<"/dashboard/pedidos/[id]">) {
   const { id } = await params;
-  const { store } = await requireStore();
+  const { user, store } = await requireStore();
   const supabase = await createClient();
+
+  const [{ data: attempts }, { data: settings }, { data: team }] = await Promise.all([
+    supabase.from("order_contact_attempts").select("id, attempt_number, channel, result, note, next_contact_at, created_by, created_at").eq("order_id", id).order("id", { ascending: false }),
+    supabase.from("store_settings").select("contact_sequence").eq("store_id", store.id).maybeSingle(),
+    supabase.rpc("get_store_team", { p_store_id: store.id }),
+  ]);
+  const members = ((team ?? []) as { user_id: string; email: string; full_name: string | null }[]).map((m) => ({ id: m.user_id, name: m.full_name || m.email }));
+  const memberName = (uid: string | null) => (uid ? (uid === user.id ? "Tú" : (members.find((m) => m.id === uid)?.name ?? "Equipo")) : "Sistema");
+  const sequence = ((settings?.contact_sequence as ContactChannel[] | null) ?? DEFAULT_SEQUENCE).filter((x) => x === "call" || x === "whatsapp");
 
   const { data: order } = await supabase
     .from("orders")
@@ -45,6 +69,8 @@ export default async function OrderDetailPage({ params }: PageProps<"/dashboard/
   const landing = one(order.landing_pages as { title: string; slug: string }[]);
   const firstName = String(order.customer_name).split(" ")[0];
   const item = items[0];
+  const pendingContact = order.status === "new" || order.status === "pending_confirmation";
+  const risks = ((order.risk_reasons as string[] | null) ?? []).filter((r) => r !== "posible_duplicado");
   const waText = encodeURIComponent(
     `Hola ${firstName}, te saludamos de ${store.name}. Recibimos tu pedido #${order.order_number} de ${item?.product_name ?? ""}${
       item?.offer_name ? ` (${item.offer_name})` : ""
@@ -53,6 +79,7 @@ export default async function OrderDetailPage({ params }: PageProps<"/dashboard/
 
   return (
     <div className="flex flex-col gap-6">
+      <LiveRefresh />
       <div className="flex flex-col gap-3">
         <Link href="/dashboard/pedidos" className="flex w-fit items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
           <ArrowLeft className="size-4" /> Pedidos
@@ -60,14 +87,50 @@ export default async function OrderDetailPage({ params }: PageProps<"/dashboard/
         <div className="flex flex-wrap items-center gap-3">
           <h1 className="text-2xl font-semibold tracking-tight">Pedido #{order.order_number}</h1>
           <OrderStatusBadge status={order.status as OrderStatus} className="text-sm" />
+          <ZoneBadge zone={order.zone as "lima" | "provincia"} />
+          {order.source === "manual" ? <SimpleBadge>Manual{order.source_channel ? ` · ${order.source_channel}` : ""}</SimpleBadge> : null}
           <span className="text-sm text-muted-foreground">{formatDateTime(order.created_at)}</span>
+          <div className="ml-auto">
+            <AssignSelect orderId={order.id} assignedTo={order.assigned_to} members={members} currentUserId={user.id} />
+          </div>
         </div>
+        {risks.length ? (
+          <p className="flex items-center gap-2 rounded-md bg-red-50 p-2 text-sm text-red-800 dark:bg-red-950 dark:text-red-200">
+            <AlertTriangle className="size-4" /> Cliente riesgoso: {risks.map((r) => RISK_LABELS[r] ?? r).join(", ")}. Revisa su historial antes de despachar.
+          </p>
+        ) : null}
+        {order.cancel_reason ? (
+          <p className="text-sm text-muted-foreground">Motivo de cancelación: <b>{CANCEL_REASONS[order.cancel_reason as CancelReason] ?? order.cancel_reason}</b></p>
+        ) : null}
+        {order.failure_reason ? (
+          <p className="text-sm text-muted-foreground">Motivo de no entrega: <b>{FAILURE_REASONS[order.failure_reason as FailureReason] ?? order.failure_reason}</b></p>
+        ) : null}
         {order.is_possible_duplicate ? (
           <p className="flex items-center gap-2 rounded-md bg-amber-50 p-2 text-sm text-amber-800 dark:bg-amber-950 dark:text-amber-200">
             <AlertTriangle className="size-4" /> Posible duplicado: el mismo celular pidió este producto hace menos de 30 minutos.
           </p>
         ) : null}
         <StatusActions orderId={order.id} status={order.status as OrderStatus} />
+        {pendingContact ? (
+          <ContactPanel
+            storeName={store.name}
+            sequence={sequence}
+            order={{
+              id: order.id,
+              order_number: order.order_number,
+              customer_name: order.customer_name,
+              customer_phone: order.customer_phone,
+              total: Number(order.total),
+              address: order.address,
+              district_name: order.district_name,
+              product_label: item ? `${item.product_name}${item.offer_name ? ` (${item.offer_name})` : ""}` : "",
+              contact_attempts: order.contact_attempts,
+              last_contact_result: order.last_contact_result,
+              next_contact_at: order.next_contact_at,
+              contact_sequence_done: order.contact_sequence_done,
+            }}
+          />
+        ) : null}
       </div>
 
       <div className="grid gap-6 lg:grid-cols-3">
@@ -166,6 +229,32 @@ export default async function OrderDetailPage({ params }: PageProps<"/dashboard/
               <Row label="ID campaña">{attr?.campaign_id ?? "—"}</Row>
               <Row label="ID anuncio">{attr?.ad_id ?? "—"}</Row>
               <Row label="Clic de Meta (fbclid)">{attr?.fbclid ? "Sí" : "No"}</Row>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Intentos de contacto</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {attempts?.length ? (
+                <ol className="flex flex-col gap-3">
+                  {attempts.map((a) => (
+                    <li key={a.id} className="flex flex-col border-l-2 pl-3 text-sm">
+                      <span className="font-medium">
+                        {a.channel === "call" ? "📞 Llamada" : "💬 WhatsApp"} {a.attempt_number} · {CONTACT_RESULTS[a.result as ContactResult]?.label ?? a.result}
+                      </span>
+                      <span className="text-xs text-muted-foreground">
+                        {formatDateTime(a.created_at)} · {memberName(a.created_by)}
+                      </span>
+                      {a.next_contact_at ? <span className="text-xs text-sky-600">Volver a llamar: {formatDateTime(a.next_contact_at)}</span> : null}
+                      {a.note ? <span className="mt-0.5 text-xs">{a.note}</span> : null}
+                    </li>
+                  ))}
+                </ol>
+              ) : (
+                <p className="text-sm text-muted-foreground">Aún no se ha contactado al cliente.</p>
+              )}
             </CardContent>
           </Card>
 

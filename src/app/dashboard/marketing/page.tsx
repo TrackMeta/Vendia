@@ -3,7 +3,7 @@ import { PageHeader } from "@/components/dashboard/page-header";
 import { SimpleBadge } from "@/components/dashboard/status-badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { requireStore } from "@/lib/auth";
+import { requireOwner } from "@/lib/auth";
 import { formatDateTime } from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
 import { MetaSettingsForm, RetryButton, TestEventButton, UrlTemplate } from "./meta-forms";
@@ -14,7 +14,7 @@ const STATUS_TONE = { sent: "success", pending: "info", failed: "danger", skippe
 const STATUS_LABEL = { sent: "Enviado", pending: "Pendiente", failed: "Falló", skipped: "Omitido" } as const;
 
 export default async function MarketingPage() {
-  const { store } = await requireStore();
+  const { store } = await requireOwner();
   const supabase = await createClient();
   const [{ data: settings }, { data: tokenConfigured }, { data: events }, { data: storeSettings }] = await Promise.all([
     supabase

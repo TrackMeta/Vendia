@@ -90,6 +90,7 @@ async function main() {
   )) as { order_id: string; order_number: number };
   await step("change_order_status", `select (public.change_order_status('${order.order_id}', 'confirmed')).status`);
   await step("change_orders_status", `select public.change_orders_status(array['${order.order_id}'::uuid], 'shipped')`);
+  await step("cambio en lote con motivo", `select public.change_orders_status(array[]::uuid[], 'cancelled', null, 'no_contesta')`);
   await step(
     "apply_integration_status",
     `select public.apply_integration_status('${storeId}', ${order.order_number}, null, 'delivered', 'courier', 'TRK1', 'Motorizado')`,
@@ -131,6 +132,66 @@ async function main() {
   await step("admin_recent_errors", "select public.admin_recent_errors()");
   await step("admin_set_store_status", `select public.admin_set_store_status('${storeId}', 'blocked')`);
   await step("tienda bloqueada no muestra landing", "select public.get_public_landing('smoke-store', 'faja') is null");
+  await step("reactivar tienda", `select public.admin_set_store_status('${storeId}', 'active')`);
+
+  // ── Bloque 1: controlador de pedidos ──
+  console.log("\nBloque 1:");
+  const o2 = (await step(
+    "pedido nuevo (landing) → notificación",
+    `select public.create_cod_order('{"landing_page_id":"${landingId}","offer_id":"${offerId}","idempotency_key":"k2","first_name":"Luis","phone":"51911111111","district_code":"040101","address":"Calle 2"}'::jsonb)`,
+  )) as { order_id: string };
+  await step("zona calculada (provincia)", `select zone from public.orders where id = '${o2.order_id}'`);
+  await step("notificación creada", `select title from public.notifications where order_id = '${o2.order_id}' and type = 'new_order'`);
+  await step("no leídas", `select public.unread_notifications_count('${storeId}')`);
+  await step("intento 1: no contesta", `select public.log_contact_attempt('${o2.order_id}', 'call', 'no_answer')`);
+  await step("intento 2: apagado", `select public.log_contact_attempt('${o2.order_id}', 'call', 'phone_off')`);
+  await step("intento 3: llamar después", `select public.log_contact_attempt('${o2.order_id}', 'call', 'call_later', 'a las 6', now() + interval '2 hours')`);
+  await step("intento 4: no contesta", `select public.log_contact_attempt('${o2.order_id}', 'whatsapp', 'no_answer')`);
+  await step("secuencia completa → aviso", `select count(*) from public.notifications where order_id = '${o2.order_id}' and type = 'sequence_done'`);
+  await step("cancelar con motivo", `select (public.change_order_status('${o2.order_id}', 'cancelled', 'no responde', 'no_contesta')).cancel_reason`);
+  const o3 = (await step(
+    "pedido 3",
+    `select public.create_cod_order('{"landing_page_id":"${landingId}","offer_id":"${offerId}","idempotency_key":"k3","first_name":"Eva","phone":"51922222222","district_code":"150133","address":"Calle 3"}'::jsonb)`,
+  )) as { order_id: string };
+  await step("rechazó en la 1ª llamada → cancelado", `select public.log_contact_attempt('${o3.order_id}', 'call', 'rejected', null, null, 'precio') ->> 'status'`);
+  await step("motivo guardado", `select cancel_reason from public.orders where id = '${o3.order_id}'`);
+  const o4 = (await step(
+    "pedido 4",
+    `select public.create_cod_order('{"landing_page_id":"${landingId}","offer_id":"${offerId}","idempotency_key":"k4","first_name":"Ana","phone":"51987654321","district_code":"150133","address":"Calle 4"}'::jsonb)`,
+  )) as { order_id: string };
+  await step("cliente con historial → riesgo", `select risk_reasons from public.orders where id = '${o4.order_id}'`);
+  await step("confirmó por WhatsApp", `select public.log_contact_attempt('${o4.order_id}', 'whatsapp', 'confirmed') ->> 'status'`);
+  const manual = (await step(
+    "pedido manual",
+    `select public.create_manual_order('{"store_id":"${storeId}","product_id":"${productId}","quantity":2,"subtotal":"150","first_name":"Rosa","phone":"51933333333","district_code":"150101","address":"Jr. Lima 1","source_channel":"whatsapp","already_confirmed":true}'::jsonb)`,
+  )) as { order_id: string };
+  await step("pedido manual: origen, estado y total", `select row(source, source_channel, status, total)::text from public.orders where id = '${manual.order_id}'`);
+  await step("marcar notificaciones leídas", `select public.mark_notifications_read('${storeId}')`);
+  await step("no leídas tras marcar", `select public.unread_notifications_count('${storeId}')`);
+  const token = (await step("invitar confirmador", `select public.create_store_invitation('${storeId}', 'confirmador@test.dev')`)) as string;
+  await step("ver invitación (pública)", `select public.get_invitation('${token}')`);
+  const staffId = (await step("usuario confirmador", "insert into auth.users (email) values ('confirmador@test.dev') returning id")) as string;
+  await db.exec(`set request.jwt.claim.sub = '${staffId}'`);
+  await step("aceptar invitación", `select public.accept_store_invitation('${token}')`);
+  await step("rol del confirmador", `select public.my_store_role('${storeId}')`);
+  for (const [label, sql] of [
+    ["confirmador no ve gastos", `select public.get_expense_totals('${storeId}', current_date, current_date)`],
+    ["confirmador no invita", `select public.create_store_invitation('${storeId}', 'otro@test.dev')`],
+    ["confirmador no publica", `select public.publish_landing_page('${landingId}')`],
+  ] as const) {
+    try {
+      await db.query(sql);
+      console.error(`  ✗ ${label}: debería fallar`);
+      process.exit(1);
+    } catch {
+      console.log(`  ✓ ${label}`);
+    }
+  }
+  await step("confirmador trabaja pedidos", `select public.assign_orders(array['${manual.order_id}'::uuid], '${staffId}')`);
+  await step("confirmador ve el equipo", `select jsonb_array_length(public.get_store_team('${storeId}'))`);
+  await db.exec(`set request.jwt.claim.sub = '${userId}'`);
+  await step("dueño quita al confirmador", `select public.remove_store_member('${storeId}', '${staffId}')`);
+  await step("asignación liberada", `select assigned_to is null from public.orders where id = '${manual.order_id}'`);
   console.log("\nOK — prueba de humo completa");
 }
 

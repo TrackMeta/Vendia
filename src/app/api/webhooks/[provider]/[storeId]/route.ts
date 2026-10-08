@@ -105,6 +105,13 @@ export async function POST(request: NextRequest, ctx: RouteContext<"/api/webhook
     const message = error.code === "P0002" ? "Pedido no encontrado" : error.code === "P0001" ? error.message : "Error al aplicar el estado";
     await admin.from("webhook_events").update({ error: message, processed_at: new Date().toISOString() }).eq("id", eventRowId);
     await log(false, 422, message, payload);
+    await admin.from("notifications").insert({
+      store_id: storeId,
+      type: "webhook_failed",
+      title: `Webhook del courier: ${message}`,
+      body: `Evento ${payload.event_id} · pedido ${payload.order_number ?? payload.external_order_id} · estado «${payload.status}»`,
+      link: "/dashboard/integraciones",
+    });
     return NextResponse.json({ error: message }, { status: 422 });
   }
 

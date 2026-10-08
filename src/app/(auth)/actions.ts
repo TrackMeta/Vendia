@@ -17,9 +17,9 @@ async function origin() {
   return `${proto}://${host}`;
 }
 
-function safeNext(next: FormDataEntryValue | null): string {
+function safeNext(next: FormDataEntryValue | null, fallback = "/dashboard"): string {
   const value = typeof next === "string" ? next : "";
-  return value.startsWith("/") && !value.startsWith("//") ? value : "/dashboard";
+  return value.startsWith("/") && !value.startsWith("//") ? value : fallback;
 }
 
 export async function login(_prev: AuthState, formData: FormData): Promise<AuthState> {
@@ -57,7 +57,7 @@ export async function signup(_prev: AuthState, formData: FormData): Promise<Auth
     password: parsed.data.password,
     options: {
       data: { full_name: parsed.data.fullName },
-      emailRedirectTo: `${await origin()}/auth/callback?next=/onboarding`,
+      emailRedirectTo: `${await origin()}/auth/callback?next=${encodeURIComponent(safeNext(formData.get("next"), "/onboarding"))}`,
     },
   });
   if (error) {
@@ -65,7 +65,7 @@ export async function signup(_prev: AuthState, formData: FormData): Promise<Auth
     if (error.code === "weak_password") return { error: "Elige una contraseña más segura." };
     return { error: "No pudimos crear tu cuenta. Inténtalo de nuevo." };
   }
-  if (data.session) redirect("/onboarding");
+  if (data.session) redirect(safeNext(formData.get("next"), "/onboarding"));
   return { message: "Te enviamos un correo para confirmar tu cuenta. Revisa tu bandeja de entrada." };
 }
 

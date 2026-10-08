@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { requireStore } from "@/lib/auth";
+import { requireOwner } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { createClassicTemplate } from "@/modules/landing/defaults";
 import { landingContent } from "@/modules/landing/schema";
@@ -11,7 +11,7 @@ export const metadata: Metadata = { title: "Editor de landing" };
 
 export default async function LandingEditorPage({ params }: PageProps<"/dashboard/landings/[id]">) {
   const { id } = await params;
-  const { store } = await requireStore();
+  const { store } = await requireOwner();
   const supabase = await createClient();
 
   const [{ data: landing }, { data: products }, { data: offers }, { data: settings }] = await Promise.all([

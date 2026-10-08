@@ -2,8 +2,9 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import { requireStore } from "@/lib/auth";
+import { requireOwner } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
+import { buildSequence } from "@/modules/orders/contact";
 
 export type ActionResult = { ok: true; message?: string } | { ok: false; error: string };
 
@@ -41,13 +42,16 @@ const settingsSchema = z.object({
     ),
   confirmation_message: z.string().trim().min(1, "Escribe un mensaje de confirmación").max(1000),
   purchase_trigger_status: z.enum(["confirmed", "shipped", "delivered", "collected"]),
+  contact_calls: z.coerce.number().int().min(0).max(6),
+  contact_whatsapp: z.literal("on").optional(),
 });
 
 export async function saveSettings(_prev: ActionResult | undefined, formData: FormData): Promise<ActionResult> {
-  const { store } = await requireStore();
+  const { store } = await requireOwner();
   const parsed = settingsSchema.safeParse(Object.fromEntries(formData.entries()));
   if (!parsed.success) return { ok: false, error: parsed.error.issues[0].message };
-  const { name, ...settings } = parsed.data;
+  const { name, contact_calls, contact_whatsapp, ...rest } = parsed.data;
+  const settings = { ...rest, contact_sequence: buildSequence(contact_calls, Boolean(contact_whatsapp)) };
 
   for (const path of [settings.logo_path, settings.favicon_path]) {
     if (path && !path.startsWith(`${store.id}/`)) return { ok: false, error: "Imagen inválida" };

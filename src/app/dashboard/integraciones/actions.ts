@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { requireStore } from "@/lib/auth";
+import { requireOwner } from "@/lib/auth";
 import { encryptSecret, randomToken } from "@/lib/crypto";
 import { createAdminClient } from "@/lib/supabase/admin";
 
@@ -10,7 +10,7 @@ export type ActionResult = { ok: true; message?: string } | { ok: false; error: 
 
 /** Activa el webhook genérico (o rota su secreto). El secreto se muestra UNA sola vez. */
 export async function enableGenericWebhook(): Promise<SecretResult> {
-  const { store } = await requireStore();
+  const { store } = await requireOwner();
   const secret = `whsec_${randomToken(24)}`;
   const admin = createAdminClient();
   const { error } = await admin.from("integrations").upsert(
@@ -36,7 +36,7 @@ export async function enableGenericWebhook(): Promise<SecretResult> {
 }
 
 export async function disableIntegration(provider: string): Promise<ActionResult> {
-  const { store } = await requireStore();
+  const { store } = await requireOwner();
   const admin = createAdminClient();
   const { error } = await admin.from("integrations").update({ status: "disabled" }).eq("store_id", store.id).eq("provider", provider);
   if (error) return { ok: false, error: "No se pudo desactivar" };

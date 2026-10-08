@@ -3,7 +3,7 @@
 import { revalidatePath, revalidateTag } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
-import { requireStore } from "@/lib/auth";
+import { requireOwner } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { createClassicTemplate } from "@/modules/landing/defaults";
 import { landingCacheTag } from "@/modules/landing/public-data";
@@ -26,7 +26,7 @@ const createSchema = z.object({
 });
 
 export async function createLanding(_prev: ActionResult | undefined, formData: FormData): Promise<ActionResult> {
-  const { store } = await requireStore();
+  const { store } = await requireOwner();
   const parsed = createSchema.safeParse(Object.fromEntries(formData.entries()));
   if (!parsed.success) return { ok: false, error: parsed.error.issues[0].message };
 
@@ -69,7 +69,7 @@ export async function saveLanding(
   landingId: string,
   input: { title: string; slug: string; product_id: string; content: unknown },
 ): Promise<ActionResult> {
-  const { store } = await requireStore();
+  const { store } = await requireOwner();
   const meta = z.object({ title: z.string().trim().min(1).max(160), slug: slugSchema, product_id: z.uuid() }).safeParse(input);
   if (!meta.success) return { ok: false, error: meta.error.issues[0].message };
   const content = landingContent.safeParse(input.content);
@@ -93,7 +93,7 @@ export async function saveLanding(
 }
 
 export async function publishLanding(landingId: string): Promise<ActionResult> {
-  const { store } = await requireStore();
+  const { store } = await requireOwner();
   const supabase = await createClient();
   const { data, error } = await supabase.rpc("publish_landing_page", { p_landing_id: landingId });
   if (error) return { ok: false, error: error.code === "P0001" ? error.message : "No se pudo publicar" };
@@ -103,7 +103,7 @@ export async function publishLanding(landingId: string): Promise<ActionResult> {
 }
 
 export async function unpublishLanding(landingId: string): Promise<ActionResult> {
-  const { store } = await requireStore();
+  const { store } = await requireOwner();
   const supabase = await createClient();
   const { data, error } = await supabase.rpc("unpublish_landing_page", { p_landing_id: landingId });
   if (error) return { ok: false, error: "No se pudo despublicar" };
@@ -113,7 +113,7 @@ export async function unpublishLanding(landingId: string): Promise<ActionResult>
 }
 
 export async function duplicateLanding(landingId: string): Promise<ActionResult> {
-  const { store } = await requireStore();
+  const { store } = await requireOwner();
   const supabase = await createClient();
   const { data: source } = await supabase
     .from("landing_pages")
@@ -135,7 +135,7 @@ export async function duplicateLanding(landingId: string): Promise<ActionResult>
 }
 
 export async function deleteLanding(landingId: string): Promise<ActionResult> {
-  const { store } = await requireStore();
+  const { store } = await requireOwner();
   const supabase = await createClient();
   const { data } = await supabase.from("landing_pages").select("slug").eq("id", landingId).eq("store_id", store.id).single();
   const { error } = await supabase.from("landing_pages").delete().eq("id", landingId).eq("store_id", store.id);

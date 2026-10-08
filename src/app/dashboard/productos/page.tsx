@@ -5,7 +5,7 @@ import { EmptyState, PageHeader } from "@/components/dashboard/page-header";
 import { SimpleBadge } from "@/components/dashboard/status-badge";
 import { buttonVariants } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { requireStore } from "@/lib/auth";
+import { requireOwner } from "@/lib/auth";
 import { publicAssetUrl } from "@/lib/env";
 import { formatMoney } from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
@@ -14,7 +14,7 @@ import { PRODUCT_STATUS_LABELS } from "@/modules/products/schema";
 export const metadata: Metadata = { title: "Productos" };
 
 export default async function ProductsPage() {
-  const { store } = await requireStore();
+  const { store } = await requireOwner();
   const supabase = await createClient();
   const { data: products } = await supabase
     .from("products")

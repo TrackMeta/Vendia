@@ -3,7 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { buttonVariants } from "@/components/ui/button";
-import { requireStore } from "@/lib/auth";
+import { requireOwner } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { updateProduct } from "../actions";
 import { ProductForm, type ProductFormValues } from "../product-form";
@@ -15,7 +15,7 @@ export const metadata: Metadata = { title: "Editar producto" };
 
 export default async function EditProductPage({ params }: PageProps<"/dashboard/productos/[id]">) {
   const { id } = await params;
-  const { store } = await requireStore();
+  const { store } = await requireOwner();
   const supabase = await createClient();
 
   const [{ data: product }, { data: images }, { data: offers }] = await Promise.all([

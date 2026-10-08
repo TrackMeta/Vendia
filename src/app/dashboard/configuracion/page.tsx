@@ -1,13 +1,13 @@
 import type { Metadata } from "next";
 import { PageHeader } from "@/components/dashboard/page-header";
-import { requireStore } from "@/lib/auth";
+import { requireOwner } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { SettingsForm } from "./settings-form";
 
 export const metadata: Metadata = { title: "Configuración" };
 
 export default async function SettingsPage() {
-  const { store } = await requireStore();
+  const { store } = await requireOwner();
   const supabase = await createClient();
   const { data: settings } = await supabase.from("store_settings").select("*").eq("store_id", store.id).single();
 
@@ -31,6 +31,8 @@ export default async function SettingsPage() {
           payment_methods: (settings?.payment_methods ?? ["Contraentrega"]).join(", "),
           confirmation_message: settings?.confirmation_message ?? "",
           purchase_trigger_status: settings?.purchase_trigger_status ?? "delivered",
+          contact_calls: ((settings?.contact_sequence as string[] | null) ?? ["call", "call", "call", "whatsapp"]).filter((s) => s === "call").length,
+          contact_whatsapp: ((settings?.contact_sequence as string[] | null) ?? ["whatsapp"]).includes("whatsapp"),
         }}
       />
     </div>

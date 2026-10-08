@@ -13,6 +13,7 @@ export type AuthField = {
   type?: string;
   autoComplete?: string;
   placeholder?: string;
+  defaultValue?: string;
 };
 
 export function AuthForm({
@@ -59,6 +60,7 @@ export function AuthForm({
                   type={field.type ?? "text"}
                   autoComplete={field.autoComplete}
                   placeholder={field.placeholder}
+                  defaultValue={field.defaultValue}
                   required
                   className="h-10"
                 />

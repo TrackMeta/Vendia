@@ -2,6 +2,7 @@
 
 import {
   BarChart3,
+  Bell,
   Home,
   LayoutTemplate,
   LogOut,
@@ -13,34 +14,40 @@ import {
   Settings,
   ShoppingBag,
   Truck,
+  UserCog,
   Users,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState } from "react";
+import { useState, useSyncExternalStore } from "react";
 import { logout } from "@/app/(auth)/actions";
+import { NotificationBell } from "@/components/dashboard/notifications";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
 
-const NAV: { href: string; label: string; icon: typeof Home; exact?: boolean; soon?: boolean }[] = [
-  { href: "/dashboard", label: "Inicio", icon: Home, exact: true },
+type NavItem = { href: string; label: string; icon: typeof Home; exact?: boolean; soon?: boolean; ownerOnly?: boolean };
+
+const NAV: NavItem[] = [
+  { href: "/dashboard", label: "Inicio", icon: Home, exact: true, ownerOnly: true },
   { href: "/dashboard/pedidos", label: "Pedidos", icon: ShoppingBag },
   { href: "/dashboard/logistica", label: "Logística", icon: Truck },
-  { href: "/dashboard/productos", label: "Productos", icon: Package },
-  { href: "/dashboard/landings", label: "Landing Pages", icon: LayoutTemplate },
+  { href: "/dashboard/productos", label: "Productos", icon: Package, ownerOnly: true },
+  { href: "/dashboard/landings", label: "Landing Pages", icon: LayoutTemplate, ownerOnly: true },
   { href: "/dashboard/clientes", label: "Clientes", icon: Users },
-  { href: "/dashboard/marketing", label: "Marketing", icon: Megaphone },
-  { href: "/dashboard/gastos", label: "Gastos", icon: Receipt },
-  { href: "/dashboard/analitica", label: "Analítica", icon: BarChart3 },
-  { href: "/dashboard/integraciones", label: "Integraciones", icon: Plug },
-  { href: "/dashboard/configuracion", label: "Configuración", icon: Settings },
+  { href: "/dashboard/notificaciones", label: "Notificaciones", icon: Bell },
+  { href: "/dashboard/marketing", label: "Marketing", icon: Megaphone, ownerOnly: true },
+  { href: "/dashboard/gastos", label: "Gastos", icon: Receipt, ownerOnly: true },
+  { href: "/dashboard/analitica", label: "Analítica", icon: BarChart3, ownerOnly: true },
+  { href: "/dashboard/integraciones", label: "Integraciones", icon: Plug, ownerOnly: true },
+  { href: "/dashboard/equipo", label: "Equipo", icon: UserCog, ownerOnly: true },
+  { href: "/dashboard/configuracion", label: "Configuración", icon: Settings, ownerOnly: true },
 ];
 
-function Nav({ onNavigate }: { onNavigate?: () => void }) {
+function Nav({ onNavigate, isOwner }: { onNavigate?: () => void; isOwner: boolean }) {
   const pathname = usePathname();
   return (
     <nav className="flex flex-col gap-0.5">
-      {NAV.map((item) => {
+      {NAV.filter((item) => isOwner || !item.ownerOnly).map((item) => {
         const active = item.exact ? pathname === item.href : pathname.startsWith(item.href);
         return (
           <Link
@@ -68,24 +75,45 @@ export function DashboardShell({
   storeSlug,
   userEmail,
   blocked,
+  storeId,
+  role,
+  unread,
 }: {
   children: React.ReactNode;
   storeName: string;
   storeSlug: string;
   userEmail: string;
   blocked: boolean;
+  storeId: string;
+  role: "owner" | "staff";
+  unread: number;
 }) {
   const [open, setOpen] = useState(false);
+  // Una sola campana montada (una sola suscripción en tiempo real): en el menú en escritorio, en el encabezado en celular.
+  const isDesktop = useSyncExternalStore(
+    (cb) => {
+      const mq = window.matchMedia("(min-width: 768px)");
+      mq.addEventListener("change", cb);
+      return () => mq.removeEventListener("change", cb);
+    },
+    () => window.matchMedia("(min-width: 768px)").matches,
+    () => null,
+  );
+  const bell = <NotificationBell storeId={storeId} initialUnread={unread} />;
 
   const sidebar = (
     <div className="flex h-full flex-col gap-6 p-4">
-      <div className="px-3">
-        <p className="text-lg font-semibold tracking-tight">Vendia</p>
-        <p className="truncate text-xs text-muted-foreground">
-          {storeName} · /p/{storeSlug}
-        </p>
+      <div className="flex items-start justify-between gap-2 px-3">
+        <div className="min-w-0">
+          <p className="text-lg font-semibold tracking-tight">Vendia</p>
+          <p className="truncate text-xs text-muted-foreground">
+            {storeName} · /p/{storeSlug}
+          </p>
+          {role === "staff" ? <p className="text-xs font-medium text-sky-600">Confirmador</p> : null}
+        </div>
+        {isDesktop === true ? bell : null}
       </div>
-      <Nav onNavigate={() => setOpen(false)} />
+      <Nav onNavigate={() => setOpen(false)} isOwner={role === "owner"} />
       <div className="mt-auto flex flex-col gap-2 border-t pt-4">
         <p className="truncate px-3 text-xs text-muted-foreground">{userEmail}</p>
         <form action={logout}>
@@ -114,7 +142,8 @@ export function DashboardShell({
           <button type="button" onClick={() => setOpen(true)} aria-label="Abrir menú" className="rounded-md p-1.5 hover:bg-muted">
             <Menu className="size-5" />
           </button>
-          <span className="font-semibold">Vendia</span>
+          <span className="flex-1 font-semibold">Vendia</span>
+          {isDesktop === false ? bell : null}
         </header>
         {blocked ? (
           <div className="border-b bg-destructive/10 px-4 py-2 text-sm text-destructive">

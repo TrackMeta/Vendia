@@ -1,9 +1,11 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { LiveRefresh } from "@/components/dashboard/notifications";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { requireStore } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { cn } from "@/lib/utils";
+import { type ContactChannel, DEFAULT_SEQUENCE, sortForConfirmation } from "@/modules/orders/contact";
 import type { OrderStatus } from "@/modules/orders/state-machine";
 import { LogisticsTable, type LogisticsOrder } from "./logistics-table";
 
@@ -16,52 +18,91 @@ const VIEWS = {
 } as const;
 
 type ViewKey = keyof typeof VIEWS;
+const ZONES = { todas: "Todas", lima: "Lima", provincia: "Provincia" } as const;
 
 export default async function LogisticsPage({ searchParams }: PageProps<"/dashboard/logistica">) {
   const sp = await searchParams;
   const view: ViewKey = typeof sp.vista === "string" && sp.vista in VIEWS ? (sp.vista as ViewKey) : "confirmar";
-  const { store } = await requireStore();
+  const zone = sp.zona === "lima" || sp.zona === "provincia" ? sp.zona : "todas";
+  const mine = sp.mios === "1";
+  const { user, store } = await requireStore();
   const supabase = await createClient();
 
-  const [{ data: orders }, { data: counts }] = await Promise.all([
-    supabase
-      .from("orders")
-      .select(
-        "id, order_number, created_at, status, customer_name, customer_phone, total, balance_due, address, reference, district_name, province_name, department_name, is_possible_duplicate, courier_name, tracking_code, order_items (product_name, offer_name, quantity)",
-      )
-      .eq("store_id", store.id)
-      .in("status", VIEWS[view].statuses)
-      .order("created_at", { ascending: true })
-      .limit(300),
+  let query = supabase
+    .from("orders")
+    .select(
+      "id, order_number, created_at, status, zone, customer_name, customer_phone, total, balance_due, address, reference, district_name, province_name, department_name, is_possible_duplicate, risk_reasons, courier_name, tracking_code, assigned_to, contact_attempts, last_contact_result, last_contact_at, next_contact_at, contact_sequence_done, source, source_channel, order_items (product_name, offer_name, quantity)",
+    )
+    .eq("store_id", store.id)
+    .in("status", VIEWS[view].statuses)
+    .order("created_at", { ascending: true })
+    .limit(300);
+  if (zone !== "todas") query = query.eq("zone", zone);
+  if (mine) query = query.eq("assigned_to", user.id);
+
+  const [{ data: orders }, { data: counts }, { data: settings }, { data: team }] = await Promise.all([
+    query,
     supabase.from("orders").select("status").eq("store_id", store.id).in("status", Object.values(VIEWS).flatMap((v) => v.statuses)),
+    supabase.from("store_settings").select("contact_sequence").eq("store_id", store.id).maybeSingle(),
+    supabase.rpc("get_store_team", { p_store_id: store.id }),
   ]);
 
   const countFor = (key: ViewKey) => (counts ?? []).filter((c) => (VIEWS[key].statuses as string[]).includes(c.status)).length;
+  const sequence = ((settings?.contact_sequence as ContactChannel[] | null) ?? DEFAULT_SEQUENCE).filter((s) => s === "call" || s === "whatsapp");
+  const rows = (orders ?? []).map((o) => ({ ...o, total: Number(o.total), balance_due: Number(o.balance_due) }) as LogisticsOrder);
+  const sorted = view === "confirmar" ? sortForConfirmation(rows) : rows;
+  const members = ((team ?? []) as { user_id: string; email: string; full_name: string | null }[]).map((m) => ({
+    id: m.user_id,
+    name: m.full_name || m.email,
+  }));
+
+  const href = (params: Record<string, string | undefined>) => {
+    const next = new URLSearchParams();
+    const merged: Record<string, string | undefined> = { vista: view, zona: zone !== "todas" ? zone : undefined, mios: mine ? "1" : undefined, ...params };
+    for (const [k, v] of Object.entries(merged)) if (v) next.set(k, v);
+    return `/dashboard/logistica?${next.toString()}`;
+  };
 
   return (
     <div className="flex flex-col gap-4">
+      <LiveRefresh />
       <PageHeader
         title="Logística"
-        description="Confirma por WhatsApp, prepara el despacho, descarga la planilla para tu courier y marca las entregas."
+        description="Confirma por llamada o WhatsApp, prepara el despacho, descarga la planilla para tu courier y marca las entregas."
       />
       <div className="flex gap-1.5 overflow-x-auto pb-1">
         {(Object.keys(VIEWS) as ViewKey[]).map((key) => (
           <Link
             key={key}
-            href={`/dashboard/logistica?vista=${key}`}
-            className={cn(
-              "rounded-full border px-3 py-1 text-sm whitespace-nowrap",
-              view === key ? "border-foreground bg-foreground text-background" : "hover:bg-muted",
-            )}
+            href={href({ vista: key })}
+            className={cn("rounded-full border px-3 py-1 text-sm whitespace-nowrap", view === key ? "border-foreground bg-foreground text-background" : "hover:bg-muted")}
           >
             {VIEWS[key].label} <span className="opacity-60">{countFor(key)}</span>
           </Link>
         ))}
       </div>
+      <div className="flex flex-wrap items-center gap-1.5 text-sm">
+        {(Object.keys(ZONES) as (keyof typeof ZONES)[]).map((z) => (
+          <Link
+            key={z}
+            href={href({ zona: z === "todas" ? undefined : z })}
+            className={cn("rounded-md border px-2.5 py-0.5", zone === z ? "border-primary bg-primary/10 text-primary" : "hover:bg-muted")}
+          >
+            {ZONES[z]}
+          </Link>
+        ))}
+        <span className="mx-1 text-muted-foreground">·</span>
+        <Link href={href({ mios: mine ? undefined : "1" })} className={cn("rounded-md border px-2.5 py-0.5", mine ? "border-primary bg-primary/10 text-primary" : "hover:bg-muted")}>
+          Mis pendientes
+        </Link>
+      </div>
       <LogisticsTable
         view={view}
         storeName={store.name}
-        orders={(orders ?? []).map((o) => ({ ...o, total: Number(o.total), balance_due: Number(o.balance_due) }) as LogisticsOrder)}
+        orders={sorted.map((o) => ({ ...o, order_items: o.order_items ?? [] }))}
+        sequence={sequence}
+        members={members}
+        currentUserId={user.id}
       />
     </div>
   );

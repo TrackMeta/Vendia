@@ -48,3 +48,54 @@ Plataforma para vendedores **contraentrega (COD)** que venden con **Meta Ads**: 
 4. Envía un evento de prueba.
 
 Vendia **solo** usa la parte de escritura para crear y leer Pixels; **nunca** modifica campañas. El permiso exacto que necesita Conversions API con este token se confirmará con una prueba real.
+
+## Decisiones del 2026-10-08 (segunda ronda)
+
+### Costos de envío y devolución
+- Cada courier cobra un **monto variable por envío**. El costo se registra **por pedido**, con un valor sugerido por courier y zona que se puede editar.
+- **No hay comisión porcentual de cobranza**: el costo es el envío.
+- **La devolución varía por pedido:** sin costo, 1 costo de envío o 2 costos de envío. Se elige al marcar «No entregado» o «Devuelto».
+
+### Landing
+- **GIF:** se pueden subir (sin recomprimir, con límite de peso).
+- **Video:** todavía no.
+- **Botón flotante de WhatsApp:** opcional, abajo a la derecha, con tamaño personalizable y mensaje editable.
+- **Upsells:**
+  1. **En el formulario** (*order bumps*): casillas debajo de los campos, cada una con imagen, nombre, precio, texto de escasez o descuento y colores personalizables. El total del botón «Comprar ahora» se actualiza al marcarlas. El servidor valida precios y productos.
+  2. **En la página de gracias:** agregar al mismo pedido con un clic.
+- **Formularios abandonados:** sí, con aviso de privacidad.
+
+### Entrega en provincia (flujo real)
+1. Se despacha por **Shalom u Olva**. **El cliente elige su agencia cuando lo contactamos** (no en el formulario).
+2. El cliente de provincia paga un **adelanto** a nuestras cuentas (Yape u otra) **antes del envío**.
+3. Se despacha y se hace **seguimiento con el número de orden y el código de envío**.
+4. Cuando el pedido **llega a su agencia**, el cliente **paga el saldo**. Recién entonces se le entrega la **clave de recojo**.
+5. El cliente **recoge con su DNI y la clave**.
+- **Lima:** contraentrega pura, **sin adelanto**.
+- **Comprobantes:** el cliente los envía por WhatsApp. En el pedido se pueden **adjuntar el comprobante del adelanto y el del pago del saldo**, con monto, método, fecha y quién lo verificó.
+- **Campos nuevos en el pedido:** agencia de destino, número de orden del courier, código de envío, clave de recojo (visible solo para el equipo) y pagos con comprobantes.
+- **Impacto en los estados:** en provincia el orden es *Enviado → En agencia → **Cobrado** (pagó el saldo) → **Entregado** (recogió)*. Es el **orden inverso a Lima** (Entregado → Cobrado). La máquina de estados debe aceptar los dos flujos sin completar hitos que no ocurrieron (en provincia, «Cobrado» **no** implica «Entregado»).
+
+### Stock
+- **Se descuenta al confirmar el pedido** (cuando sale).
+- **Se devuelve** si se cancela después de confirmar, si se devuelve por falta de pago del saldo o si el cliente lo rechaza en la puerta.
+
+### Dominios y tiendas
+- **Vendia tendrá su propio dominio.**
+- **Cada tienda** puede tener su propio dominio, o el usuario puede usar **un dominio suyo para todas sus tiendas**.
+- ⚠️ Esto implica que **un usuario puede tener varias tiendas**. Hoy está limitado a 1. Hay que permitir varias tiendas por usuario y un selector de tienda.
+
+### TikTok
+- **Dejarlo listo** (TikTok Pixel + Events API y plantilla de URL con macros de TikTok), aunque hoy no se use.
+
+### Pruebas A/B y ángulos creativos
+- **A/B:** un mismo link reparte el tráfico entre versiones de landing u oferta; gana la de **mejor CPA real**.
+- **Ángulos creativos:** cada anuncio tiene un **ángulo** (por ejemplo «dolor», «antes/después», «precio»). Si el visitante llega desde un anuncio de ese ángulo, se le **redirige a la landing de ese ángulo**.
+- **Rendimiento** tendrá una pestaña **por ángulo**, igual que por anuncio o por producto.
+
+### Tutorial de bienvenida
+- Sí: lista de pasos guiados para usuarios nuevos y una página de ayuda.
+
+### Otros proyectos del dueño
+- **Nodo:** COD por WhatsApp. Aporta el **kit de exportación a couriers** (ver [NODO-COURIERS.md](NODO-COURIERS.md)).
+- **Kontrol:** gestionador de pedidos COD en Perú. **Pendiente:** el dueño lo enviará para analizar qué sirve.

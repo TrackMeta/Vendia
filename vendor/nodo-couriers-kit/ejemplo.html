@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Exportar a couriers · ejemplo</title>
+<style>
+  body { font-family: system-ui, sans-serif; max-width: 640px; margin: 40px auto; padding: 0 16px; }
+  button { padding: 10px 16px; border: 0; border-radius: 8px; color: #fff; font-weight: 600; cursor: pointer; margin-right: 8px; }
+  #avisos { margin-top: 16px; color: #b45309; white-space: pre-line; }
+</style>
+</head>
+<body>
+<h1>Exportar pedidos</h1>
+<p>Ejemplo mínimo. Sírvelo con cualquier servidor estático (no abre con doble clic: los módulos ES necesitan http).</p>
+<button id="eva" style="background:#1f6feb">Exportar a Eva Courier</button>
+<button id="shalom" style="background:#e2261c">Exportar a Shalom</button>
+<div id="avisos"></div>
+
+<script type="module">
+import { exportar, revisar, cargarListas } from "./couriers.js";
+
+// 1) Config de tu negocio (en tu app sale de la base de datos).
+const cfg = { shalom: { origen: "ATOCONGO", mercaderia: "PAQUETE S", alto: 0, ancho: 0, largo: 0, peso: 1 } };
+
+// 2) Tus pedidos convertidos a la forma neutra (ver cabecera de couriers.js).
+const pedidosLima = [
+  { cliente: "Ana Ríos", telefono: "+51 987 654 321", distrito: "Miraflores", direccion: "Av. Larco 123",
+    referencia: "Frente al parque", cobrar: 89.9, descripcion: "Zapatillas Runner (Talla: 42)", cantidad: 1 },
+];
+const pedidosProvincia = [
+  { cliente: "Pedro Quispe", telefono: "51912345678", dni: "01234567", ciudad: "Abancay" },
+  { cliente: "Luz Mamani", telefono: "956789123", dni: "45678912", destino: "ANDAHUAYLAS", mercaderia: "PAQUETE M", peso: 2 },
+];
+
+async function correr(id, pedidos) {
+  const listas = await cargarListas();
+  const av = revisar(id, pedidos, { cfg, listas });
+  document.getElementById("avisos").textContent = av.join("\n");
+  if (av.length && !confirm(`Hay ${av.length} aviso(s). ¿Exportar igual?`)) return;
+  const n = await exportar(id, pedidos, { cfg });
+  console.log(`${n} filas exportadas a ${id}`);
+}
+document.getElementById("eva").onclick = () => correr("eva", pedidosLima);
+document.getElementById("shalom").onclick = () => correr("shalom", pedidosProvincia);
+</script>
+</body>
+</html>

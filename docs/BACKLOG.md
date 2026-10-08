@@ -58,3 +58,16 @@
 - **Origen del pedido estilo Meta:** campaña → conjunto → anuncio con nombres e IDs. La vista previa del anuncio (imagen, texto, "Ver anuncio") requiere la API de Marketing de Meta.
 - **Conexión de lectura de Meta (opción B, token de usuario del sistema por tienda):** ver [PRODUCTO.md](PRODUCTO.md).
 - **Sección Rendimiento:** tablas por campaña, conjunto, anuncio, producto y página (landing / product page), con columnas de Meta (impresiones, CPM, clics, CTR, CPC, resultados y costo por resultado según Meta…) y columnas de Vendia (pedidos, confirmados, venta real, **CPA real** junto al costo por resultado de Meta para compararlos, ROAS real, utilidad), más un selector de columnas.
+
+## 🆕 Segunda ronda de definiciones (2026-10-08)
+Ver [PRODUCTO.md](PRODUCTO.md) (sección «segunda ronda») y [NODO-COURIERS.md](NODO-COURIERS.md):
+- Exportación a la **plantilla oficial** de Shalom y Eva (kit de Nodo), con reserva atómica y lotes. Falta la plantilla de Olva.
+- Flujo de provincia: agencia, adelanto, pago del saldo, clave de recojo, comprobantes y estados en orden inverso a Lima.
+- Costos de envío variables por pedido y devolución (0, 1 o 2 envíos).
+- GIF en la landing, botón de WhatsApp personalizable, upsells en el formulario y en la página de gracias, formularios abandonados.
+- Stock: se descuenta al confirmar y se devuelve al cancelar o devolver.
+- Varias tiendas por usuario y dominios propios (de Vendia y de cada usuario o tienda).
+- TikTok listo (Pixel + Events API).
+- A/B y **ángulos creativos** con redirección y pestaña en Rendimiento.
+- Tutorial de bienvenida.
+- **Pendiente:** analizar **Kontrol** cuando el dueño lo envíe.

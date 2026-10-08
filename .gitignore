@@ -1,0 +1,24 @@
+# Secretos / credenciales — NUNCA subir
+Database Password.txt
+*.env
+.env*
+!.env.example
+*.pem
+*.key
+
+# Dependencias y builds
+node_modules/
+dist/
+build/
+.next/
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Sistema / editores
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.log

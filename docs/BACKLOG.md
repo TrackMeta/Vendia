@@ -6,6 +6,9 @@
 ## 🆕 Producto
 - **Product page por producto** (además de la landing): ver [PRODUCTO.md](PRODUCTO.md).
 - **Preparar multi-país**: moneda, ubicaciones, couriers y teléfono por país.
+- **Venta real por zona**: Lima = Entregado, Provincia = Cobrado (o Entregado en ambos), configurable.
+- **Moneda de la cuenta publicitaria (PEN/USD) con tipo de cambio** y **opción de sumar IGV 18 %** al gasto.
+- **CPA proyectado** con la tasa de entrega histórica + **% de pedidos atribuidos a campaña**.
 
 ## 🔴 Crítico
 

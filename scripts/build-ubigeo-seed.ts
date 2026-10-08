@@ -39,3 +39,14 @@ writeFileSync(out, sql);
 console.log(
   `OK → ${out}\n${dataset.departments.length} departamentos, ${dataset.provinces.length} provincias, ${dataset.districts.length} distritos`,
 );
+
+// JSON compacto para el formulario público (se carga solo al abrir el formulario).
+// La validación real se hace en la base de datos (create_cod_order).
+const compact = {
+  d: dataset.departments.map((d) => [d.code, d.name]),
+  p: dataset.provinces.map((p) => [p.code, p.name]),
+  t: dataset.districts.map((d) => [d.code, d.name]),
+};
+const jsonOut = join(root, "public/ubigeo-pe.json");
+writeFileSync(jsonOut, JSON.stringify(compact));
+console.log(`OK → ${jsonOut}`);

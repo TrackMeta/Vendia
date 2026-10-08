@@ -128,3 +128,28 @@
     @apply font-sans;
   }
 }
+/* ---- Landing pública ---- */
+@keyframes vd-marquee {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+.vd-marquee {
+  animation: vd-marquee 18s linear infinite;
+}
+@keyframes vd-pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.03); }
+}
+.vd-pulse {
+  animation: vd-pulse 1.6s ease-in-out infinite;
+}
+@keyframes vd-sheet-in {
+  from { transform: translateY(24px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+.vd-sheet {
+  animation: vd-sheet-in 0.2s ease-out;
+}
+@media (prefers-reduced-motion: reduce) {
+  .vd-marquee, .vd-pulse, .vd-sheet { animation: none; }
+}

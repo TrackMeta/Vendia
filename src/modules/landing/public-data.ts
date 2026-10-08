@@ -44,6 +44,8 @@ export function toRenderData(landing: PublicLanding): LandingRenderData {
       name: landing.product.name,
       description: landing.product.description,
       images: landing.product.images.map((i) => i.path),
+      variantLabel: landing.product.variant_label ?? null,
+      variants: landing.product.variants ?? [],
       price: Number(landing.product.price),
       compare_at_price: landing.product.compare_at_price === null ? null : Number(landing.product.compare_at_price),
     },

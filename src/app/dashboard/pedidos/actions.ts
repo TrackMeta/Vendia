@@ -191,6 +191,7 @@ const manualSchema = orderInput
     notes: z.string().trim().max(500).optional(),
     internal_notes: z.string().trim().max(1000).optional(),
     already_confirmed: z.boolean().optional(),
+    variants: z.array(z.uuid()).max(100).optional(),
   });
 
 export type ManualOrderInput = z.input<typeof manualSchema>;
@@ -205,9 +206,10 @@ export async function createManualOrder(input: ManualOrderInput): Promise<Manual
   if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message ?? "Datos inválidos" };
   const d = parsed.data;
   const supabase = await createClient();
+  const { variants, ...fields } = d;
   const { data, error } = await supabase.rpc("create_manual_order", {
     p: {
-      ...d,
+      ...fields,
       store_id: store.id,
       offer_id: d.offer_id || null,
       subtotal: blankToNull(d.subtotal),
@@ -217,6 +219,10 @@ export async function createManualOrder(input: ManualOrderInput): Promise<Manual
   });
   if (error) return { ok: false, error: error.code === "P0001" || error.code === "P0002" ? error.message : "No se pudo registrar el pedido" };
   const r = data as { order_id: string; order_number: number };
+  if (variants?.length) {
+    const { error: vError } = await supabase.rpc("set_order_variants", { p_order_id: r.order_id, p_variant_ids: variants });
+    if (vError) return { ok: false, error: `Pedido #${r.order_number} creado, pero las variantes no se guardaron: ${vError.message}` };
+  }
   revalidateOrders();
   return { ok: true, orderId: r.order_id, orderNumber: r.order_number };
 }
@@ -332,4 +338,16 @@ export async function deleteOrderPayment(paymentId: string, orderId: string): Pr
   if (path) await supabase.storage.from(RECEIPTS_BUCKET).remove([path]);
   revalidateOrders(orderId);
   return { ok: true, message: "Pago eliminado" };
+}
+
+/** Cambia las variantes (talla, color…) del pedido: una por unidad. Ajusta el stock si ya estaba descontado. */
+export async function setOrderVariants(orderId: string, variantIds: string[]): Promise<ActionResult> {
+  await requireStore();
+  const parsed = z.object({ orderId: z.uuid(), ids: z.array(z.uuid()).min(1).max(100) }).safeParse({ orderId, ids: variantIds });
+  if (!parsed.success) return { ok: false, error: "Elige una variante por unidad" };
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("set_order_variants", { p_order_id: parsed.data.orderId, p_variant_ids: parsed.data.ids });
+  if (error) return { ok: false, error: error.code === "P0001" || error.code === "P0002" ? error.message : "No se pudieron guardar las variantes" };
+  revalidateOrders(orderId);
+  return { ok: true, message: "Variantes guardadas" };
 }

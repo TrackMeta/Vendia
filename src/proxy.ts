@@ -3,7 +3,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { isAppHost, isPassthroughPath, rewriteForDomain } from "@/modules/domains";
 
 const AUTH_PAGES = ["/login", "/registro", "/recuperar"];
-const SESSION_PATHS = ["/dashboard", "/onboarding", "/admin", "/auth", ...AUTH_PAGES];
+const SESSION_PATHS = ["/dashboard", "/onboarding", "/admin", "/rotulos", "/auth", ...AUTH_PAGES];
 
 type DomainTarget = { storeSlug: string | null; allStores: boolean } | null;
 
@@ -93,7 +93,7 @@ export async function proxy(request: NextRequest) {
   const { data } = await supabase.auth.getClaims();
   const isLoggedIn = Boolean(data?.claims?.sub);
 
-  if (!isLoggedIn && (pathname.startsWith("/dashboard") || pathname.startsWith("/onboarding") || pathname.startsWith("/admin"))) {
+  if (!isLoggedIn && (pathname.startsWith("/dashboard") || pathname.startsWith("/onboarding") || pathname.startsWith("/admin") || pathname.startsWith("/rotulos"))) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     url.searchParams.set("next", pathname);

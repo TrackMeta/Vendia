@@ -33,11 +33,16 @@ export type PublicLanding = {
     price: number;
     compare_at_price: number | null;
     images: { path: string; width: number | null; height: number | null }[];
+    variant_label?: string | null;
+    variants?: PublicVariant[];
   };
   offers: PublicOffer[];
   meta?: { pixel_id: string | null };
   tiktok?: { pixel_code: string | null };
 };
+
+/** Variante del producto (talla, color…) que el cliente elige por unidad. */
+export type PublicVariant = { id: string; name: string; available: boolean };
 
 export type PublicOffer = {
   id: string;
@@ -62,7 +67,15 @@ export type LandingRenderData = {
   storeSlug: string;
   landingSlug: string;
   content: LandingContent;
-  product: { name: string; price: number; compare_at_price: number | null; description?: string | null; images?: string[] };
+  product: {
+    name: string;
+    price: number;
+    compare_at_price: number | null;
+    description?: string | null;
+    images?: string[];
+    variantLabel?: string | null;
+    variants?: PublicVariant[];
+  };
   offers: PublicOffer[];
   /** WhatsApp de la tienda (botón flotante) */
   whatsapp?: string | null;

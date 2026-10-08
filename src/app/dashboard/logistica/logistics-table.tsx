@@ -1,6 +1,6 @@
 "use client";
 
-import { AlertTriangle, Download, FileSpreadsheet, MapPin, UserCheck } from "lucide-react";
+import { AlertTriangle, Download, FileSpreadsheet, MapPin, Printer, UserCheck } from "lucide-react";
 import Link from "next/link";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { displayPeruPhone, formatDateTime, formatMoney } from "@/lib/format";
 import { CANCEL_REASONS, type ContactChannel, FAILURE_REASONS, RISK_LABELS } from "@/modules/orders/contact";
+import { itemLabel, type VariantBreakdown } from "@/modules/orders/items";
 import type { OrderStatus } from "@/modules/orders/state-machine";
 import { assignOrders, changeOrdersStatus } from "../pedidos/actions";
 import { ExportDialog, type StoreCourier } from "./export-dialog";
@@ -48,6 +49,7 @@ export type LogisticsOrder = {
     product_name: string;
     offer_name: string | null;
     quantity: number;
+    variant_breakdown?: VariantBreakdown;
   }[];
 };
 
@@ -93,7 +95,7 @@ export function LogisticsTable({
   orders: LogisticsOrder[];
   storeName: string;
   sequence: ContactChannel[];
-  members: { id: string; name: string }[];
+  members: { id: string; name: string; color?: string | null }[];
   currentUserId: string;
   couriers: StoreCourier[];
 }) {
@@ -184,6 +186,16 @@ export function LogisticsTable({
               {a.label}
             </Button>
           ))}
+          {view !== "confirmar" ? (
+            <a
+              href={`/rotulos?ids=${(selected.size ? selectedIds : orders.map((o) => o.id)).join(",")}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex h-7 items-center gap-1 rounded-md px-2.5 text-[0.8rem] font-medium hover:bg-muted"
+            >
+              <Printer className="size-3.5" /> Rótulos {selected.size ? `(${selected.size})` : ""}
+            </a>
+          ) : null}
           {view === "despachar" ? (
             <>
               <form method="post" action="/dashboard/logistica/exportar">
@@ -205,7 +217,7 @@ export function LogisticsTable({
       <div className="flex flex-col gap-2">
         {orders.map((o) => {
           const item = o.order_items[0];
-          const product = item ? `${item.product_name}${item.offer_name ? ` (${item.offer_name})` : ""}` : "";
+          const product = item ? itemLabel(item) : "";
           const risks = (o.risk_reasons ?? []).filter((r) => r !== "posible_duplicado");
           return (
             <div key={o.id} className="flex gap-3 rounded-xl border p-3">
@@ -235,7 +247,13 @@ export function LogisticsTable({
                     </span>
                   ))}
                   {o.assigned_to ? (
-                    <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                    <span
+                      className="flex items-center gap-1 rounded-full px-1.5 text-xs font-medium"
+                      style={{
+                        color: members.find((m) => m.id === o.assigned_to)?.color ?? undefined,
+                        backgroundColor: members.find((m) => m.id === o.assigned_to)?.color ? `${members.find((m) => m.id === o.assigned_to)?.color}1a` : undefined,
+                      }}
+                    >
                       <UserCheck className="size-3.5" /> {o.assigned_to === currentUserId ? "Tú" : memberName(o.assigned_to)}
                     </span>
                   ) : null}

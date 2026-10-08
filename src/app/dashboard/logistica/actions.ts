@@ -9,10 +9,17 @@ import { COURIER_IDS, type VendiaExportOrder } from "@/modules/couriers";
 export type ExportOrder = VendiaExportOrder & { id: string; zone: "lima" | "provincia" };
 
 const SELECT =
-  "id, zone, order_number, customer_name, customer_phone, dni, district_name, province_name, department_name, address, reference, balance_due, agency_destination, package_size, package_weight, order_items (product_id, offer_id, product_name, offer_name, quantity)";
+  "id, zone, order_number, customer_name, customer_phone, dni, district_name, province_name, department_name, address, reference, balance_due, agency_destination, package_size, package_weight, order_items (product_id, offer_id, product_name, offer_name, quantity, variant_breakdown)";
 
 type Row = Omit<ExportOrder, "items"> & {
-  order_items: { product_id: string | null; offer_id: string | null; product_name: string; offer_name: string | null; quantity: number }[];
+  order_items: {
+    product_id: string | null;
+    offer_id: string | null;
+    product_name: string;
+    offer_name: string | null;
+    quantity: number;
+    variant_breakdown?: VendiaExportOrder["items"][number]["variant_breakdown"];
+  }[];
 };
 type Product = NonNullable<VendiaExportOrder["items"][number]["product"]> & { id: string };
 type Offer = NonNullable<VendiaExportOrder["items"][number]["offer"]> & { id: string };
@@ -34,6 +41,7 @@ async function toExportOrders(supabase: Awaited<ReturnType<typeof createClient>>
       product_name: i.product_name,
       offer_name: i.offer_name,
       quantity: i.quantity,
+      variant_breakdown: i.variant_breakdown ?? [],
       product: (products as Product[] | null)?.find((p) => p.id === i.product_id) ?? null,
       offer: (offers as Offer[] | null)?.find((x) => x.id === i.offer_id) ?? null,
     })),

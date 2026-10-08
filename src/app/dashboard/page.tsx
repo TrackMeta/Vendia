@@ -116,7 +116,7 @@ export default async function DashboardHome({ searchParams }: PageProps<"/dashbo
         <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-6">
           <Metric label="Revenue" value={formatMoney(m.totals.revenue)} />
           <Metric label="Costo de productos" value={formatMoney(m.totals.productCost)} />
-          <Metric label="Costo de envíos" value={formatMoney(m.totals.shippingCost)} />
+          <Metric label="Envíos y embalaje" value={formatMoney(m.totals.shippingCost)} />
           <Metric label="Publicidad" value={formatMoney(adSpend)} />
           <Metric label="Otros gastos" value={formatMoney(otherExpenses)} />
           <Metric label="Utilidad real" value={formatMoney(m.profit)} hint={`Margen ${formatPercent(m.margin)}`} highlight />

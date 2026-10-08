@@ -53,19 +53,28 @@ export default async function OrdersPage({ searchParams }: PageProps<"/dashboard
     query = query.or(filters.join(","));
   }
 
-  let countsQuery = supabase.from("orders").select("status, zone").eq("store_id", store.id);
-  if (zone) countsQuery = countsQuery.eq("zone", zone);
-  if (mine) countsQuery = countsQuery.eq("assigned_to", user.id);
+  // Contadores calculados en la base (bajar las filas para contarlas falla con más de 1000 pedidos).
+  // «Mis pedidos» son pocos: ahí se cuentan directamente.
+  const countsPromise = mine
+    ? (() => {
+        let q = supabase.from("orders").select("status").eq("store_id", store.id).eq("assigned_to", user.id).limit(5000);
+        if (zone) q = q.eq("zone", zone);
+        return q.then(({ data }) => {
+          const m: Record<string, number> = {};
+          for (const r of data ?? []) m[r.status] = (m[r.status] ?? 0) + 1;
+          return m;
+        });
+      })()
+    : supabase.rpc("order_status_counts", { p_store_id: store.id, p_zone: zone ?? null }).then(({ data }) => (data ?? {}) as Record<string, number>);
 
-  const [{ data: orders, count }, { data: statusRows }, { data: team }] = await Promise.all([
+  const [{ data: orders, count }, countsByStatus, { data: team }] = await Promise.all([
     query,
-    countsQuery,
+    countsPromise,
     supabase.rpc("get_store_team", { p_store_id: store.id }),
   ]);
 
-  const statusCounts = new Map<string, number>();
-  for (const row of statusRows ?? []) statusCounts.set(row.status, (statusCounts.get(row.status) ?? 0) + 1);
-  const total = statusRows?.length ?? 0;
+  const statusCounts = new Map<string, number>(Object.entries(countsByStatus).map(([k, v]) => [k, Number(v)]));
+  const total = [...statusCounts.values()].reduce((s, n) => s + n, 0);
   const totalPages = Math.max(1, Math.ceil((count ?? 0) / PAGE_SIZE));
   const members = new Map(((team ?? []) as { user_id: string; email: string; full_name: string | null }[]).map((m) => [m.user_id, m.full_name || m.email]));
 

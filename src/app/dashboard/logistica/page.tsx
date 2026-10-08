@@ -21,10 +21,6 @@ const VIEWS = {
 
 const IN_TRANSIT_FILTER = "status.in.(shipped,out_for_delivery,at_agency),and(status.eq.collected,zone.eq.provincia,delivered_at.is.null)";
 
-function inView(view: keyof typeof VIEWS, o: { status: string; zone: string; delivered_at: string | null }) {
-  if (view === "en-camino" && o.status === "collected") return o.zone === "provincia" && !o.delivered_at;
-  return (VIEWS[view].statuses as string[]).includes(o.status);
-}
 
 type ViewKey = keyof typeof VIEWS;
 const ZONES = { todas: "Todas", lima: "Lima", provincia: "Provincia" } as const;
@@ -40,7 +36,7 @@ export default async function LogisticsPage({ searchParams }: PageProps<"/dashbo
   let query = supabase
     .from("orders")
     .select(
-      "id, order_number, created_at, status, zone, customer_name, customer_phone, dni, total, balance_due, address, reference, district_name, province_name, department_name, is_possible_duplicate, risk_reasons, courier_name, tracking_code, agency_destination, exported_at, assigned_to, contact_attempts, last_contact_result, last_contact_at, next_contact_at, contact_sequence_done, source, source_channel, order_items (product_name, offer_name, quantity)",
+      "id, order_number, created_at, status, zone, customer_name, customer_phone, dni, total, balance_due, address, reference, district_name, province_name, department_name, is_possible_duplicate, risk_reasons, courier_name, tracking_code, agency_destination, exported_at, assigned_to, contact_attempts, last_contact_result, last_contact_at, next_contact_at, contact_sequence_done, source, source_channel, order_items (product_name, offer_name, quantity, variant_breakdown)",
     )
     .eq("store_id", store.id)
     .order("created_at", { ascending: true })
@@ -51,14 +47,7 @@ export default async function LogisticsPage({ searchParams }: PageProps<"/dashbo
 
   const [{ data: orders }, { data: counts }, { data: settings }, { data: team }, { data: couriers }, { data: batches }] = await Promise.all([
     query,
-    supabase
-      .from("orders")
-      .select("status, zone, delivered_at")
-      .eq("store_id", store.id)
-      .in(
-        "status",
-        Object.values(VIEWS).flatMap((v) => v.statuses),
-      ),
+    supabase.rpc("logistics_counts", { p_store_id: store.id }),
     supabase.from("store_settings").select("contact_sequence").eq("store_id", store.id).maybeSingle(),
     supabase.rpc("get_store_team", { p_store_id: store.id }),
     supabase.from("store_couriers").select("courier_id, zone, enabled, is_default, origin_agency").eq("store_id", store.id),
@@ -80,7 +69,8 @@ export default async function LogisticsPage({ searchParams }: PageProps<"/dashbo
         }),
   ]);
 
-  const countFor = (key: ViewKey) => (counts ?? []).filter((c) => inView(key, c)).length;
+  // Contadores calculados en la base (sin el límite de 1000 filas)
+  const countFor = (key: ViewKey) => Number(((counts ?? {}) as Record<string, number>)[key === "en-camino" ? "en_camino" : key] ?? 0);
   const sequence = ((settings?.contact_sequence as ContactChannel[] | null) ?? DEFAULT_SEQUENCE).filter((s) => s === "call" || s === "whatsapp");
   const rows = (orders ?? []).map(
     (o) =>
@@ -96,10 +86,12 @@ export default async function LogisticsPage({ searchParams }: PageProps<"/dashbo
       user_id: string;
       email: string;
       full_name: string | null;
+      color: string | null;
     }[]
   ).map((m) => ({
     id: m.user_id,
     name: m.full_name || m.email,
+    color: m.color,
   }));
   const batchRows: BatchRow[] = (batches ?? []).map((b) => ({
     id: b.id,

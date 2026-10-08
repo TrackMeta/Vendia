@@ -14,7 +14,7 @@ import { zoneOf } from "@/modules/orders/contact";
 import { splitFullName } from "@/modules/orders/order-input";
 import { createManualOrder, type ManualOrderInput } from "../actions";
 
-type Product = { id: string; name: string; price: number };
+type Product = { id: string; name: string; price: number; variantLabel: string | null; variants: { id: string; name: string; stock: number | null }[] };
 type Offer = { id: string; productId: string; name: string; quantity: number; price: number };
 
 const CHANNELS = { whatsapp: "WhatsApp", instagram: "Instagram", facebook: "Facebook / Messenger", tiktok: "TikTok", llamada: "Llamada", tienda: "Tienda física", otro: "Otro" } as const;
@@ -61,10 +61,13 @@ export function ManualOrderForm({
   const [notes, setNotes] = useState("");
   const [internalNotes, setInternalNotes] = useState("");
   const [confirmed, setConfirmed] = useState(true);
+  const [variantPicks, setVariantPicks] = useState<string[]>([]);
 
   const product = products.find((p) => p.id === productId)!;
   const offer = productOffers.find((o) => o.id === offerId);
   const basePrice = offer ? offer.price : product.price * quantity;
+  const units = offer ? offer.quantity : quantity;
+  const picks = Array.from({ length: product.variants.length ? units : 0 }, (_, i) => variantPicks[i] ?? "");
   const subtotal = price === "" ? basePrice : Number(price) || 0;
   const zone = ubigeo.province ? zoneOf(ubigeo.province) : null;
   const zoneShipping = zone === "lima" ? shipping.lima : zone === "provincia" ? shipping.province : 0;
@@ -101,7 +104,12 @@ export function ManualOrderForm({
       notes: notes || undefined,
       internal_notes: internalNotes || undefined,
       already_confirmed: confirmed,
+      variants: product.variants.length ? picks : undefined,
     };
+    if (product.variants.length && picks.some((p) => !p)) {
+      toast.error(`Elige ${(product.variantLabel ?? "la variante").toLowerCase()} de cada unidad`);
+      return;
+    }
     startTransition(async () => {
       const r = await createManualOrder(input);
       if (!r.ok) {
@@ -127,6 +135,7 @@ export function ManualOrderForm({
                 setProductId(e.target.value);
                 setOfferId(offers.find((o) => o.productId === e.target.value)?.id ?? "");
                 setPrice("");
+                setVariantPicks([]);
               }}
               className={selectClass}
             >
@@ -158,6 +167,34 @@ export function ManualOrderForm({
             <Field label="Cantidad">
               <Input type="number" min={1} max={100} value={quantity} onChange={(e) => setQuantity(Math.max(1, Number(e.target.value) || 1))} />
             </Field>
+          ) : null}
+          {picks.length ? (
+            <div className="flex flex-col gap-2 sm:col-span-2">
+              {picks.map((pick, i) => (
+                <div key={i} className="flex flex-wrap items-center gap-1.5">
+                  <span className="w-28 text-sm text-muted-foreground">
+                    {product.variantLabel ?? "Variante"} {units > 1 ? i + 1 : ""}
+                  </span>
+                  {product.variants.map((v) => (
+                    <button
+                      key={v.id}
+                      type="button"
+                      onClick={() =>
+                        setVariantPicks(() => {
+                          const next = [...picks];
+                          next[i] = v.id;
+                          return next;
+                        })
+                      }
+                      className={`rounded-md border px-2.5 py-1 text-sm ${pick === v.id ? "border-foreground bg-foreground text-background" : "hover:bg-muted"}`}
+                    >
+                      {v.name}
+                      {v.stock !== null ? <span className="ml-1 text-xs opacity-60">({v.stock})</span> : null}
+                    </button>
+                  ))}
+                </div>
+              ))}
+            </div>
           ) : null}
           <Field label="Precio acordado (S/)" hint={`Por defecto ${formatMoney(basePrice)}. Cámbialo si negociaste otro precio.`}>
             <Input type="number" step="0.01" min={0} value={price} placeholder={basePrice.toFixed(2)} onChange={(e) => setPrice(e.target.value)} />

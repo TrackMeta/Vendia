@@ -17,11 +17,15 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: { default: "Vendia", template: "%s · Vendia" },
   description: "Landing pages y pedidos contraentrega para vendedores en Perú.",
+  // App instalable en el celular (ver app/manifest.ts)
+  appleWebApp: { capable: true, title: "Vendia", statusBarStyle: "default" },
+  icons: { apple: [{ url: "/icons/180", sizes: "180x180", type: "image/png" }] },
 };
 
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
+  themeColor: "#111111",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

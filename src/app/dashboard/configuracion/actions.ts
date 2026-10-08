@@ -32,6 +32,7 @@ const settingsSchema = z.object({
   shipping_lima: z.coerce.number().min(0).max(10_000),
   shipping_province: z.coerce.number().min(0).max(10_000),
   advance_amount: z.coerce.number().min(0).max(10_000),
+  packaging_cost: z.coerce.number().min(0, "El embalaje no puede ser negativo").max(1000).default(0),
   payment_methods: z
     .string()
     .max(300)

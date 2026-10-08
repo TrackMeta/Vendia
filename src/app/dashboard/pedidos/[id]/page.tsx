@@ -20,6 +20,7 @@ import {
   type FailureReason,
   RISK_LABELS,
 } from "@/modules/orders/contact";
+import { itemLabel, type VariantBreakdown } from "@/modules/orders/items";
 import { type PaymentKind, type PaymentMethod, RECEIPTS_BUCKET } from "@/modules/orders/payments";
 import { ORDER_STATUS_LABELS, type OrderStatus } from "@/modules/orders/state-machine";
 import { ZoneBadge } from "../../logistica/logistics-table";
@@ -28,6 +29,7 @@ import { OrderDetailsForm } from "./details-form";
 import { type PaymentRow, PaymentsCard } from "./payments-card";
 import { ShippingCard } from "./shipping-card";
 import { StatusActions } from "./status-actions";
+import { VariantsEditor } from "./variants-editor";
 
 export const metadata: Metadata = { title: "Pedido" };
 
@@ -81,6 +83,7 @@ export default async function OrderDetailPage({ params }: PageProps<"/dashboard/
     product_id: string | null;
     offer_id: string | null;
     kind: "main" | "bump" | "upsell";
+    variant_breakdown: VariantBreakdown;
   }[];
   const attr = one(order.order_attribution as Record<string, string | null>[]);
   const history = [...(order.order_status_history as { id: number; from_status: string | null; to_status: string; source: string; note: string | null; created_at: string }[])].sort(
@@ -102,14 +105,20 @@ export default async function OrderDetailPage({ params }: PageProps<"/dashboard/
   const zone = order.zone as "lima" | "provincia";
   const locationHint = order.district_name === order.province_name ? order.province_name : `${order.province_name} ${order.district_name}`;
   // Medida y peso por defecto: oferta → producto (order_items no tiene FK a products)
-  const [{ data: packageProduct }, { data: packageOffer }] = await Promise.all([
+  const [{ data: packageProduct }, { data: packageOffer }, { data: productVariants }] = await Promise.all([
     item?.product_id
-      ? supabase.from("products").select("package_size, package_weight").eq("id", item.product_id).maybeSingle()
+      ? supabase.from("products").select("package_size, package_weight, variant_label").eq("id", item.product_id).maybeSingle()
       : Promise.resolve({ data: null }),
     item?.offer_id
       ? supabase.from("product_offers").select("package_size, package_weight").eq("id", item.offer_id).maybeSingle()
       : Promise.resolve({ data: null }),
+    item?.product_id
+      ? supabase.from("product_variants").select("id, name, stock").eq("product_id", item.product_id).eq("is_active", true).order("position")
+      : Promise.resolve({ data: [] as { id: string; name: string; stock: number | null }[] }),
   ]);
+  const mainItem = items.find((i) => i.kind === "main") ?? item;
+  const hasVariants = (productVariants ?? []).length > 0 || (mainItem?.variant_breakdown ?? []).length > 0;
+  const variantsEditable = ["new", "pending_confirmation", "confirmed", "preparing"].includes(order.status);
 
   // Comprobantes: enlaces firmados de 1 hora (el bucket es privado)
   const receiptPaths = (paymentRows ?? []).map((p) => p.receipt_path).filter((x): x is string => Boolean(x));
@@ -132,9 +141,7 @@ export default async function OrderDetailPage({ params }: PageProps<"/dashboard/
   }));
   const risks = ((order.risk_reasons as string[] | null) ?? []).filter((r) => r !== "posible_duplicado");
   const waText = encodeURIComponent(
-    `Hola ${firstName}, te saludamos de ${store.name}. Recibimos tu pedido #${order.order_number} de ${item?.product_name ?? ""}${
-      item?.offer_name ? ` (${item.offer_name})` : ""
-    } por ${formatMoney(order.total)}, con entrega en ${order.address}, ${order.district_name}. ¿Nos confirmas tu pedido?`,
+    `Hola ${firstName}, te saludamos de ${store.name}. Recibimos tu pedido #${order.order_number} de ${item ? itemLabel(item) : ""} por ${formatMoney(order.total)}, con entrega en ${order.address}, ${order.district_name}. ¿Nos confirmas tu pedido?`,
   );
 
   return (
@@ -183,7 +190,7 @@ export default async function OrderDetailPage({ params }: PageProps<"/dashboard/
               total: Number(order.total),
               address: order.address,
               district_name: order.district_name,
-              product_label: item ? `${item.product_name}${item.offer_name ? ` (${item.offer_name})` : ""}` : "",
+              product_label: item ? itemLabel(item) : "",
               contact_attempts: order.contact_attempts,
               last_contact_result: order.last_contact_result,
               next_contact_at: order.next_contact_at,
@@ -253,6 +260,18 @@ export default async function OrderDetailPage({ params }: PageProps<"/dashboard/
                   <span>{formatMoney(i.line_price)}</span>
                 </div>
               ))}
+              {hasVariants && mainItem ? (
+                <div className="mt-2">
+                  <VariantsEditor
+                    orderId={order.id}
+                    label={packageProduct?.variant_label ?? "Variante"}
+                    units={mainItem.quantity}
+                    current={mainItem.variant_breakdown ?? []}
+                    options={productVariants ?? []}
+                    editable={variantsEditable}
+                  />
+                </div>
+              ) : null}
               <div className="mt-3 border-t pt-2">
                 <Row label="Subtotal">{formatMoney(order.subtotal)}</Row>
                 <Row label="Envío cobrado">{formatMoney(order.shipping_charged)}</Row>
@@ -264,6 +283,8 @@ export default async function OrderDetailPage({ params }: PageProps<"/dashboard/
                   </>
                 ) : null}
                 <Row label="Costo de producto">{formatMoney(order.product_cost_total)}</Row>
+                {Number(order.packaging_cost) > 0 ? <Row label="Embalaje">{formatMoney(order.packaging_cost)}</Row> : null}
+                {Number(order.commission_amount) > 0 ? <Row label="Comisión del confirmador">{formatMoney(order.commission_amount)}</Row> : null}
               </div>
             </CardContent>
           </Card>

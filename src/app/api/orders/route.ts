@@ -92,6 +92,11 @@ export async function POST(request: NextRequest) {
 
   // Lead por Conversions API (servidor) en segundo plano. Mismo event_id que el Pixel del navegador.
   if (!result.duplicate_submit) {
+    // Variantes (talla, color…): una por unidad, validadas en la base de datos
+    if (input.variants?.length) {
+      const { error: variantError } = await supabase.rpc("set_order_variants", { p_order_id: result.order_id, p_variant_ids: input.variants });
+      if (variantError) console.error("set_order_variants", variantError.message);
+    }
     // Clic de TikTok: se guarda en la atribución del pedido
     if (input.attribution.ttclid || input.attribution.ttp) {
       await supabase

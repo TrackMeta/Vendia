@@ -240,7 +240,16 @@ export function LandingBuilder({
   storeId: string;
   storeSlug: string;
   storeName: string;
-  products: { id: string; name: string; price: number; compare_at_price: number | null; description: string | null; images: string[] }[];
+  products: {
+    id: string;
+    name: string;
+    price: number;
+    compare_at_price: number | null;
+    description: string | null;
+    images: string[];
+    variantLabel: string | null;
+    variants: { id: string; name: string; available: boolean }[];
+  }[];
   offersByProduct: Record<string, PublicOffer[]>;
   pricing: { shippingLima: number; shippingProvince: number; advance: number };
 }) {
@@ -285,6 +294,8 @@ export function LandingBuilder({
         compare_at_price: product?.compare_at_price ?? null,
         description: product?.description ?? null,
         images: product?.images ?? [],
+        variantLabel: product?.variantLabel ?? null,
+        variants: product?.variants ?? [],
       },
       whatsapp: storeWhatsapp,
       offers: offersByProduct[productId] ?? [],

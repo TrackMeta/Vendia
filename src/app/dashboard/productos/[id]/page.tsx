@@ -10,6 +10,7 @@ import { ProductForm, type ProductFormValues } from "../product-form";
 import { DeleteProductButton } from "./delete-button";
 import { ImagesManager } from "./images-manager";
 import { OffersManager } from "./offers-manager";
+import { VariantsManager } from "./variants-manager";
 
 export const metadata: Metadata = { title: "Editar producto" };
 
@@ -18,7 +19,7 @@ export default async function EditProductPage({ params }: PageProps<"/dashboard/
   const { store } = await requireOwner();
   const supabase = await createClient();
 
-  const [{ data: product }, { data: images }, { data: offers }] = await Promise.all([
+  const [{ data: product }, { data: images }, { data: offers }, { data: variants }] = await Promise.all([
     supabase.from("products").select("*").eq("id", id).eq("store_id", store.id).maybeSingle(),
     supabase.from("product_images").select("id, storage_path, is_primary, position").eq("product_id", id).order("position"),
     supabase
@@ -26,6 +27,7 @@ export default async function EditProductPage({ params }: PageProps<"/dashboard/
       .select("id, name, quantity, price, compare_at_price, badge, image_path, is_default, is_active")
       .eq("product_id", id)
       .order("position"),
+    supabase.from("product_variants").select("id, name, sku, stock, is_active").eq("product_id", id).eq("store_id", store.id).order("position"),
   ]);
   if (!product) notFound();
 
@@ -35,7 +37,7 @@ export default async function EditProductPage({ params }: PageProps<"/dashboard/
     <div className="flex max-w-3xl flex-col gap-6">
       <PageHeader
         title={product.name}
-        description="Edita los datos, imágenes y ofertas del producto."
+        description="Edita los datos, imágenes, ofertas y variantes del producto."
         actions={
           <Link href={`/dashboard/landings?nuevo=${product.id}`} className={buttonVariants({ variant: "outline" })}>
             Crear landing de este producto
@@ -53,6 +55,11 @@ export default async function EditProductPage({ params }: PageProps<"/dashboard/
           price: Number(o.price),
           compare_at_price: o.compare_at_price === null ? null : Number(o.compare_at_price),
         }))}
+      />
+      <VariantsManager
+        productId={product.id}
+        initialLabel={product.variant_label}
+        initial={(variants ?? []).map((v) => ({ id: v.id, name: v.name, sku: v.sku ?? "", stock: v.stock, is_active: v.is_active }))}
       />
       <div className="flex justify-end border-t pt-6">
         <DeleteProductButton productId={product.id} />

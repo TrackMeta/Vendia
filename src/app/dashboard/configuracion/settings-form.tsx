@@ -23,6 +23,7 @@ type Values = {
   shipping_lima: number;
   shipping_province: number;
   advance_amount: number;
+  packaging_cost: number;
   payment_methods: string;
   confirmation_message: string;
   real_sale_mode: string;
@@ -140,6 +141,9 @@ export function SettingsForm({ storeId, storeSlug, initial }: { storeId: string;
                 : ", se paga todo en la agencia."}
             </p>
           </div>
+          <Field label="Embalaje por unidad (S/)" hint="Bolsa, caja, cinta… Se suma al costo de cada pedido que sale y se descuenta de tu utilidad.">
+            <Input name="packaging_cost" type="number" step="0.01" min="0" defaultValue={initial.packaging_cost} />
+          </Field>
           <div className="sm:col-span-3">
             <Field label="Métodos de pago" hint="Separados por comas. Ej: Contraentrega, Yape, Plin">
               <Input name="payment_methods" defaultValue={initial.payment_methods} />

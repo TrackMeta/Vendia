@@ -32,6 +32,7 @@ export default async function SettingsPage() {
           shipping_lima: Number(settings?.shipping_lima ?? 0),
           shipping_province: Number(settings?.shipping_province ?? 0),
           advance_amount: Number(settings?.advance_amount ?? 0),
+          packaging_cost: Number(settings?.packaging_cost ?? 0),
           payment_methods: (settings?.payment_methods ?? ["Contraentrega"]).join(", "),
           confirmation_message: settings?.confirmation_message ?? "",
           real_sale_mode: settings?.real_sale_mode ?? "zone",

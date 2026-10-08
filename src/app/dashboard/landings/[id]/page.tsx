@@ -20,14 +20,14 @@ export default async function LandingEditorPage({ params }: PageProps<"/dashboar
   const { store } = await requireOwner();
   const supabase = await createClient();
 
-  const [{ data: landing }, { data: products }, { data: offers }, { data: settings }, { data: images }, { data: others }] = await Promise.all([
+  const [{ data: landing }, { data: products }, { data: offers }, { data: settings }, { data: images }, { data: others }, { data: variants }] = await Promise.all([
     supabase
       .from("landing_pages")
       .select("id, title, slug, product_id, status, content, published_content, settings")
       .eq("id", id)
       .eq("store_id", store.id)
       .maybeSingle(),
-    supabase.from("products").select("id, name, price, compare_at_price, description").eq("store_id", store.id).neq("status", "archived").order("name"),
+    supabase.from("products").select("id, name, price, compare_at_price, description, variant_label").eq("store_id", store.id).neq("status", "archived").order("name"),
     supabase
       .from("product_offers")
       .select("id, product_id, name, quantity, price, compare_at_price, badge, image_path, is_default")
@@ -37,6 +37,7 @@ export default async function LandingEditorPage({ params }: PageProps<"/dashboar
     supabase.from("store_settings").select("shipping_lima, shipping_province, advance_amount, whatsapp").eq("store_id", store.id).single(),
     supabase.from("product_images").select("product_id, storage_path, is_primary, position").eq("store_id", store.id).order("position"),
     supabase.from("landing_pages").select("id, title, slug, status").eq("store_id", store.id).neq("id", id).order("updated_at", { ascending: false }),
+    supabase.from("product_variants").select("id, product_id, name, stock, is_active").eq("store_id", store.id).eq("is_active", true).order("position"),
   ]);
   if (!landing) notFound();
 
@@ -78,6 +79,8 @@ export default async function LandingEditorPage({ params }: PageProps<"/dashboar
         price: Number(p.price),
         compare_at_price: p.compare_at_price === null ? null : Number(p.compare_at_price),
         description: p.description,
+        variantLabel: p.variant_label,
+        variants: (variants ?? []).filter((v) => v.product_id === p.id).map((v) => ({ id: v.id, name: v.name, available: v.stock === null || v.stock > 0 })),
         images: (images ?? [])
           .filter((i) => i.product_id === p.id)
           .sort((a, b) => Number(b.is_primary) - Number(a.is_primary) || a.position - b.position)

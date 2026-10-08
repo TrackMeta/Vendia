@@ -60,7 +60,17 @@
 - [x] **Tests automáticos en cada cambio** (GitHub Actions) y pruebas de punta a punta.
 - [x] **Landing en caché:** datos de la landing en caché (se limpian al publicar o al cambiar la configuración) y archivos grandes (ubicaciones, plantillas) con caché del navegador. La página completa no se guarda en la CDN porque las pruebas A/B dependen de cada visitante.
 
+## Bloque 7: Operación y equipo (ideas de Kontrol, ver KONTROL.md)
+- [x] **Contadores en la base de datos** (Pedidos, Logística, Abandonados): sin el corte de 1000 filas.
+- [x] **Variantes** (talla, color…) con stock propio: una por unidad en la landing, en el pedido manual y editable al confirmar.
+- [x] **Comisiones del confirmador:** se ganan al confirmar (Lima/provincia), se anulan si no se entrega; pagos registrados (y como gasto «Comisiones»).
+- [x] **Métricas por confirmador** (por cohorte) y **color por persona**; página «Mi rendimiento» para el confirmador.
+- [x] **Liquidación con el courier de Lima:** cuánto te debe cada uno, liquidar en lote (pasa a Cobrado), historial y anular.
+- [x] **Rótulos de envío** para imprimir (A4 o 10×15).
+- [x] **Costo de embalaje** por unidad en la utilidad.
+- [x] **Instalar en el celular (PWA).**
+
 ## Pendiente del dueño
-- [ ] Enviar **Kontrol** para analizarlo.
+- [x] Enviar **Kontrol** para analizarlo (ver docs/KONTROL.md).
 - [ ] Restablecer la **contraseña de la base de datos** (opcional; sin ella, el SQL se pega a mano).
 - [ ] Hacer **privado** el repositorio de GitHub (recomendado).

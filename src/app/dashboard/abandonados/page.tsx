@@ -38,9 +38,9 @@ export default async function AbandonedPage({ searchParams }: PageProps<"/dashbo
       .in("status", [...VIEWS[view].statuses])
       .order("created_at", { ascending: false })
       .limit(200),
-    supabase.from("abandoned_checkouts").select("status").eq("store_id", store.id),
+    supabase.rpc("abandoned_status_counts", { p_store_id: store.id }),
   ]);
-  const count = (v: View) => (counts ?? []).filter((c) => (VIEWS[v].statuses as readonly string[]).includes(c.status)).length;
+  const count = (v: View) => VIEWS[v].statuses.reduce((sum, st) => sum + Number(((counts ?? {}) as Record<string, number>)[st] ?? 0), 0);
 
   return (
     <div className="flex flex-col gap-4">

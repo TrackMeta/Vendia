@@ -6,6 +6,7 @@
  * con sus funciones `rows` y `review`.
  */
 import { adjustTableRef, type Cell, entryByName, entryText, fillSheet, readZip, setEntryText, writeZip } from "./xlsx-fill";
+import { itemLabel, type VariantBreakdown } from "@/modules/orders/items";
 import lists from "./listas.json";
 
 export type CourierZone = "lima" | "provincia";
@@ -277,6 +278,7 @@ export type VendiaExportOrder = {
     product_name: string;
     offer_name: string | null;
     quantity: number;
+    variant_breakdown?: VariantBreakdown;
     product?: { package_size: string; package_weight: number | string; package_height: number | string; package_width: number | string; package_length: number | string } | null;
     offer?: { package_size: string | null; package_weight: number | string | null } | null;
   }[];
@@ -296,7 +298,7 @@ export function toCourierOrder(o: VendiaExportOrder): CourierOrder {
     address: o.address,
     reference: o.reference,
     amountToCollect: Number(o.balance_due),
-    description: o.items.map((i) => `${i.product_name}${i.offer_name ? ` (${i.offer_name})` : ""}`).join(" + "),
+    description: o.items.map((i) => itemLabel(i)).join(" + "),
     quantity: o.items.reduce((s, i) => s + i.quantity, 0),
     agency: o.agency_destination,
     city: o.district_name === o.province_name ? o.province_name : `${o.province_name} ${o.district_name}`,

@@ -17,9 +17,11 @@ import {
   Settings,
   ShoppingBag,
   TrendingUp,
+  Trophy,
   Truck,
   UserCog,
   Users,
+  Wallet,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -30,13 +32,15 @@ import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { StoreSwitcher } from "./store-switcher";
 import { cn } from "@/lib/utils";
 
-type NavItem = { href: string; label: string; icon: typeof Home; exact?: boolean; soon?: boolean; ownerOnly?: boolean };
+type NavItem = { href: string; label: string; icon: typeof Home; exact?: boolean; soon?: boolean; ownerOnly?: boolean; staffOnly?: boolean };
 
 const NAV: NavItem[] = [
   { href: "/dashboard", label: "Inicio", icon: Home, exact: true, ownerOnly: true },
   { href: "/dashboard/pedidos", label: "Pedidos", icon: ShoppingBag },
   { href: "/dashboard/logistica", label: "Logística", icon: Truck },
   { href: "/dashboard/abandonados", label: "Abandonados", icon: MousePointerClick },
+  { href: "/dashboard/liquidacion", label: "Liquidación", icon: Wallet, ownerOnly: true },
+  { href: "/dashboard/mi-rendimiento", label: "Mi rendimiento", icon: Trophy, staffOnly: true },
   { href: "/dashboard/productos", label: "Productos", icon: Package, ownerOnly: true },
   { href: "/dashboard/landings", label: "Landing Pages", icon: LayoutTemplate, ownerOnly: true },
   { href: "/dashboard/clientes", label: "Clientes", icon: Users },
@@ -56,7 +60,7 @@ function Nav({ onNavigate, isOwner }: { onNavigate?: () => void; isOwner: boolea
   const pathname = usePathname();
   return (
     <nav className="flex flex-col gap-0.5">
-      {NAV.filter((item) => isOwner || !item.ownerOnly).map((item) => {
+      {NAV.filter((item) => (isOwner ? !item.staffOnly : !item.ownerOnly)).map((item) => {
         const active = item.exact ? pathname === item.href : pathname.startsWith(item.href);
         return (
           <Link

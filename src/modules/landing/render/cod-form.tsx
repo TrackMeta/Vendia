@@ -52,6 +52,8 @@ export function CodForm({ data, preview, preferredOfferId }: { data: LandingRend
 
   const bumpsBlock = content.form_blocks.find((b) => b.type === "form_bumps") as Extract<FormBlock, { type: "form_bumps" }> | undefined;
   const [offerId, setOfferId] = useState(() => (offers.find((o) => o.id === preferredOfferId) ?? offers.find((o) => o.is_default) ?? offers[0])?.id ?? "");
+  const variants = data.product.variants ?? [];
+  const [variantPicks, setVariantPicks] = useState<string[]>([]);
   const [bumpIds, setBumpIds] = useState<string[]>(() => (bumpsBlock?.items ?? []).filter((i) => i.preChecked).map((i) => i.id));
   const [email, setEmail] = useState("");
   const [fullName, setFullName] = useState("");
@@ -71,6 +73,15 @@ export function CodForm({ data, preview, preferredOfferId }: { data: LandingRend
 
   const offer = offers.find((o) => o.id === offerId);
   const shipping = shippingFor(ubigeo.province || null, data.shipping);
+  // Una variante por unidad de la oferta elegida (ej. 2 fajas → 2 tallas)
+  const units = offer?.quantity ?? 1;
+  const picks = Array.from({ length: units }, (_, i) => variantPicks[i] ?? "");
+  const pickVariant = (i: number, id: string) =>
+    setVariantPicks((prev) => {
+      const next = Array.from({ length: Math.max(units, prev.length) }, (_, j) => prev[j] ?? "");
+      next[i] = id;
+      return next;
+    });
   const bumpItems = (bumpsBlock?.items ?? []).filter((i) => bumpIds.includes(i.id));
   const bumpTotal = bumpItems.reduce((s, i) => s + i.price, 0);
   const subtotal = (offer?.price ?? 0) + bumpTotal;
@@ -82,6 +93,7 @@ export function CodForm({ data, preview, preferredOfferId }: { data: LandingRend
 
   const validationError = (() => {
     if (!offer) return "Selecciona una oferta";
+    if (variants.length && picks.some((p) => !p)) return `Elige ${(data.product.variantLabel ?? "la variante").toLowerCase()}${units > 1 ? " de cada unidad" : ""}`;
     const name = fieldsBlock?.singleNameField ? fullName : firstName;
     if (name.trim().length < 2) return "Ingresa tu nombre";
     if (phone.replace(/\D/g, "").length < 9) return "Ingresa tu celular de 9 dígitos";
@@ -158,6 +170,7 @@ export function CodForm({ data, preview, preferredOfferId }: { data: LandingRend
           dni: dni || undefined,
           email: email.trim() || undefined,
           bumps: bumpIds,
+          variants: variants.length ? picks : undefined,
           district_code: ubigeo.district,
           address,
           reference: reference || undefined,
@@ -251,6 +264,35 @@ export function CodForm({ data, preview, preferredOfferId }: { data: LandingRend
                     </button>
                   );
                 })}
+                {variants.length ? (
+                  <div className="flex flex-col gap-2 rounded-xl bg-zinc-50 p-3">
+                    {picks.map((pick, i) => (
+                      <div key={i} className="flex flex-col gap-1.5">
+                        <span className="text-sm font-semibold text-zinc-800">
+                          {data.product.variantLabel ?? "Variante"}
+                          {units > 1 ? ` · unidad ${i + 1}` : ""}
+                          <span className="text-red-500"> *</span>
+                        </span>
+                        <div className="flex flex-wrap gap-2">
+                          {variants.map((v) => (
+                            <button
+                              type="button"
+                              key={v.id}
+                              disabled={!v.available}
+                              onClick={() => pickVariant(i, v.id)}
+                              aria-pressed={pick === v.id}
+                              className={`min-w-12 rounded-lg border-2 px-3 py-2 text-sm font-bold ${
+                                pick === v.id ? "border-zinc-900 bg-zinc-900 text-white" : "border-zinc-300 bg-white text-zinc-900"
+                              } disabled:cursor-not-allowed disabled:opacity-40 disabled:line-through`}
+                            >
+                              {v.name}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : null}
               </div>
             );
           case "form_fields":

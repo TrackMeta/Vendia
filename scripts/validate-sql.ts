@@ -361,6 +361,59 @@ async function main() {
   await step("admin ve errores", `select jsonb_array_length(public.admin_app_errors())`);
   await step("aviso de errores 24h", `select public.admin_error_count()`);
   await step("tutorial oculto", `update public.store_settings set onboarding_dismissed = true where store_id = '${storeId}' returning onboarding_dismissed`);
+
+  // ── Bloque 7: operación y equipo ──
+  console.log("\nBloque 7:");
+  await step("contadores por estado (en la base)", `select public.order_status_counts('${storeId}')`);
+  await step("contadores de logística", `select public.logistics_counts('${storeId}')`);
+  await step("contadores de abandonados", `select public.abandoned_status_counts('${storeId}')`);
+  await step("color y comisión del dueño", `select public.update_member_settings('${storeId}', '${userId}', '#ff8800', 2, 3)`);
+  await step("embalaje S/ 1.5 por unidad", `update public.store_settings set packaging_cost = 1.5 where store_id = '${storeId}' returning packaging_cost`);
+  await step("variantes de talla", `update public.products set variant_label = 'Talla', stock = null where id = '${productId}' returning variant_label`);
+  const vS = (await step("talla S (stock 5)", `insert into public.product_variants (store_id, product_id, name, stock, position) values ('${storeId}', '${productId}', 'S', 5, 0) returning id`)) as string;
+  const vM = (await step("talla M (stock 1)", `insert into public.product_variants (store_id, product_id, name, stock, position) values ('${storeId}', '${productId}', 'M', 1, 1) returning id`)) as string;
+  await step("landing pública trae variantes", `select public.get_public_landing('smoke-store', 'faja') -> 'product' -> 'variants'`);
+  const o10 = (await step(
+    "pedido Lima de 2 unidades",
+    `select public.create_cod_order('{"landing_page_id":"${landingId}","offer_id":"${offerId}","idempotency_key":"k10","first_name":"Var","phone":"51955500000","district_code":"150101","address":"Calle 10"}'::jsonb)`,
+  )) as { order_id: string };
+  try {
+    await db.query(`select public.set_order_variants('${o10.order_id}', array['${vS}'::uuid])`);
+    console.error("  ✗ 1 variante para 2 unidades: debería fallar");
+    process.exit(1);
+  } catch {
+    console.log("  ✓ pide una variante por unidad");
+  }
+  await step("elegir S + M", `select public.set_order_variants('${o10.order_id}', array['${vS}'::uuid, '${vM}'::uuid]) -> 'variants'`);
+  await step("confirmar → comisión, embalaje y stock por variante", `select row(o.confirmed_by is not null, o.commission_amount, o.packaging_cost)::text from public.change_order_status('${o10.order_id}', 'confirmed') o`);
+  await step("stock S y M", `select string_agg(name || '=' || stock, ',' order by position) from public.product_variants where product_id = '${productId}'`);
+  try {
+    await db.query(`select public.set_order_variants('${o10.order_id}', array['${vM}'::uuid, '${vM}'::uuid])`);
+    console.error("  ✗ M agotada: debería fallar");
+    process.exit(1);
+  } catch (e) {
+    console.log(`  ✓ cambiar a M+M sin stock no deja → ${(e as Error).message}`);
+  }
+  await step("cambiar a S+S (devuelve M)", `select public.set_order_variants('${o10.order_id}', array['${vS}'::uuid, '${vS}'::uuid]) -> 'variants'`);
+  await step("stock tras el cambio", `select string_agg(name || '=' || stock, ',' order by position) from public.product_variants where product_id = '${productId}'`);
+  await step("enviado y entregado (Lima)", `select (public.change_orders_status(array['${o10.order_id}'::uuid], 'delivered'))`);
+  const settle = (await step("liquidar con el courier", `select public.settle_orders('${storeId}', array['${o10.order_id}'::uuid], 'Depósito Eva')`)) as { settlement_id: string };
+  await step("pedido pasa a Cobrado", `select status from public.orders where id = '${o10.order_id}'`);
+  try {
+    await db.query(`select public.settle_orders('${storeId}', array['${o10.order_id}'::uuid])`);
+    console.error("  ✗ liquidar dos veces: debería fallar");
+    process.exit(1);
+  } catch {
+    console.log("  ✓ no se liquida dos veces");
+  }
+  await step("anular liquidación", `select public.undo_settlement('${settle.settlement_id}')`);
+  await step("vuelve a Entregado", `select status || ' / ' || coalesce(settled_at::text, 'sin liquidar') from public.orders where id = '${o10.order_id}'`);
+  await step("comisiones", `select public.get_commissions('${storeId}') -> 0`);
+  await step("pago de comisión", `insert into public.commission_payments (store_id, user_id, amount) values ('${storeId}', '${userId}', 1) returning amount`);
+  await step("métricas por confirmador", `select public.get_team_metrics(${range}) -> 0`);
+  await step("utilidad con embalaje", `select public.get_order_stats(${range}) -> 'shipping_cost'`);
+  await step("rendimiento con embalaje", `select jsonb_array_length(public.get_performance(${range}, current_date - 1, current_date + 1, 'page'))`);
+  await step("equipo con color", `select public.get_store_team('${storeId}') -> 0 -> 'color'`);
   console.log("\nOK — prueba de humo completa");
 }
 

@@ -194,3 +194,73 @@ export async function reorderProductImages(productId: string, orderedIds: string
   revalidatePath(`/dashboard/productos/${productId}`);
   return { ok: true };
 }
+
+// ─────────────────────────────────────────────────────────────────────
+// Variantes (talla, color…) con stock propio
+// ─────────────────────────────────────────────────────────────────────
+
+const variantsInput = z.object({
+  label: z.string().trim().max(40).default(""),
+  variants: z
+    .array(
+      z.object({
+        id: z.uuid().optional(),
+        name: z.string().trim().min(1, "Cada variante necesita un nombre").max(60),
+        sku: z
+          .string()
+          .trim()
+          .max(64)
+          .optional()
+          .transform((v) => v || null),
+        stock: z.union([z.literal(""), z.null(), z.coerce.number().int().min(0).max(1_000_000)]).transform((v) => (v === "" ? null : v)),
+        is_active: z.boolean().default(true),
+      }),
+    )
+    .max(60),
+});
+
+export type VariantsInput = z.input<typeof variantsInput>;
+
+/**
+ * Guarda las variantes del producto. Si hay variantes, el stock vive en cada una
+ * (el stock general del producto deja de usarse). Las quitadas se borran: los pedidos guardan su nombre.
+ */
+export async function saveVariants(productId: string, input: VariantsInput): Promise<ActionResult> {
+  const { store } = await requireOwner();
+  if (!z.uuid().safeParse(productId).success) return { ok: false, error: "Producto inválido" };
+  const parsed = variantsInput.safeParse(input);
+  if (!parsed.success) return { ok: false, error: parsed.error.issues[0].message };
+  const { label, variants } = parsed.data;
+  const names = variants.map((v) => v.name.toLowerCase());
+  if (new Set(names).size !== names.length) return { ok: false, error: "Hay variantes con el mismo nombre" };
+  if (variants.length && !label) return { ok: false, error: "Escribe qué es la variante (ej: Talla, Color)" };
+
+  const supabase = await createClient();
+  const { data: existing } = await supabase.from("product_variants").select("id").eq("product_id", productId).eq("store_id", store.id);
+  const keep = new Set(variants.filter((v) => v.id).map((v) => v.id));
+  const toDelete = (existing ?? []).map((v) => v.id).filter((id) => !keep.has(id));
+  if (toDelete.length) {
+    const { error } = await supabase.from("product_variants").delete().in("id", toDelete).eq("store_id", store.id);
+    if (error) return { ok: false, error: "No se pudieron quitar variantes" };
+  }
+  // Primero se renombran con un nombre temporal para evitar choques de «nombre único» al reordenar o renombrar
+  for (const [position, v] of variants.entries()) {
+    if (!v.id) continue;
+    await supabase.from("product_variants").update({ name: `~${position}~${v.id.slice(0, 8)}` }).eq("id", v.id).eq("store_id", store.id);
+  }
+  for (const [position, v] of variants.entries()) {
+    const row = { name: v.name, sku: v.sku, stock: v.stock, is_active: v.is_active, position };
+    const { error } = v.id
+      ? await supabase.from("product_variants").update(row).eq("id", v.id).eq("store_id", store.id)
+      : await supabase.from("product_variants").insert({ ...row, store_id: store.id, product_id: productId });
+    if (error) return { ok: false, error: `No se pudo guardar la variante «${v.name}»` };
+  }
+  const { error } = await supabase
+    .from("products")
+    .update({ variant_label: variants.length ? label : null, ...(variants.length ? { stock: null } : {}) })
+    .eq("id", productId)
+    .eq("store_id", store.id);
+  if (error) return { ok: false, error: "No se pudo guardar" };
+  revalidatePath(`/dashboard/productos/${productId}`);
+  return { ok: true, message: variants.length ? `${variants.length} variante(s) guardadas` : "Variantes quitadas" };
+}

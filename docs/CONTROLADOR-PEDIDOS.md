@@ -30,3 +30,7 @@
 - **Rol Confirmador:** trabaja pedidos, sin ver gastos ni configuración.
 - **Asignación de pedidos** y filtro "Mis pendientes".
 - **Couriers por tienda:** Lima con los locales propios de cada usuario; provincia con Shalom y Olva, más la agencia de destino.
+
+## Decisiones finales (2026-10-08)
+- **Fin de la secuencia:** **solo aviso**. Vendia marca el pedido como «Secuencia completa, sin respuesta» y avisa; la cancelación la confirma una persona.
+- **Notificaciones:** **con el navegador abierto** (cualquier pestaña de Vendia): aviso en la app, sonido y notificación del navegador. Las notificaciones con el navegador cerrado (Web Push) quedan para más adelante.

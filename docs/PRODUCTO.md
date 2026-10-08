@@ -40,3 +40,11 @@ Plataforma para vendedores **contraentrega (COD)** que venden con **Meta Ads**: 
 - Al pegarlo, Vendia lo valida y muestra el nombre y la moneda de la cuenta.
 - Sincronización diaria más un botón "Actualizar ahora": gasto, impresiones, alcance, frecuencia, CPM, clics, CTR, CPC, resultados y datos de los anuncios.
 - Se puede pasar después a la opción C (app con revisión de Meta) sin cambiar el resto.
+
+**Actualización (2026-10-08): token completo, opción 1.** El token del usuario del sistema tendrá `ads_read` + `ads_management` + `business_management`. Con él, Vendia:
+1. Detecta las cuentas publicitarias y su moneda (PEN/USD).
+2. Lista los Pixels existentes o crea uno nuevo.
+3. Usa el mismo token para Conversions API.
+4. Envía un evento de prueba.
+
+Vendia **solo** usa la parte de escritura para crear y leer Pixels; **nunca** modifica campañas. El permiso exacto que necesita Conversions API con este token se confirmará con una prueba real.

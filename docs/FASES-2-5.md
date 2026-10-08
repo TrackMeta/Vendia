@@ -151,3 +151,11 @@
 - **Importación automática del gasto** por la Marketing API de Meta: requiere crear una app de Meta y pasar su revisión.
 - **APIs de couriers** (Shalom, Olva, 99minutos): solicitar acceso comercial. La arquitectura de adaptadores ya está lista.
 - **Product page**, dominios propios, upsells y WhatsApp API: ver PLAN.md §8.
+
+## 6. Optimización de imágenes (2026-10-08)
+
+- **Ancho máximo 1080 px** (antes 1600) y peso objetivo de **~250 KB** por imagen normal. Las landings se ven a un máximo de 480 px de ancho, así que 1080 px alcanza para pantallas de alta densidad.
+- **Corrección importante:** antes el límite se aplicaba al lado más largo, y las imágenes verticales altas (típicas de las landings COD) quedaban angostas y borrosas. Ahora se limita el **ancho** y se conserva la proporción. Las imágenes más altas reciben un peso proporcional, hasta 1 MB.
+- **Verificado en el navegador:** un PNG de 1080×3240 y 5.00 MB quedó en un WebP de 341 KB, conservando la imagen vertical.
+- **Efecto:** las landings cargan más rápido y el plan gratis de Supabase (10 GB al mes de transferencia) alcanza para aproximadamente el doble de visitas.
+- Las imágenes que ya estaban subidas no cambian; la mejora aplica a las nuevas subidas.

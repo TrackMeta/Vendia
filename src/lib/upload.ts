@@ -1,23 +1,29 @@
 "use client";
 
 import imageCompression from "browser-image-compression";
+import { compressionPlan, DEFAULT_MAX_WIDTH } from "@/lib/image-sizing";
 import { createClient } from "@/lib/supabase/client";
 
 const BUCKET = "store-assets";
 
-/** Comprime a WebP (máx. 1600 px de ancho) antes de subir: landings rápidas en celular. */
-export async function compressImage(file: File, maxWidthOrHeight = 1600): Promise<File> {
+/**
+ * Comprime a WebP antes de subir: ancho máx. 1080 px (suficiente para celular a 2x)
+ * y ~250 KB por imagen. Menos peso = landing más rápida y menos transferencia en Supabase.
+ */
+export async function compressImage(file: File, maxWidth = DEFAULT_MAX_WIDTH): Promise<File> {
   if (file.type === "image/gif" || file.type === "image/svg+xml" || file.type === "image/x-icon") return file;
+  const size = await readSize(file);
+  const plan = compressionPlan(size?.width ?? 0, size?.height ?? 0, maxWidth);
   return imageCompression(file, {
-    maxWidthOrHeight,
-    maxSizeMB: 0.6,
+    maxWidthOrHeight: plan.maxWidthOrHeight,
+    maxSizeMB: plan.maxSizeMB,
     fileType: "image/webp",
-    initialQuality: 0.82,
+    initialQuality: 0.8,
     useWebWorker: true,
   });
 }
 
-async function readSize(file: File): Promise<{ width: number; height: number } | null> {
+async function readSize(file: Blob): Promise<{ width: number; height: number } | null> {
   try {
     const bitmap = await createImageBitmap(file);
     const size = { width: bitmap.width, height: bitmap.height };
@@ -34,7 +40,7 @@ export type UploadedImage = { path: string; width: number | null; height: number
  * Sube una imagen a store-assets/{storeId}/{folder}/...
  * La política de Storage solo permite escribir en la carpeta de tu tienda.
  */
-export async function uploadStoreImage(storeId: string, folder: string, file: File, maxSize = 1600): Promise<UploadedImage> {
+export async function uploadStoreImage(storeId: string, folder: string, file: File, maxSize = DEFAULT_MAX_WIDTH): Promise<UploadedImage> {
   if (!file.type.startsWith("image/")) throw new Error("El archivo debe ser una imagen");
   if (file.size > 15 * 1024 * 1024) throw new Error("La imagen pesa más de 15 MB");
 

@@ -60,6 +60,30 @@ describe("Token y cuentas", () => {
     ]);
   });
 
+  it("sin cuentas asignadas, encuentra el Business Manager por debug_token", async () => {
+    const { f } = mockFetch({
+      "/me?": { id: "999", name: "Vendia Sistema" },
+      "/me/adaccounts": { data: [] },
+      "/debug_token": { data: { granular_scopes: [{ scope: "business_management", target_ids: ["777"] }, { scope: "ads_read" }] } },
+      "/777/owned_ad_accounts": { data: [{ id: "act_444", name: "Cuenta nueva", currency: "PEN", account_status: 1 }] },
+      "/777/client_ad_accounts": { data: [] },
+    });
+    const r = await inspectToken("TOKEN", f);
+    expect(r.accounts.map((a) => [a.id, a.assigned, a.businessId])).toEqual([["act_444", false, "777"]]);
+  });
+
+  it("usa el ID de Business Manager que escribe el vendedor", async () => {
+    const { f } = mockFetch({
+      "/me?": { id: "999", name: "Vendia Sistema" },
+      "/me/adaccounts": { data: [] },
+      "/888/owned_ad_accounts": { data: [{ id: "act_555", name: "Mi cuenta", currency: "USD", account_status: 1 }] },
+      "/888/client_ad_accounts": { data: [] },
+      // debug_token y /me/businesses fallan (no simulados): no debe romper nada
+    });
+    const r = await inspectToken("TOKEN", f, "888");
+    expect(r.accounts.map((a) => [a.id, a.businessId])).toEqual([["act_555", "888"]]);
+  });
+
   it("pide acceso a una cuenta para el usuario del sistema", async () => {
     const calls: { url: string; body: string }[] = [];
     const f = (async (input: RequestInfo | URL, init?: RequestInit) => {

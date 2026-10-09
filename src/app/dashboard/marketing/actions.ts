@@ -170,21 +170,36 @@ async function resolveToken(storeId: string, token: string | undefined): Promise
   return { ok: true, token: decryptSecret(data.capi_token_encrypted) };
 }
 
-export type TokenCheck = { ok: true; userName: string; accounts: AdAccount[] } | { ok: false; error: string };
+/** needsBusinessId: el token funciona pero no sabemos cuál es su Business Manager → pedir su ID. */
+export type TokenCheck = { ok: true; userName: string; accounts: AdAccount[] } | { ok: false; error: string; needsBusinessId?: boolean };
+
+const businessIdSchema = z
+  .string()
+  .trim()
+  .regex(/^\d{5,25}$/, "El ID del Business Manager son solo números")
+  .optional()
+  .or(z.literal("").transform(() => undefined));
 
 /** Paso 1: valida el token y lista las cuentas publicitarias (el token no se guarda todavía). Vacío = token guardado. */
-export async function checkMetaToken(token: string): Promise<TokenCheck> {
+export async function checkMetaToken(token: string, businessId?: string): Promise<TokenCheck> {
   const { store } = await requireOwner();
   const t = await resolveToken(store.id, token);
   if (!t.ok) return t;
+  const b = businessIdSchema.safeParse(businessId);
+  if (!b.success) return { ok: false, error: b.error.issues[0].message, needsBusinessId: true };
   try {
-    const { userName, accounts } = await inspectToken(t.token);
+    const { userName, accounts } = await inspectToken(t.token, fetch, b.data);
     if (!accounts.length) {
-      const error =
-        (await missingPermissions(t.token)) ??
-        "Tu token funciona, pero ese usuario del sistema aún no tiene ninguna cuenta publicitaria. En Configuración del negocio → Usuarios del sistema → elige tu usuario → «Asignar activos» → Cuentas publicitarias: marca tu cuenta con «Control total» y vuelve a tocar Verificar (no hace falta otro token).";
-      await logMetaFailure("sin cuentas", null, error);
-      return { ok: false, error };
+      const missing = await missingPermissions(t.token);
+      if (missing) {
+        await logMetaFailure("permisos", null, missing);
+        return { ok: false, error: missing };
+      }
+      const error = b.data
+        ? "Con ese ID no encontramos cuentas publicitarias. Revisa que sea el ID de tu Business Manager y que el usuario del sistema tenga rol Administrador (o asígnale la cuenta en «Asignar activos»)."
+        : "Tu token funciona, pero Meta no nos dice cuál es tu Business Manager. Pega su ID abajo y Vendia buscará todas tus cuentas publicitarias.";
+      await logMetaFailure(b.data ? "sin cuentas con ID de negocio" : "sin cuentas", null, error);
+      return { ok: false, error, needsBusinessId: true };
     }
     return { ok: true, userName, accounts };
   } catch (e) {
@@ -195,7 +210,7 @@ export async function checkMetaToken(token: string): Promise<TokenCheck> {
 }
 
 /** Paso 2: Pixels de la cuenta elegida. Si la cuenta es nueva (no asignada), Vendia primero se da acceso. */
-export async function getMetaPixels(token: string, adAccountId: string): Promise<{ ok: true; pixels: Pixel[]; granted: boolean } | { ok: false; error: string }> {
+export async function getMetaPixels(token: string, adAccountId: string, businessId?: string): Promise<{ ok: true; pixels: Pixel[]; granted: boolean } | { ok: false; error: string }> {
   const { store } = await requireOwner();
   const t = await resolveToken(store.id, token);
   if (!t.ok) return t;
@@ -203,7 +218,8 @@ export async function getMetaPixels(token: string, adAccountId: string): Promise
   if (!a.success) return { ok: false, error: "Datos inválidos" };
   let granted = false;
   try {
-    const info = await inspectToken(t.token);
+    const b = businessIdSchema.safeParse(businessId);
+    const info = await inspectToken(t.token, fetch, b.success ? b.data : undefined);
     const account = info.accounts.find((x) => x.id === a.data);
     if (!account) return { ok: false, error: "Ese token no tiene acceso a esa cuenta publicitaria" };
     if (!account.assigned && account.businessId) {

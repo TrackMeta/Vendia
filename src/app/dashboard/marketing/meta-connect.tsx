@@ -45,15 +45,19 @@ export function MetaConnect({ connection, storeName }: { connection: MetaConnect
   const [useSaved, setUseSaved] = useState(false);
   // El último error queda visible (el aviso flotante desaparece en segundos)
   const [error, setError] = useState<string | null>(null);
+  // ID del Business Manager: solo se pide si Meta no nos dice a qué negocio pertenece el token
+  const [needsBusiness, setNeedsBusiness] = useState(false);
+  const [businessId, setBusinessId] = useState("");
   const tokenToSend = useSaved ? "" : token;
 
   const check = (saved = useSaved) =>
     startTransition(async () => {
       setError(null);
-      const r = await checkMetaToken(saved ? "" : token);
+      const r = await checkMetaToken(saved ? "" : token, businessId);
       if (!r.ok) {
         toast.error(r.error);
         setError(r.error);
+        if (r.needsBusinessId) setNeedsBusiness(true);
         return;
       }
       setUserName(r.userName);
@@ -67,7 +71,7 @@ export function MetaConnect({ connection, storeName }: { connection: MetaConnect
     setAccountId(id);
     setPixels(null);
     startTransition(async () => {
-      const r = await getMetaPixels(saved ? "" : token, id);
+      const r = await getMetaPixels(saved ? "" : token, id, businessId);
       if (!r.ok) {
         toast.error(r.error);
         setError(r.error);
@@ -224,6 +228,28 @@ export function MetaConnect({ connection, storeName }: { connection: MetaConnect
                     <p role="alert" className="flex items-start gap-2 rounded-md bg-destructive/10 p-2.5 text-sm text-destructive">
                       <TriangleAlert className="mt-0.5 size-4 shrink-0" /> {error}
                     </p>
+                  ) : null}
+                  {needsBusiness ? (
+                    <div className="flex flex-col gap-1.5 rounded-lg border p-3">
+                      <Label htmlFor="meta-business">ID de tu Business Manager</Label>
+                      <p className="text-xs text-muted-foreground">
+                        Está en <b>business.facebook.com → Configuración del negocio → Información del negocio</b> (un número largo). Con él, Vendia encuentra
+                        todas tus cuentas publicitarias y se da acceso sola.
+                      </p>
+                      <div className="flex flex-wrap gap-2">
+                        <Input
+                          id="meta-business"
+                          inputMode="numeric"
+                          value={businessId}
+                          onChange={(e) => setBusinessId(e.target.value.replace(/\D/g, ""))}
+                          className="min-w-0 flex-1"
+                          placeholder="1234567890123456"
+                        />
+                        <Button onClick={() => check(false)} disabled={pending || businessId.length < 5}>
+                          {pending ? <Loader2 className="animate-spin" /> : <Search />} Buscar cuentas
+                        </Button>
+                      </div>
+                    </div>
                   ) : null}
                 </div>
               </>

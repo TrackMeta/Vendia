@@ -66,7 +66,25 @@ type RawAccount = { id: string; name: string; currency: string; account_status: 
 const ACCOUNT_FIELDS = "id,name,currency,account_status,business{id,name}";
 
 /** Valida el token y lista sus cuentas publicitarias: las asignadas y las de sus Business Managers que aún no lo están. */
-export async function inspectToken(token: string, f: Fetch = fetch): Promise<{ userId: string; userName: string; accounts: AdAccount[] }> {
+/**
+ * Negocios a los que pertenece el token según Meta (debug_token → granular_scopes de business_management).
+ * Sirve cuando el usuario del sistema aún no tiene ninguna cuenta asignada. Nunca lanza.
+ */
+async function businessesFromToken(token: string, f: Fetch): Promise<string[]> {
+  try {
+    const r = await graph<{ data?: { granular_scopes?: { scope: string; target_ids?: string[] }[] } }>(f, "debug_token", token, { input_token: token });
+    return (r.data?.granular_scopes ?? []).filter((g) => g.scope === "business_management").flatMap((g) => g.target_ids ?? []);
+  } catch {
+    return [];
+  }
+}
+
+export async function inspectToken(
+  token: string,
+  f: Fetch = fetch,
+  /** ID del Business Manager escrito por el vendedor, si Meta no nos dice cuál es. */
+  extraBusinessId?: string,
+): Promise<{ userId: string; userName: string; accounts: AdAccount[] }> {
   const me = await graph<{ id: string; name?: string }>(f, "me", token, { fields: "id,name" });
   const mine = await all<RawAccount>(f, "me/adaccounts", token, { fields: ACCOUNT_FIELDS, limit: "100" });
   const accounts: AdAccount[] = mine.map((a) => ({
@@ -79,11 +97,14 @@ export async function inspectToken(token: string, f: Fetch = fetch): Promise<{ u
     assigned: true,
   }));
 
-  // Business Managers del token: los de sus cuentas y, si Meta lo permite, los que lista /me/businesses
+  // Business Managers del token: los de sus cuentas, los que lista /me/businesses, los que dice debug_token
+  // y el que escribió el vendedor (cualquiera sirve para encontrar las cuentas aún no asignadas)
   const businesses = new Map<string, string>();
   for (const a of accounts) if (a.businessId) businesses.set(a.businessId, a.business ?? "");
   const listed = await all<{ id: string; name: string }>(f, "me/businesses", token, { fields: "id,name", limit: "50" }).catch(() => []);
   for (const b of listed) businesses.set(b.id, b.name);
+  for (const id of await businessesFromToken(token, f)) if (!businesses.has(id)) businesses.set(id, "");
+  if (extraBusinessId && !businesses.has(extraBusinessId)) businesses.set(extraBusinessId, "");
 
   // Cuentas de esos Business Managers que el usuario del sistema todavía no tiene asignadas
   const seen = new Set(accounts.map((a) => a.id));

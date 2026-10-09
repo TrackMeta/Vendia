@@ -9,7 +9,8 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { buildServerEvent, META_GRAPH_VERSION } from "@/modules/meta/events";
 import { sendMarketingEvent } from "@/modules/meta/capi";
-import { type AdAccount, createPixel, grantAdAccountAccess, inspectToken, listPixels, MetaApiError, type Pixel } from "@/modules/meta/marketing-api";
+import { reportError } from "@/lib/report-error";
+import { type AdAccount, createPixel, grantAdAccountAccess, inspectToken, listPixels, MetaApiError, type Pixel, cleanToken, tokenPermissions } from "@/modules/meta/marketing-api";
 import { FIRST_SYNC_DAYS, syncMetaStore } from "@/modules/meta/sync";
 import { landingCacheTag } from "@/modules/landing/public-data";
 
@@ -137,10 +138,31 @@ const accountSchema = z.string().regex(/^act_\d{5,25}$/, "Cuenta publicitaria in
 
 const metaError = (e: unknown) => (e instanceof MetaApiError ? e.message : "No se pudo conectar con Meta");
 
+const REQUIRED_PERMISSIONS = ["ads_read", "ads_management", "business_management"];
+
+/** Le pregunta a Meta qué permisos tiene el token para decir exactamente cuál falta. */
+async function missingPermissions(token: string): Promise<string | null> {
+  try {
+    const granted = await tokenPermissions(token);
+    const missing = REQUIRED_PERMISSIONS.filter((p) => !granted.includes(p));
+    return missing.length
+      ? `Al token le faltan estos permisos: ${missing.join(", ")}. En Usuarios del sistema → «Generar nuevo token», elige tu app y márcalos.`
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Deja registro del fallo (nunca el token) para poder ayudar al vendedor. */
+async function logMetaFailure(step: string, e: unknown, shown: string) {
+  const code = e instanceof MetaApiError ? ` [código ${e.code ?? "?"}]` : "";
+  await reportError({ source: "server", message: `Conectar Meta · ${step}${code}: ${shown}`, path: "/dashboard/marketing" });
+}
+
 /** Token pegado ahora o, si viene vacío, el que ya está guardado (cifrado) para esta tienda. */
 async function resolveToken(storeId: string, token: string | undefined): Promise<{ ok: true; token: string } | { ok: false; error: string }> {
   if (token?.trim()) {
-    const t = tokenSchema.safeParse(token);
+    const t = tokenSchema.safeParse(cleanToken(token));
     return t.success ? { ok: true, token: t.data } : { ok: false, error: t.error.issues[0].message };
   }
   const { data } = await createAdminClient().from("store_meta_settings").select("capi_token_encrypted").eq("store_id", storeId).maybeSingle();
@@ -158,11 +180,17 @@ export async function checkMetaToken(token: string): Promise<TokenCheck> {
   try {
     const { userName, accounts } = await inspectToken(t.token);
     if (!accounts.length) {
-      return { ok: false, error: "El token no tiene cuentas publicitarias. En el Business Manager, dale al usuario del sistema el rol de Administrador o asígnale tu cuenta." };
+      const error =
+        (await missingPermissions(t.token)) ??
+        "Tu token funciona, pero ese usuario del sistema aún no tiene ninguna cuenta publicitaria. En Configuración del negocio → Usuarios del sistema → elige tu usuario → «Asignar activos» → Cuentas publicitarias: marca tu cuenta con «Control total» y vuelve a tocar Verificar (no hace falta otro token).";
+      await logMetaFailure("sin cuentas", null, error);
+      return { ok: false, error };
     }
     return { ok: true, userName, accounts };
   } catch (e) {
-    return { ok: false, error: metaError(e) };
+    const error = (await missingPermissions(t.token)) ?? metaError(e);
+    await logMetaFailure("verificar token", e, error);
+    return { ok: false, error };
   }
 }
 

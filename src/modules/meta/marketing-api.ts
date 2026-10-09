@@ -115,6 +115,21 @@ export async function grantAdAccountAccess(token: string, adAccountId: string, b
   );
 }
 
+/** Quita lo que se suele pegar de más: espacios, saltos de línea, comillas o «Bearer». */
+export function cleanToken(raw: string): string {
+  return raw
+    .replace(/["'`]/g, "")
+    .trim()
+    .replace(/^bearer\s+/i, "")
+    .replace(/\s/g, "");
+}
+
+/** Permisos que Meta le concedió al token (para decir exactamente cuál falta). */
+export async function tokenPermissions(token: string, f: Fetch = fetch): Promise<string[]> {
+  const r = await graph<{ data: { permission: string; status: string }[] }>(f, "me/permissions", token);
+  return r.data.filter((p) => p.status === "granted").map((p) => p.permission);
+}
+
 export type Pixel = { id: string; name: string; lastFired: string | null };
 
 export async function listPixels(token: string, adAccountId: string, f: Fetch = fetch): Promise<Pixel[]> {

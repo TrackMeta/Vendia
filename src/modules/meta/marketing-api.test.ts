@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { fetchAdCreatives, fetchInsights, friendlyMetaError, grantAdAccountAccess, inspectToken, leadsFrom, MetaApiError } from "./marketing-api";
+import { cleanToken, fetchAdCreatives, fetchInsights, friendlyMetaError, grantAdAccountAccess, inspectToken, leadsFrom, MetaApiError } from "./marketing-api";
 
 /** fetch simulado: responde según la ruta y guarda las URLs pedidas. */
 function mockFetch(routes: Record<string, unknown>) {
@@ -72,6 +72,13 @@ describe("Token y cuentas", () => {
     expect(body.get("user")).toBe("999");
     expect(body.get("business")).toBe("555");
     expect(JSON.parse(body.get("tasks")!)).toEqual(["MANAGE", "ADVERTISE", "ANALYZE"]);
+  });
+
+  it("limpia lo que se pega de más sin tocar el token", () => {
+    const token = "EAAGm0PX4ZCpsBAKZB9sxyz123ABCs";
+    expect(cleanToken(token)).toBe(token);
+    expect(cleanToken(`  "Bearer ${token}"\n`)).toBe(token);
+    expect(cleanToken("EAAGm0PX4ZC\npsBAKZB9 sxyz123ABCs")).toBe(token);
   });
 
   it("explica los errores de token y permisos", async () => {

@@ -1,6 +1,6 @@
 "use client";
 
-import { CheckCircle2, KeyRound, Loader2, RefreshCw, Search, Unplug } from "lucide-react";
+import { CheckCircle2, KeyRound, Loader2, RefreshCw, Search, TriangleAlert, Unplug } from "lucide-react";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import { SimpleBadge } from "@/components/dashboard/status-badge";
@@ -43,13 +43,17 @@ export function MetaConnect({ connection, storeName }: { connection: MetaConnect
   const [pixelName, setPixelName] = useState(`Pixel ${storeName}`);
   // true: cambiar de cuenta con el token ya guardado (no hay que volver a pegarlo)
   const [useSaved, setUseSaved] = useState(false);
+  // El último error queda visible (el aviso flotante desaparece en segundos)
+  const [error, setError] = useState<string | null>(null);
   const tokenToSend = useSaved ? "" : token;
 
   const check = (saved = useSaved) =>
     startTransition(async () => {
+      setError(null);
       const r = await checkMetaToken(saved ? "" : token);
       if (!r.ok) {
         toast.error(r.error);
+        setError(r.error);
         return;
       }
       setUserName(r.userName);
@@ -66,6 +70,7 @@ export function MetaConnect({ connection, storeName }: { connection: MetaConnect
       const r = await getMetaPixels(saved ? "" : token, id);
       if (!r.ok) {
         toast.error(r.error);
+        setError(r.error);
         return;
       }
       if (r.granted) {
@@ -99,6 +104,7 @@ export function MetaConnect({ connection, storeName }: { connection: MetaConnect
       });
       if (!r.ok) {
         toast.error(r.error);
+        setError(r.error);
         return;
       }
       toast.success(r.message ?? "Meta conectado");
@@ -214,6 +220,11 @@ export function MetaConnect({ connection, storeName }: { connection: MetaConnect
                     </Button>
                   </div>
                   <p className="text-xs text-muted-foreground">Se guarda cifrado y nadie (ni tu equipo) lo puede volver a ver.</p>
+                  {error ? (
+                    <p role="alert" className="flex items-start gap-2 rounded-md bg-destructive/10 p-2.5 text-sm text-destructive">
+                      <TriangleAlert className="mt-0.5 size-4 shrink-0" /> {error}
+                    </p>
+                  ) : null}
                 </div>
               </>
             )}

@@ -1,4 +1,4 @@
-import { AlertTriangle, ArrowLeft, MessageCircle, Phone } from "lucide-react";
+import { AlertTriangle, ArrowLeft, Phone } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -30,6 +30,7 @@ import { type PaymentRow, PaymentsCard } from "./payments-card";
 import { ShippingCard } from "./shipping-card";
 import { StatusActions } from "./status-actions";
 import { VariantsEditor } from "./variants-editor";
+import { BrandIcon } from "@/components/brand-icons";
 
 export const metadata: Metadata = { title: "Pedido" };
 
@@ -158,7 +159,7 @@ export default async function OrderDetailPage({ params }: PageProps<"/dashboard/
           rel="noopener noreferrer"
           className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-[#25D366] py-3 text-sm font-semibold text-white"
         >
-          <MessageCircle className="size-4" /> WhatsApp
+          <BrandIcon name="whatsapp" className="size-5" /> WhatsApp
         </a>
       </div>
       <div className="flex flex-col gap-3">
@@ -242,7 +243,7 @@ export default async function OrderDetailPage({ params }: PageProps<"/dashboard/
                   rel="noopener noreferrer"
                   className="flex items-center gap-2 rounded-lg bg-[#25D366] px-3 py-2 text-sm font-semibold text-white"
                 >
-                  <MessageCircle className="size-4" /> Confirmar por WhatsApp
+                  <BrandIcon name="whatsapp" className="size-5" /> Confirmar por WhatsApp
                 </a>
               </div>
               <div className="rounded-lg bg-muted/50 p-3 text-sm">
@@ -350,7 +351,9 @@ export default async function OrderDetailPage({ params }: PageProps<"/dashboard/
           {ad ? (
             <Card>
               <CardHeader>
-                <CardTitle>Anuncio</CardTitle>
+                <CardTitle className="flex items-center gap-2">
+                  <BrandIcon name="meta" /> Anuncio
+                </CardTitle>
               </CardHeader>
               <CardContent className="flex flex-col gap-3">
                 <div className="flex gap-3">
@@ -408,7 +411,12 @@ export default async function OrderDetailPage({ params }: PageProps<"/dashboard/
                   {attempts.map((a) => (
                     <li key={a.id} className="flex flex-col border-l-2 pl-3 text-sm">
                       <span className="font-medium">
-                        {a.channel === "call" ? "📞 Llamada" : "💬 WhatsApp"} {a.attempt_number} · {CONTACT_RESULTS[a.result as ContactResult]?.label ?? a.result}
+                        {a.channel === "call" ? (
+                          <Phone className="mr-1 inline size-3.5 align-[-2px]" />
+                        ) : (
+                          <BrandIcon name="whatsapp" className="mr-1 inline size-4 align-[-3px]" />
+                        )}
+                        {a.channel === "call" ? "Llamada" : "WhatsApp"} {a.attempt_number} · {CONTACT_RESULTS[a.result as ContactResult]?.label ?? a.result}
                       </span>
                       <span className="text-xs text-muted-foreground">
                         {formatDateTime(a.created_at)} · {memberName(a.created_by)}

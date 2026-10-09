@@ -11,6 +11,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { formatDateTime } from "@/lib/format";
 import { buildCourierFile, COURIERS, reviewExport, toCourierOrder } from "@/modules/couriers";
 import { type ExportOrder, getBatchExport, getExportOrders, reserveExport } from "./actions";
+import { CourierIcon } from "@/components/brand-icons";
 
 export type StoreCourier = {
   courier_id: string;
@@ -168,11 +169,14 @@ export function ExportDialog({
                   key={c.courier_id}
                   type="button"
                   onClick={() => setCourierId(c.courier_id)}
-                  className={`rounded-lg border px-3 py-2 text-left text-sm ${courierId === c.courier_id ? "border-primary bg-primary/10" : "hover:bg-muted"}`}
+                  className={`flex items-center gap-2.5 rounded-lg border px-3 py-2 text-left text-sm ${courierId === c.courier_id ? "border-primary bg-primary/10" : "hover:bg-muted"}`}
                 >
-                  <span className="font-medium">{COURIERS[c.courier_id].name}</span>
-                  <span className="block text-xs text-muted-foreground">
-                    {c.zone === "lima" ? "Lima" : "Provincia"} · {(orders ?? []).filter((o) => o.zone === c.zone).length} pedido(s)
+                  <CourierIcon id={c.courier_id} className="size-8" />
+                  <span>
+                    <span className="font-medium">{COURIERS[c.courier_id].name}</span>
+                    <span className="block text-xs text-muted-foreground">
+                      {c.zone === "lima" ? "Lima" : "Provincia"} · {(orders ?? []).filter((o) => o.zone === c.zone).length} pedido(s)
+                    </span>
                   </span>
                 </button>
               ))}
@@ -308,7 +312,10 @@ export function BatchesList({ batches }: { batches: BatchRow[] }) {
       <ul className="flex flex-col divide-y text-sm">
         {batches.map((b) => (
           <li key={b.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 py-2">
-            <span className="font-medium">{COURIERS[b.courier_id]?.name ?? b.courier_id}</span>
+            <span className="flex items-center gap-1.5 font-medium">
+              <CourierIcon id={b.courier_id} className="size-4" />
+              {COURIERS[b.courier_id]?.name ?? b.courier_id}
+            </span>
             <span className="text-muted-foreground">
               {b.order_count} pedido(s) · {formatDateTime(b.created_at)} · {b.created_by_name}
             </span>

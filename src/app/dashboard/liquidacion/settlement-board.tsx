@@ -9,6 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { formatDate, formatDateTime, formatMoney } from "@/lib/format";
 import { courierName } from "@/modules/couriers";
 import { settleOrders, undoSettlement } from "./actions";
+import { CourierIcon } from "@/components/brand-icons";
 
 export type PendingOrder = {
   id: string;
@@ -75,7 +76,9 @@ export function SettlementBoard({ pending, history }: { pending: PendingOrder[];
           <Card key={courierId || "none"}>
             <CardHeader className="flex flex-row flex-wrap items-start justify-between gap-3">
               <div className="flex flex-col gap-1">
-                <CardTitle>{label}</CardTitle>
+                <CardTitle className="flex items-center gap-2">
+                  <CourierIcon id={courierId} className="size-6" /> {label}
+                </CardTitle>
                 <CardDescription>
                   Cobró {formatMoney(gross)} − envíos {formatMoney(shipping)} · {orders.length} entrega(s) ·{" "}
                   <span className={tone(oldest)}>{oldest > 0 ? `la más antigua hace ${oldest} día(s)` : "al día"}</span>
@@ -129,7 +132,10 @@ export function SettlementBoard({ pending, history }: { pending: PendingOrder[];
             <ul className="flex flex-col divide-y text-sm">
               {history.map((h) => (
                 <li key={h.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 py-2">
-                  <span className="font-medium">{h.courier_id === "varios" ? "Varios couriers" : courierName(h.courier_id)}</span>
+                  <span className="flex items-center gap-1.5 font-medium">
+                    <CourierIcon id={h.courier_id} className="size-4" />
+                    {h.courier_id === "varios" ? "Varios couriers" : courierName(h.courier_id)}
+                  </span>
                   <span className="text-muted-foreground">
                     {formatDate(h.created_at)} · {h.order_count} pedido(s) · cobró {formatMoney(h.gross)} − envíos {formatMoney(h.shipping)}
                   </span>

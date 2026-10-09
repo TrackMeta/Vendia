@@ -8,6 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { retryFailedEvents, saveMetaSettings, sendTestEvent } from "./actions";
+import { BrandIcon } from "@/components/brand-icons";
 
 export const URL_TEMPLATE =
   "utm_source=facebook&utm_medium=paid&utm_campaign={{campaign.name}}&utm_content={{ad.name}}&utm_term={{adset.name}}&campaign_id={{campaign.id}}&adset_id={{adset.id}}&ad_id={{ad.id}}";
@@ -41,7 +42,9 @@ export function MetaSettingsForm({
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Conectar Meta</CardTitle>
+        <CardTitle className="flex items-center gap-2">
+          <BrandIcon name="meta" className="size-6" /> Conectar Meta
+        </CardTitle>
         <CardDescription>
           Events Manager → tu Pixel → Configuración. El token se genera en «Conversions API → Generar token de acceso». Se guarda cifrado y nunca se
           envía al navegador.

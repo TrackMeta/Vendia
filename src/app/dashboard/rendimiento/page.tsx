@@ -10,6 +10,7 @@ import { cn } from "@/lib/utils";
 import { computePerformanceRow } from "@/modules/metrics";
 import { resolveRange } from "@/modules/metrics/date-range";
 import { type PerfRow, PerformanceTable } from "./performance-table";
+import { BrandIcon } from "@/components/brand-icons";
 
 export const metadata: Metadata = { title: "Rendimiento" };
 
@@ -84,8 +85,8 @@ export default async function PerformancePage({ searchParams }: PageProps<"/dash
           ) : (
             <>
               Sin cuenta de Meta conectada: el gasto viene de Gastos.{" "}
-              <Link href="/dashboard/marketing" className="underline">
-                Conectar Meta
+              <Link href="/dashboard/marketing" className="inline-flex items-center gap-1 underline">
+                <BrandIcon name="meta" className="size-4" /> Conectar Meta
               </Link>
             </>
           )}

@@ -111,6 +111,7 @@ export function DashboardShell({
   role,
   unread,
   stores,
+  storeLogo,
   theme,
 }: {
   children: React.ReactNode;
@@ -121,7 +122,8 @@ export function DashboardShell({
   storeId: string;
   role: "owner" | "staff";
   unread: number;
-  stores: { id: string; name: string; role: "owner" | "staff" }[];
+  stores: { id: string; name: string; role: "owner" | "staff"; logo: string | null }[];
+  storeLogo: string | null;
   theme: ThemePref;
 }) {
   const [open, setOpen] = useState(false);
@@ -155,13 +157,7 @@ export function DashboardShell({
           </Link>
           {isDesktop === true ? bell : null}
         </div>
-        <div className="min-w-0 rounded-lg bg-white/[0.04] px-2.5 py-2">
-          <StoreSwitcher current={storeId} currentName={storeName} stores={stores} />
-          <p className="truncate text-xs text-muted-foreground">
-            /p/{storeSlug}
-            {isOwner ? null : <span className="text-sky-300"> · Confirmador</span>}
-          </p>
-        </div>
+        <StoreSwitcher current={storeId} currentName={storeName} currentLogo={storeLogo} slug={storeSlug} isOwner={isOwner} stores={stores} />
         <SearchButton onOpen={openSearch} />
       </div>
       <div className="flex-1 overflow-y-auto px-3 pb-3">

@@ -1,11 +1,12 @@
 "use client";
 
-import { Copy, MessageCircle, Trash2, UserPlus } from "lucide-react";
+import { Copy, Trash2, UserPlus } from "lucide-react";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { inviteMember, removeMember, revokeInvitation } from "./actions";
+import { BrandIcon } from "@/components/brand-icons";
 
 export function InviteForm() {
   const [email, setEmail] = useState("");
@@ -53,7 +54,7 @@ export function InviteForm() {
               rel="noopener noreferrer"
               className="flex items-center gap-1.5 rounded-md bg-[#25D366] px-3 py-1 text-sm font-semibold text-white"
             >
-              <MessageCircle className="size-4" /> Enviar por WhatsApp
+              <BrandIcon name="whatsapp" className="size-5" /> Enviar por WhatsApp
             </a>
           </div>
         </div>

@@ -1,6 +1,6 @@
 "use client";
 
-import { CalendarClock, Check, MessageCircle, Phone, PhoneOff, X } from "lucide-react";
+import { CalendarClock, Check, Phone, PhoneOff, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { displayPeruPhone, formatDateTime, formatMoney } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { CANCEL_REASONS, CONTACT_RESULTS, type ContactChannel, type ContactResult, sequenceLabels } from "@/modules/orders/contact";
+import { BrandIcon } from "@/components/brand-icons";
 
 export type ContactOrder = {
   id: string;
@@ -94,7 +95,7 @@ export function ContactPanel({ order, sequence, storeName, compact = false }: { 
                 current && "border-primary bg-primary/10 font-semibold text-primary",
               )}
             >
-              {sequence[i] === "call" ? "📞" : "💬"} {label}
+              {sequence[i] === "call" ? <Phone className="mr-0.5 inline size-3 align-[-2px]" /> : <BrandIcon name="whatsapp" className="mr-0.5 inline size-3.5 align-[-3px]" />} {label}
             </span>
           );
         })}
@@ -142,7 +143,7 @@ export function ContactPanel({ order, sequence, storeName, compact = false }: { 
             channel === "whatsapp" && "ring-2 ring-[#25D366]/40 ring-offset-1",
           )}
         >
-          <MessageCircle className="size-4" /> WhatsApp
+          <BrandIcon name="whatsapp" className="size-5" /> WhatsApp
         </a>
         <span className="text-xs text-muted-foreground">Registrando como: {channel === "call" ? "llamada" : "WhatsApp"}</span>
       </div>

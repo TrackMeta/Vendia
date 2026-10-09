@@ -25,7 +25,8 @@ export default async function DashboardLayout({ children }: LayoutProps<"/dashbo
       storeId={store.id}
       role={store.role}
       unread={typeof unread === "number" ? unread : 0}
-      stores={stores.map((s) => ({ id: s.id, name: s.name, role: s.role }))}
+      stores={stores.map((s) => ({ id: s.id, name: s.name, role: s.role, logo: s.logo }))}
+      storeLogo={store.logo}
       theme={parseTheme(cookieStore.get(THEME_COOKIE)?.value)}
     >
       {children}

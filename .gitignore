@@ -35,3 +35,6 @@ next-env.d.ts
 npm-debug.log*
 supabase/.temp/
 supabase/.branches/
+
+# Archivos originales de íconos (las versiones optimizadas están en public/brands)
+/Recursos Iconos/

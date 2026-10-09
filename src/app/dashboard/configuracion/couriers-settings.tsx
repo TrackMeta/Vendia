@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { COURIERS } from "@/modules/couriers";
 import { saveCourierSettings } from "./actions";
+import { CourierIcon } from "@/components/brand-icons";
 
 export type CourierSettingsRow = {
   courier_id: string;
@@ -35,7 +36,11 @@ function CourierRow({ initial }: { initial: CourierSettingsRow }) {
   return (
     <div className={`flex flex-col gap-3 rounded-xl border p-3 ${soon ? "opacity-60" : ""}`}>
       <div className="flex flex-wrap items-center gap-2">
-        <span className="size-3 rounded-full" style={{ backgroundColor: def.color }} />
+        {initial.courier_id === "eva" || initial.courier_id === "shalom" ? (
+          <CourierIcon id={initial.courier_id} className="size-7" />
+        ) : (
+          <span className="size-3 rounded-full" style={{ backgroundColor: def.color }} />
+        )}
         <span className="font-medium">{def.name}</span>
         <SimpleBadge tone={def.zone === "lima" ? "info" : "progress"}>{def.zone === "lima" ? "Lima" : "Provincia"}</SimpleBadge>
         {soon ? <SimpleBadge>Próximamente</SimpleBadge> : null}

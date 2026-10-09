@@ -1,10 +1,11 @@
 "use client";
 
-import { MessageCircle, X } from "lucide-react";
+import { X } from "lucide-react";
 import { useTransition } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { markAbandoned } from "./actions";
+import { BrandIcon } from "@/components/brand-icons";
 
 export function AbandonedActions({ id, whatsappHref, contacted }: { id: string; whatsappHref: string; contacted: boolean }) {
   const [pending, startTransition] = useTransition();
@@ -22,7 +23,7 @@ export function AbandonedActions({ id, whatsappHref, contacted }: { id: string; 
         onClick={() => (contacted ? undefined : mark("contacted"))}
         className="flex items-center gap-1.5 rounded-lg bg-[#25D366] px-3 py-1.5 text-sm font-semibold text-white"
       >
-        <MessageCircle className="size-4" /> {contacted ? "Escribir de nuevo" : "Escribir"}
+        <BrandIcon name="whatsapp" className="size-5" /> {contacted ? "Escribir de nuevo" : "Escribir"}
       </a>
       <Button size="sm" variant="ghost" disabled={pending} onClick={() => mark("dismissed")}>
         <X /> Descartar

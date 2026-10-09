@@ -11,6 +11,7 @@ import { Label } from "@/components/ui/label";
 import { formatDateTime } from "@/lib/format";
 import type { AdAccount, Pixel } from "@/modules/meta/marketing-api";
 import { checkMetaToken, connectMeta, disconnectMeta, getMetaPixels, syncMetaNow } from "./actions";
+import { BrandIcon } from "@/components/brand-icons";
 
 export type MetaConnection = {
   connected: boolean;
@@ -119,7 +120,9 @@ export function MetaConnect({ connection, storeName }: { connection: MetaConnect
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Conectar Meta</CardTitle>
+        <CardTitle className="flex items-center gap-2">
+          <BrandIcon name="meta" className="size-6" /> Conectar Meta
+        </CardTitle>
         <CardDescription>
           Con un solo token, Vendia lee tus campañas y su gasto todos los días, usa tu Pixel y envía las conversiones. Nunca cambia tus campañas.
         </CardDescription>

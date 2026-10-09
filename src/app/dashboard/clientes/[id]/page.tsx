@@ -1,4 +1,4 @@
-import { ArrowLeft, MessageCircle } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -9,6 +9,7 @@ import { requireStore } from "@/lib/auth";
 import { displayPeruPhone, formatDateTime, formatMoney } from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
 import type { OrderStatus } from "@/modules/orders/state-machine";
+import { BrandIcon } from "@/components/brand-icons";
 
 export const metadata: Metadata = { title: "Cliente" };
 
@@ -58,7 +59,7 @@ export default async function CustomerPage({ params }: PageProps<"/dashboard/cli
           rel="noopener noreferrer"
           className="flex items-center gap-2 rounded-lg bg-[#25D366] px-3 py-2 text-sm font-semibold text-white"
         >
-          <MessageCircle className="size-4" /> WhatsApp
+          <BrandIcon name="whatsapp" className="size-5" /> WhatsApp
         </a>
       </div>
 

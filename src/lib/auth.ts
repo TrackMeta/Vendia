@@ -2,6 +2,7 @@ import "server-only";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { cache } from "react";
+import { publicAssetUrl } from "@/lib/env";
 import { createClient } from "@/lib/supabase/server";
 
 export type StoreRole = "owner" | "staff";
@@ -15,6 +16,8 @@ export type CurrentStore = {
   country: string;
   /** owner = dueño (todo) · staff = Confirmador (pedidos, logística, clientes) */
   role: StoreRole;
+  /** URL pública del logo (Configuración) o null. */
+  logo: string | null;
 };
 
 /** Cookie con la tienda elegida en el selector. Solo es una preferencia: el acceso lo decide store_members (RLS). */
@@ -48,13 +51,18 @@ export const getMyStores = cache(async (): Promise<CurrentStore[]> => {
   const supabase = await createClient();
   const { data } = await supabase
     .from("store_members")
-    .select("role, created_at, stores (id, name, slug, status, currency, country)")
+    .select("role, created_at, stores (id, name, slug, status, currency, country, store_settings (logo_path))")
     .eq("user_id", user.id)
     .order("created_at", { ascending: true });
-  const rows = (data ?? []) as unknown as { role: StoreRole; stores: Omit<CurrentStore, "role"> | Omit<CurrentStore, "role">[] | null }[];
+  type Settings = { logo_path: string | null } | { logo_path: string | null }[] | null;
+  type Row = Omit<CurrentStore, "role" | "logo"> & { store_settings: Settings };
+  const rows = (data ?? []) as unknown as { role: StoreRole; stores: Row | Row[] | null }[];
   return rows.flatMap((r) => {
-    const store = Array.isArray(r.stores) ? r.stores[0] : r.stores;
-    return store ? [{ ...store, role: r.role }] : [];
+    const raw = Array.isArray(r.stores) ? r.stores[0] : r.stores;
+    if (!raw) return [];
+    const { store_settings, ...store } = raw;
+    const settings = Array.isArray(store_settings) ? store_settings[0] : store_settings;
+    return [{ ...store, role: r.role, logo: publicAssetUrl(settings?.logo_path) }];
   });
 });
 

@@ -432,6 +432,18 @@ async function main() {
   );
   await step("entidad con su cuenta", `update public.meta_entities set ad_account_id = 'act_111111' where store_id = '${storeId}' and id = '120200' returning ad_account_id`);
   await step("rendimiento con varias cuentas", `select jsonb_array_length(public.get_performance(${range}, current_date - 3, current_date + 1, 'campaign'))`);
+
+  console.log("\n— Lectura programada de Meta —");
+  await step("llave del reloj generada por la base", `select length(value) from public.app_internal where key = 'cron_token'`);
+  await step("intervalo por defecto (cada hora)", `insert into public.store_meta_settings (store_id) values ('${storeId}') on conflict (store_id) do update set store_id = excluded.store_id returning sync_every_minutes`);
+  await step("cambiar a cada 6 horas", `update public.store_meta_settings set sync_every_minutes = 360 where store_id = '${storeId}' returning sync_every_minutes`);
+  try {
+    await db.query(`update public.store_meta_settings set sync_every_minutes = 5 where store_id = '${storeId}'`);
+    console.error("  ✗ intervalo de 5 minutos: debería rechazarse");
+    process.exit(1);
+  } catch {
+    console.log("  ✓ un intervalo fuera de la lista se rechaza");
+  }
   console.log("\nOK — prueba de humo completa");
 }
 

@@ -41,6 +41,8 @@ Sin esto, los correos de confirmación y de recuperación de contraseña apuntar
 
 ## 4. Tarea programada
 
+Además, Supabase (pg_cron, ver `actualizacion-bloque-10.sql`) llama cada hora a `/api/cron/meta-sync` con una llave que genera la propia base (`public.app_internal`), y lee solo las tiendas a las que les toca según su intervalo. Si cambias el dominio de Vendia, actualiza `site_url` en esa tabla.
+
 El archivo `vercel.json` programa `/api/cron/daily` una vez al día: reintenta eventos de Meta y TikTok que fallaron, sincroniza campañas, gasto y métricas de las tiendas conectadas y borra los formularios abandonados de más de 30 días. Vercel la activa sola si `CRON_SECRET` está configurado. En el plan gratis (Hobby) solo se permiten tareas diarias.
 
 ## 5. Dominios

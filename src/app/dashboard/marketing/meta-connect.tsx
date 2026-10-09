@@ -12,7 +12,8 @@ import { Label } from "@/components/ui/label";
 import { formatDateTime } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import type { AdAccount, Pixel } from "@/modules/meta/marketing-api";
-import { checkMetaToken, connectMeta, disconnectMeta, getMetaPixels, syncMetaNow, updateMetaAccounts } from "./actions";
+import { SYNC_INTERVALS } from "@/modules/meta/schedule";
+import { checkMetaToken, connectMeta, disconnectMeta, getMetaPixels, setMetaSyncInterval, syncMetaNow, updateMetaAccounts } from "./actions";
 
 export type ConnectedAccount = { id: string; name: string | null; currency: string | null; lastSyncAt: string | null; lastSyncError: string | null };
 
@@ -25,6 +26,8 @@ export type MetaConnection = {
   pixelId: string | null;
   lastSyncAt: string | null;
   lastSyncError: string | null;
+  /** Cada cuánto se leen las cuentas (minutos). */
+  syncEvery: number;
 };
 
 type Mode = "view" | "connect" | "accounts";
@@ -222,10 +225,29 @@ export function MetaConnect({ connection, storeName }: { connection: MetaConnect
                 </div>
               ))}
             </div>
+            <div className="flex flex-wrap items-center gap-2 text-sm">
+              <Label htmlFor="meta-sync-every">Leer mis cuentas</Label>
+              <select
+                id="meta-sync-every"
+                defaultValue={connection.syncEvery}
+                disabled={pending}
+                onChange={(e) => {
+                  const minutes = Number(e.target.value);
+                  run(() => setMetaSyncInterval(minutes));
+                }}
+                className="h-8 rounded-lg border border-input bg-transparent px-2 text-sm"
+              >
+                {Object.entries(SYNC_INTERVALS).map(([value, label]) => (
+                  <option key={value} value={value}>
+                    {label}
+                  </option>
+                ))}
+              </select>
+              <span className="text-xs text-muted-foreground">Además, cada mañana se revisan los últimos 3 días (Meta ajusta cifras de días anteriores).</span>
+            </div>
             <p className="text-xs text-muted-foreground">
               Pixel {connection.pixelId}
-              {connection.userName ? ` · token de ${connection.userName}` : ""} · Vendia lee tus cuentas cada mañana y cada vez que abres el panel (si pasó más de
-              una hora).
+              {connection.userName ? ` · token de ${connection.userName}` : ""}
             </p>
             {connection.lastSyncError ? <p className="rounded-md bg-destructive/10 p-2 text-sm text-destructive">Último error: {connection.lastSyncError}</p> : null}
             <div className="flex flex-wrap gap-2">

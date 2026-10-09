@@ -11,6 +11,7 @@ import { buildServerEvent, META_GRAPH_VERSION } from "@/modules/meta/events";
 import { sendMarketingEvent } from "@/modules/meta/capi";
 import { reportError } from "@/lib/report-error";
 import { type AdAccount, createPixel, grantAdAccountAccess, inspectToken, listPixels, MetaApiError, type Pixel, cleanToken, tokenPermissions } from "@/modules/meta/marketing-api";
+import { SYNC_INTERVALS, type SyncInterval } from "@/modules/meta/schedule";
 import { FIRST_SYNC_DAYS, syncMetaStore } from "@/modules/meta/sync";
 import { landingCacheTag } from "@/modules/landing/public-data";
 
@@ -452,6 +453,16 @@ export async function updateMetaAccounts(input: { adAccountIds: string[]; busine
   const removed = [...known].filter((id) => id && !ids.includes(id)).length;
   const parts = [added.length ? `${added.length} agregada(s): trayendo sus últimos ${FIRST_SYNC_DAYS} días` : "", removed ? `${removed} quitada(s)` : ""].filter(Boolean);
   return { ok: true, message: `Cuentas actualizadas${parts.length ? ` · ${parts.join(" · ")}` : ""}.` };
+}
+
+/** Cada cuánto se leen las cuentas de Meta (cada hora … una vez al día). */
+export async function setMetaSyncInterval(minutes: number): Promise<ActionResult> {
+  const { store } = await requireOwner();
+  if (!(minutes in SYNC_INTERVALS)) return { ok: false, error: "Elige una de las opciones" };
+  const { error } = await createAdminClient().from("store_meta_settings").update({ sync_every_minutes: minutes }).eq("store_id", store.id);
+  if (error) return { ok: false, error: "No se pudo guardar. ¿Ya corriste el SQL del Bloque 10 en Supabase?" };
+  revalidatePath("/dashboard/marketing");
+  return { ok: true, message: `Listo: Vendia leerá tus cuentas ${SYNC_INTERVALS[minutes as SyncInterval].toLowerCase()}` };
 }
 
 /** Botón «Actualizar ahora»: últimos 7 días. */

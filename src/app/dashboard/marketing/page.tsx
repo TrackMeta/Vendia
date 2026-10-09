@@ -7,6 +7,7 @@ import { requireOwner } from "@/lib/auth";
 import { formatDateTime } from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
 import { parseSaleMode, REAL_SALE_MODES } from "@/modules/metrics/real-sale";
+import { parseSyncInterval } from "@/modules/meta/schedule";
 import { MetaConnect } from "./meta-connect";
 import { TikTokSettingsForm } from "./tiktok-form";
 import { MetaSettingsForm, RetryButton, TestEventButton, UrlTemplate } from "./meta-forms";
@@ -19,7 +20,7 @@ const STATUS_LABEL = { sent: "Enviado", pending: "Pendiente", failed: "Falló", 
 export default async function MarketingPage() {
   const { store } = await requireOwner();
   const supabase = await createClient();
-  const [{ data: settings }, { data: tokenConfigured }, { data: events }, { data: storeSettings }, { data: tiktok }, { data: tiktokToken }, { data: metaAccounts }] = await Promise.all([
+  const [{ data: settings }, { data: tokenConfigured }, { data: events }, { data: storeSettings }, { data: tiktok }, { data: tiktokToken }, { data: metaAccounts }, { data: syncRow }] = await Promise.all([
     supabase
       .from("store_meta_settings")
       .select(
@@ -39,6 +40,8 @@ export default async function MarketingPage() {
     supabase.rpc("tiktok_token_configured", { p_store_id: store.id }),
     // Si aún no se corrió el SQL de «varias cuentas», esto viene vacío y se usa la cuenta principal
     supabase.from("store_meta_accounts").select("ad_account_id, name, currency, last_sync_at, last_sync_error").eq("store_id", store.id).order("added_at"),
+    // Aparte: si aún no se corrió el SQL del reloj, esta columna no existe y no debe romper lo demás
+    supabase.from("store_meta_settings").select("sync_every_minutes").eq("store_id", store.id).maybeSingle(),
   ]);
   const connectedAccounts = metaAccounts?.length
     ? metaAccounts.map((a) => ({ id: a.ad_account_id, name: a.name, currency: a.currency, lastSyncAt: a.last_sync_at, lastSyncError: a.last_sync_error }))
@@ -67,6 +70,7 @@ export default async function MarketingPage() {
           connected: Boolean(settings?.ad_account_id),
           accountId: settings?.ad_account_id ?? null,
           accounts: connectedAccounts,
+          syncEvery: parseSyncInterval(syncRow?.sync_every_minutes),
           userName: settings?.meta_user_name ?? null,
           pixelId: settings?.pixel_id ?? null,
           lastSyncAt: settings?.last_sync_at ?? null,

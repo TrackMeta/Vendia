@@ -6,6 +6,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { IGV_RATE, toPen } from "@/modules/expenses/categories";
 import { addDays, limaToday } from "@/modules/metrics/date-range";
 import { fetchAdCreatives, fetchInsights, type InsightRow, MetaApiError } from "./marketing-api";
+import { DEFAULT_SYNC_MINUTES, isSyncDue, parseSyncInterval, TOLERANCE_MINUTES } from "./schedule";
 
 export type SyncResult =
   | { ok: true; rows: number; spend: number; since: string; until: string; accounts: number; failed: { account: string; error: string }[] }
@@ -14,9 +15,8 @@ export type SyncResult =
 /** Días que se vuelven a pedir: Meta ajusta las cifras de los últimos días. */
 export const DAILY_SYNC_DAYS = 3;
 export const FIRST_SYNC_DAYS = 30;
-/** Al abrir el panel, si la última lectura tiene más de esto, se vuelve a leer en segundo plano. */
-export const AUTO_SYNC_MINUTES = 60;
-const AUTO_SYNC_DAYS = 2;
+/** Las lecturas programadas traen hoy y ayer (la de la mañana trae 3 días). */
+const SCHEDULED_SYNC_DAYS = 2;
 
 type Account = { ad_account_id: string; name: string | null; currency: string | null };
 type AccountResult = { ok: true; rows: number; spend: number } | { ok: false; error: string };
@@ -239,11 +239,14 @@ export async function syncMetaStore(
 }
 
 /**
- * Lectura automática al abrir el panel: si la última tiene más de AUTO_SYNC_MINUTES, se marca
- * (para que dos pestañas no lean a la vez) y se leen hoy y ayer. Pensado para usarse con after().
+ * Lee la tienda si ya le toca según su intervalo. Primero «marca» la lectura con una actualización
+ * condicional, así dos pestañas o el reloj y una pestaña no leen la misma tienda a la vez.
  */
-export async function syncMetaIfStale(admin: SupabaseClient, storeId: string): Promise<void> {
-  const cutoff = new Date(Date.now() - AUTO_SYNC_MINUTES * 60_000).toISOString();
+export async function syncMetaIfStale(admin: SupabaseClient, storeId: string): Promise<boolean> {
+  const { data: row, error } = await admin.from("store_meta_settings").select("sync_every_minutes").eq("store_id", storeId).maybeSingle();
+  // Sin la columna (falta el SQL) se usa el valor por defecto
+  const every = error ? DEFAULT_SYNC_MINUTES : parseSyncInterval(row?.sync_every_minutes);
+  const cutoff = new Date(Date.now() - (every - TOLERANCE_MINUTES) * 60_000).toISOString();
   const { data } = await admin
     .from("store_meta_settings")
     .update({ last_sync_at: new Date().toISOString() })
@@ -252,8 +255,30 @@ export async function syncMetaIfStale(admin: SupabaseClient, storeId: string): P
     .not("ad_account_id", "is", null)
     .or(`last_sync_at.is.null,last_sync_at.lt.${cutoff}`)
     .select("store_id");
-  if (!data?.length) return;
-  await syncMetaStore(admin, storeId, AUTO_SYNC_DAYS);
+  if (!data?.length) return false;
+  await syncMetaStore(admin, storeId, SCHEDULED_SYNC_DAYS);
+  return true;
+}
+
+/**
+ * Reloj horario (Supabase pg_cron → /api/cron/meta-sync): lee las tiendas a las que ya les toca,
+ * las más atrasadas primero, sin pasarse del tiempo máximo de la función (las demás, en la próxima hora).
+ */
+export async function syncDueMetaStores(admin: SupabaseClient, budgetMs = 45_000) {
+  const started = Date.now();
+  const { data } = await admin
+    .from("store_meta_settings")
+    .select("store_id, sync_every_minutes, last_sync_at")
+    .not("ad_account_id", "is", null)
+    .eq("sync_enabled", true)
+    .order("last_sync_at", { ascending: true, nullsFirst: true });
+  const due = (data ?? []).filter((s) => isSyncDue(s.last_sync_at, parseSyncInterval(s.sync_every_minutes)));
+  const done: string[] = [];
+  for (const s of due) {
+    if (Date.now() - started > budgetMs) break;
+    if (await syncMetaIfStale(admin, s.store_id)) done.push(s.store_id);
+  }
+  return { due: due.length, synced: done.length };
 }
 
 /** Sincroniza todas las tiendas conectadas (cron diario). */

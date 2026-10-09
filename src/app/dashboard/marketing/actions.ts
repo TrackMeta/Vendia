@@ -269,6 +269,17 @@ async function ensureAccess(token: string, info: Awaited<ReturnType<typeof inspe
 }
 
 /** Deja en store_meta_accounts exactamente las cuentas elegidas (las quitadas dejan de sincronizarse; su historial queda). */
+/**
+ * ¿Ya está la tabla de «varias cuentas»? Se revisa ANTES de tocar Meta (por ejemplo, antes de crear
+ * un Pixel), para no dejar nada a medias si falta correr el SQL del Bloque 9.
+ */
+async function accountsTableReady(): Promise<boolean> {
+  const { error } = await createAdminClient().from("store_meta_accounts").select("store_id").limit(1);
+  return !error;
+}
+
+const SQL_MISSING = "Falta actualizar la base de datos: corre supabase/actualizacion-bloque-9.sql en Supabase (SQL Editor) y vuelve a intentar.";
+
 async function saveAccounts(storeId: string, accounts: AdAccount[]) {
   const admin = createAdminClient();
   const ids = accounts.map((a) => a.id);
@@ -315,6 +326,7 @@ export async function connectMeta(input: {
   if (!t.ok) return t;
   const token = t.token;
   const ids = [...new Set(d.adAccountIds)];
+  if (!(await accountsTableReady())) return { ok: false, error: SQL_MISSING };
 
   let accounts: AdAccount[];
   let userName: string;
@@ -393,6 +405,7 @@ export async function updateMetaAccounts(input: { adAccountIds: string[]; busine
   const t = await resolveToken(store.id, "");
   if (!t.ok) return t;
   const ids = [...new Set(parsed.data.adAccountIds)];
+  if (!(await accountsTableReady())) return { ok: false, error: SQL_MISSING };
 
   const admin = createAdminClient();
   const [{ data: before }, { data: settings }] = await Promise.all([

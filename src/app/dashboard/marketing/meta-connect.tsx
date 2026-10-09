@@ -18,7 +18,7 @@ export type ConnectedAccount = { id: string; name: string | null; currency: stri
 
 export type MetaConnection = {
   connected: boolean;
-  /** Cuenta principal (la del Pixel). */
+  /** Cuenta con la que se conectó (uso interno: el Pixel se crea ahí si es nuevo). */
   accountId: string | null;
   accounts: ConnectedAccount[];
   userName: string | null;
@@ -26,8 +26,6 @@ export type MetaConnection = {
   lastSyncAt: string | null;
   lastSyncError: string | null;
 };
-
-const select = "h-9 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm";
 
 type Mode = "view" | "connect" | "accounts";
 
@@ -67,7 +65,6 @@ export function MetaConnect({ connection, storeName }: { connection: MetaConnect
   const [accounts, setAccounts] = useState<AdAccount[] | null>(null);
   const [userName, setUserName] = useState("");
   const [chosen, setChosen] = useState<Set<string>>(new Set());
-  const [pixelAccount, setPixelAccount] = useState("");
   const [pixels, setPixels] = useState<Pixel[] | null>(null);
   const [pixelChoice, setPixelChoice] = useState<string>("new");
   const [pixelName, setPixelName] = useState(`Pixel ${storeName}`);
@@ -87,7 +84,6 @@ export function MetaConnect({ connection, storeName }: { connection: MetaConnect
     setAccounts(null);
     setChosen(new Set());
     setPixels(null);
-    setPixelAccount("");
     setError(null);
   };
 
@@ -107,7 +103,6 @@ export function MetaConnect({ connection, storeName }: { connection: MetaConnect
       // Al administrar: marcadas las que ya están conectadas. Al conectar: si hay una sola, ya marcada.
       const initial = saved ? connection.accounts.map((a) => a.id) : r.accounts.length === 1 ? [r.accounts[0].id] : [];
       setChosen(new Set(initial.filter((id) => r.accounts.some((a) => a.id === id))));
-      setPixelAccount(initial[0] ?? "");
     });
 
   const toggle = (id: string) => {
@@ -116,18 +111,17 @@ export function MetaConnect({ connection, storeName }: { connection: MetaConnect
     else next.add(id);
     setChosen(next);
     setPixels(null);
-    // La cuenta del Pixel siempre es una de las marcadas
-    if (!next.has(pixelAccount)) setPixelAccount([...next][0] ?? "");
   };
 
   const loadPixels = () =>
     startTransition(async () => {
       setError(null);
-      const r = await getMetaPixels(token, pixelAccount, businessId);
+      // Los Pixels de todas las cuentas marcadas, sin repetir
+      const r = await getMetaPixels(token, [...chosen], businessId);
       if (!r.ok) return fail(r.error);
       if (r.granted) {
-        toast.success("Listo: Vendia se dio acceso a esa cuenta en tu Business Manager");
-        setAccounts((list) => list?.map((a) => (a.id === pixelAccount ? { ...a, assigned: true } : a)) ?? null);
+        toast.success(r.granted === 1 ? "Listo: Vendia se dio acceso a 1 cuenta nueva" : `Listo: Vendia se dio acceso a ${r.granted} cuentas nuevas`);
+        setAccounts((list) => list?.map((a) => (chosen.has(a.id) ? { ...a, assigned: true } : a)) ?? null);
       }
       setPixels(r.pixels);
       setPixelChoice(r.pixels[0]?.id ?? "new");
@@ -136,11 +130,9 @@ export function MetaConnect({ connection, storeName }: { connection: MetaConnect
   const connect = () =>
     startTransition(async () => {
       setError(null);
-      // La cuenta del Pixel va primero: es la principal
-      const ids = [pixelAccount, ...[...chosen].filter((id) => id !== pixelAccount)];
       const r = await connectMeta({
         token,
-        adAccountIds: ids,
+        adAccountIds: [...chosen],
         businessId,
         ...(pixelChoice === "new" ? { newPixelName: pixelName } : { pixelId: pixelChoice }),
       });
@@ -221,10 +213,7 @@ export function MetaConnect({ connection, storeName }: { connection: MetaConnect
                 <div key={a.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 px-3 py-2.5 text-sm">
                   {a.lastSyncError ? <TriangleAlert className="size-4 shrink-0 text-destructive" /> : <CheckCircle2 className="size-4 shrink-0 text-emerald-600" />}
                   <span className="flex min-w-0 flex-1 flex-col">
-                    <span className="truncate font-medium">
-                      {a.name ?? a.id}
-                      {a.id === connection.accountId ? <span className="font-normal text-muted-foreground"> · principal (Pixel)</span> : null}
-                    </span>
+                    <span className="truncate font-medium">{a.name ?? a.id}</span>
                     <span className={cn("truncate text-xs", a.lastSyncError ? "text-destructive" : "text-muted-foreground")}>
                       {a.lastSyncError ? a.lastSyncError : a.lastSyncAt ? `Leída ${formatDateTime(a.lastSyncAt)}` : "Leyendo por primera vez…"}
                     </span>
@@ -350,37 +339,18 @@ export function MetaConnect({ connection, storeName }: { connection: MetaConnect
               </div>
             ) : null}
 
-            {chosen.size ? (
-              <div className="flex flex-col gap-1.5">
-                <Label htmlFor="meta-pixel-account">Cuenta del Pixel (principal)</Label>
-                <div className="flex flex-wrap gap-2">
-                  <select
-                    id="meta-pixel-account"
-                    value={pixelAccount}
-                    onChange={(e) => {
-                      setPixelAccount(e.target.value);
-                      setPixels(null);
-                    }}
-                    className={cn(select, "min-w-0 flex-1")}
-                  >
-                    {chosenAccounts.map((a) => (
-                      <option key={a.id} value={a.id}>
-                        {a.name}
-                      </option>
-                    ))}
-                  </select>
-                  {pixels === null ? (
-                    <Button variant="outline" onClick={loadPixels} disabled={pending || !pixelAccount}>
-                      {pending ? <Loader2 className="animate-spin" /> : null} Elegir Pixel
-                    </Button>
-                  ) : null}
-                </div>
+            {chosen.size && pixels === null ? (
+              <div>
+                <Button variant="outline" onClick={loadPixels} disabled={pending}>
+                  {pending ? <Loader2 className="animate-spin" /> : null} Siguiente: elegir Pixel
+                </Button>
               </div>
             ) : null}
 
             {pixels ? (
               <div className="flex flex-col gap-2">
                 <Label>Pixel</Label>
+                <p className="text-xs text-muted-foreground">Los Pixels de todas las cuentas que marcaste. Usa el mismo que ya tienes en tus anuncios.</p>
                 {pixels.map((p) => (
                   <label key={p.id} className="flex items-center gap-2 text-sm">
                     <input type="radio" name="pixel" checked={pixelChoice === p.id} onChange={() => setPixelChoice(p.id)} className="size-4" />

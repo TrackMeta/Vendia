@@ -209,35 +209,36 @@ export async function checkMetaToken(token: string, businessId?: string): Promis
   }
 }
 
-/** Paso 2: Pixels de la cuenta elegida. Si la cuenta es nueva (no asignada), Vendia primero se da acceso. */
-export async function getMetaPixels(token: string, adAccountId: string, businessId?: string): Promise<{ ok: true; pixels: Pixel[]; granted: boolean } | { ok: false; error: string }> {
+/**
+ * Paso 2: Pixels de todas las cuentas elegidas, sin repetir (el Pixel es del Business Manager,
+ * no de una cuenta). Si alguna cuenta es nueva, Vendia primero se da acceso.
+ */
+export async function getMetaPixels(
+  token: string,
+  adAccountIds: string[],
+  businessId?: string,
+): Promise<{ ok: true; pixels: Pixel[]; granted: number } | { ok: false; error: string }> {
   const { store } = await requireOwner();
   const t = await resolveToken(store.id, token);
   if (!t.ok) return t;
-  const a = accountSchema.safeParse(adAccountId);
-  if (!a.success) return { ok: false, error: "Datos inválidos" };
-  let granted = false;
+  const ids = accountsSchema.safeParse(adAccountIds);
+  if (!ids.success) return { ok: false, error: ids.error.issues[0].message };
+  const b = businessIdSchema.safeParse(businessId);
   try {
-    const b = businessIdSchema.safeParse(businessId);
     const info = await inspectToken(t.token, fetch, b.success ? b.data : undefined);
-    const account = info.accounts.find((x) => x.id === a.data);
-    if (!account) return { ok: false, error: "Ese token no tiene acceso a esa cuenta publicitaria" };
-    if (!account.assigned && account.businessId) {
-      try {
-        await grantAdAccountAccess(t.token, account.id, account.businessId, info.userId);
-        granted = true;
-      } catch (e) {
-        console.error("Meta: asignar cuenta al usuario del sistema", e);
-        return {
-          ok: false,
-          error:
-            "Meta no dejó que Vendia se dé acceso a esta cuenta. En el Business Manager, dale al usuario del sistema el rol de Administrador (o asígnale esta cuenta) y vuelve a intentar.",
-        };
-      }
-    }
-    return { ok: true, pixels: await listPixels(t.token, account.id), granted };
+    const unique = [...new Set(ids.data)];
+    const granted = unique.filter((id) => info.accounts.some((a) => a.id === id && !a.assigned)).length;
+    const access = await ensureAccess(t.token, info, unique);
+    if (!access.ok) return access;
+    const pixels = new Map<string, Pixel>();
+    for (const account of access.accounts) for (const p of await listPixels(t.token, account.id)) if (!pixels.has(p.id)) pixels.set(p.id, p);
+    // Los que tuvieron actividad más reciente, primero
+    const list = [...pixels.values()].sort((x, y) => (y.lastFired ?? "").localeCompare(x.lastFired ?? ""));
+    return { ok: true, pixels: list, granted };
   } catch (e) {
-    return { ok: false, error: metaError(e) };
+    const error = metaError(e);
+    await logMetaFailure("pixels", e, error);
+    return { ok: false, error };
   }
 }
 
@@ -284,8 +285,8 @@ async function saveAccounts(storeId: string, accounts: AdAccount[]) {
 }
 
 /**
- * Paso 3: guarda la conexión (token cifrado) con una o varias cuentas publicitarias. La primera es la
- * principal: de ahí sale el Pixel. Activa las conversiones y trae los últimos días de todas las cuentas.
+ * Paso 3: guarda la conexión (token cifrado) con una o varias cuentas publicitarias y el Pixel elegido
+ * (o uno nuevo, creado en la primera cuenta). Activa las conversiones y trae los últimos días de todas.
  */
 export async function connectMeta(input: {
   token: string;
@@ -326,8 +327,15 @@ export async function connectMeta(input: {
     if (!access.ok) return access;
     accounts = access.accounts;
     if (d.pixelId) {
-      const pixels = await listPixels(token, accounts[0].id);
-      if (!pixels.some((p) => p.id === d.pixelId)) return { ok: false, error: "Ese Pixel no pertenece a la cuenta principal" };
+      // El Pixel puede venir de cualquiera de las cuentas elegidas
+      let found = false;
+      for (const a of accounts) {
+        if ((await listPixels(token, a.id)).some((p) => p.id === d.pixelId)) {
+          found = true;
+          break;
+        }
+      }
+      if (!found) return { ok: false, error: "Ese Pixel no está en tus cuentas elegidas" };
       pixelId = d.pixelId;
     } else {
       pixelId = await createPixel(token, accounts[0].id, d.newPixelName ?? store.name);

@@ -24,7 +24,7 @@ import {
   Wallet,
 } from "lucide-react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useState, useSyncExternalStore } from "react";
 import { logout } from "@/app/(auth)/actions";
 import { NotificationBell } from "@/components/dashboard/notifications";
@@ -56,6 +56,22 @@ const NAV: NavItem[] = [
   { href: "/dashboard/ayuda", label: "Ayuda", icon: LifeBuoy },
 ];
 
+const FULL_PREFETCH = { kind: "full" } as unknown as Parameters<ReturnType<typeof useRouter>["prefetch"]>[1];
+
+/**
+ * Enlace del menú que carga la sección completa (datos incluidos) apenas el usuario muestra
+ * intención: pasar el mouse, enfocar con teclado o tocar en el celular. Entre ese gesto y el clic
+ * el servidor ya está trabajando, así que la página aparece casi al instante.
+ * prefetch={false}: sin esto, Next precarga las ~17 secciones del menú tras cada clic (decenas de
+ * consultas al servidor que casi nunca se usan); así solo se carga la que el usuario va a abrir.
+ */
+function IntentLink(props: React.ComponentProps<typeof Link> & { href: string }) {
+  const router = useRouter();
+  // kind "full": trae también los datos de la página (por defecto solo llega hasta el esqueleto)
+  const warm = () => router.prefetch(props.href, FULL_PREFETCH);
+  return <Link {...props} prefetch={false} onMouseEnter={warm} onFocus={warm} onTouchStart={warm} />;
+}
+
 function Nav({ onNavigate, isOwner }: { onNavigate?: () => void; isOwner: boolean }) {
   const pathname = usePathname();
   return (
@@ -63,7 +79,7 @@ function Nav({ onNavigate, isOwner }: { onNavigate?: () => void; isOwner: boolea
       {NAV.filter((item) => (isOwner ? !item.staffOnly : !item.ownerOnly)).map((item) => {
         const active = item.exact ? pathname === item.href : pathname.startsWith(item.href);
         return (
-          <Link
+          <IntentLink
             key={item.href}
             href={item.href}
             onClick={onNavigate}
@@ -75,7 +91,7 @@ function Nav({ onNavigate, isOwner }: { onNavigate?: () => void; isOwner: boolea
             <item.icon className="size-4" />
             <span className="flex-1">{item.label}</span>
             {item.soon ? <span className="text-[10px] uppercase tracking-wide text-muted-foreground/70">Pronto</span> : null}
-          </Link>
+          </IntentLink>
         );
       })}
     </nav>

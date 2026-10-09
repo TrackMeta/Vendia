@@ -1,6 +1,7 @@
 import { Info } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
+import { Suspense } from "react";
 import { DateRangeFilter, rangeParams } from "@/components/dashboard/date-range-filter";
 import { WelcomeChecklist } from "./welcome-checklist";
 import { PageHeader } from "@/components/dashboard/page-header";
@@ -66,7 +67,9 @@ export default async function DashboardHome({ searchParams }: PageProps<"/dashbo
 
       <DateRangeFilter basePath="/dashboard" range={range} />
 
-      <WelcomeChecklist storeId={store.id} />
+      <Suspense fallback={null}>
+        <WelcomeChecklist storeId={store.id} />
+      </Suspense>
 
       <section className="flex flex-col gap-3">
         <h2 className="text-sm font-medium text-muted-foreground">Ventas</h2>

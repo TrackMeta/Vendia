@@ -20,12 +20,19 @@ export type CurrentStore = {
 /** Cookie con la tienda elegida en el selector. Solo es una preferencia: el acceso lo decide store_members (RLS). */
 export const STORE_COOKIE = "vd_store";
 
-/** Usuario autenticado (verificado con el servidor de Auth) o null. */
-export const getUser = cache(async () => {
+export type SessionUser = { id: string; email: string | null };
+
+/**
+ * Usuario autenticado o null. getClaims verifica la firma del token aquí mismo (claves ES256
+ * publicadas por Supabase), sin ir al servidor de Auth en cada página: una consulta menos por clic.
+ * La base igual valida el token en cada consulta (RLS).
+ */
+export const getUser = cache(async (): Promise<SessionUser | null> => {
   const supabase = await createClient();
-  const { data, error } = await supabase.auth.getUser();
-  if (error || !data.user) return null;
-  return data.user;
+  const { data, error } = await supabase.auth.getClaims();
+  const claims = data?.claims;
+  if (error || !claims?.sub || claims.role !== "authenticated") return null;
+  return { id: claims.sub, email: typeof claims.email === "string" ? claims.email : null };
 });
 
 export async function requireUser() {

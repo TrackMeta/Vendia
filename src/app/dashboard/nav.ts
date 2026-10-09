@@ -1,5 +1,4 @@
 import {
-  BarChart3,
   Globe,
   Home,
   LayoutTemplate,
@@ -63,8 +62,7 @@ export const NAV_GROUPS: NavGroup[] = [
   {
     label: "Números",
     items: [
-      { href: "/dashboard/rendimiento", label: "Rendimiento", icon: TrendingUp, ownerOnly: true, keywords: "campañas anuncios roas" },
-      { href: "/dashboard/analitica", label: "Analítica", icon: BarChart3, ownerOnly: true, keywords: "embudo visitas" },
+      { href: "/dashboard/rendimiento", label: "Rendimiento", icon: TrendingUp, ownerOnly: true, keywords: "campañas anuncios roas embudo zonas analitica departamentos" },
       { href: "/dashboard/gastos", label: "Gastos", icon: Receipt, ownerOnly: true, keywords: "publicidad egresos" },
     ],
   },

@@ -44,7 +44,7 @@ function normalizeMoney<T extends { category: ExpenseCategory; currency: "PEN" |
 function revalidate() {
   revalidatePath("/dashboard/gastos");
   revalidatePath("/dashboard");
-  revalidatePath("/dashboard/analitica");
+  revalidatePath("/dashboard/rendimiento");
 }
 
 export async function saveExpense(expenseId: string | null, _prev: ActionResult | undefined, formData: FormData): Promise<ActionResult> {

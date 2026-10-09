@@ -8,6 +8,7 @@ import { requireOwner } from "@/lib/auth";
 import { formatMoney } from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
 import { EXPENSE_CATEGORIES, type ExpenseCategory, REFERENCE_ONLY_CATEGORIES } from "@/modules/expenses/categories";
+import { refreshMetaInBackground } from "@/modules/meta/sync";
 import { resolveRange } from "@/modules/metrics/date-range";
 import { type AdDefaults, DeleteExpenseButton, ExpenseDialog, ImportMetaDialog } from "./expense-dialogs";
 
@@ -18,6 +19,7 @@ export default async function ExpensesPage({ searchParams }: PageProps<"/dashboa
   const rp = rangeParams(sp);
   const range = resolveRange(rp.rango, rp.desde, rp.hasta);
   const { store } = await requireOwner();
+  refreshMetaInBackground(store.id);
   const supabase = await createClient();
 
   const [{ data: expenses }, { data: totals }, { data: products }, { data: settings }] = await Promise.all([

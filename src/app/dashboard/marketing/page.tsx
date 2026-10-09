@@ -19,7 +19,7 @@ const STATUS_LABEL = { sent: "Enviado", pending: "Pendiente", failed: "Falló", 
 export default async function MarketingPage() {
   const { store } = await requireOwner();
   const supabase = await createClient();
-  const [{ data: settings }, { data: tokenConfigured }, { data: events }, { data: storeSettings }, { data: tiktok }, { data: tiktokToken }] = await Promise.all([
+  const [{ data: settings }, { data: tokenConfigured }, { data: events }, { data: storeSettings }, { data: tiktok }, { data: tiktokToken }, { data: metaAccounts }] = await Promise.all([
     supabase
       .from("store_meta_settings")
       .select(
@@ -37,7 +37,22 @@ export default async function MarketingPage() {
     supabase.from("store_settings").select("real_sale_mode").eq("store_id", store.id).single(),
     supabase.from("store_tiktok_settings").select("pixel_code, test_event_code, enabled, send_lead, send_purchase").eq("store_id", store.id).maybeSingle(),
     supabase.rpc("tiktok_token_configured", { p_store_id: store.id }),
+    // Si aún no se corrió el SQL de «varias cuentas», esto viene vacío y se usa la cuenta principal
+    supabase.from("store_meta_accounts").select("ad_account_id, name, currency, last_sync_at, last_sync_error").eq("store_id", store.id).order("added_at"),
   ]);
+  const connectedAccounts = metaAccounts?.length
+    ? metaAccounts.map((a) => ({ id: a.ad_account_id, name: a.name, currency: a.currency, lastSyncAt: a.last_sync_at, lastSyncError: a.last_sync_error }))
+    : settings?.ad_account_id
+      ? [
+          {
+            id: settings.ad_account_id,
+            name: settings.ad_account_name,
+            currency: settings.ad_account_currency,
+            lastSyncAt: settings.last_sync_at,
+            lastSyncError: settings.last_sync_error,
+          },
+        ]
+      : [];
 
   const triggerLabel = REAL_SALE_MODES[parseSaleMode(storeSettings?.real_sale_mode)];
   const failed = (events ?? []).filter((e) => e.status === "failed").length;
@@ -50,9 +65,8 @@ export default async function MarketingPage() {
         storeName={store.name}
         connection={{
           connected: Boolean(settings?.ad_account_id),
-          accountName: settings?.ad_account_name ?? null,
           accountId: settings?.ad_account_id ?? null,
-          currency: settings?.ad_account_currency ?? null,
+          accounts: connectedAccounts,
           userName: settings?.meta_user_name ?? null,
           pixelId: settings?.pixel_id ?? null,
           lastSyncAt: settings?.last_sync_at ?? null,

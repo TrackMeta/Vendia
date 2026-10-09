@@ -1,63 +1,71 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { after } from "next/server";
 import { decryptSecret } from "@/lib/crypto";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { IGV_RATE, toPen } from "@/modules/expenses/categories";
 import { addDays, limaToday } from "@/modules/metrics/date-range";
 import { fetchAdCreatives, fetchInsights, type InsightRow, MetaApiError } from "./marketing-api";
 
-export type SyncResult = { ok: true; rows: number; spend: number; since: string; until: string } | { ok: false; error: string };
+export type SyncResult =
+  | { ok: true; rows: number; spend: number; since: string; until: string; accounts: number; failed: { account: string; error: string }[] }
+  | { ok: false; error: string };
 
 /** Días que se vuelven a pedir: Meta ajusta las cifras de los últimos días. */
 export const DAILY_SYNC_DAYS = 3;
 export const FIRST_SYNC_DAYS = 30;
+/** Al abrir el panel, si la última lectura tiene más de esto, se vuelve a leer en segundo plano. */
+export const AUTO_SYNC_MINUTES = 60;
+const AUTO_SYNC_DAYS = 2;
+
+type Account = { ad_account_id: string; name: string | null; currency: string | null };
+type AccountResult = { ok: true; rows: number; spend: number } | { ok: false; error: string };
 
 /**
- * Trae de Meta las métricas por anuncio y por día, y:
+ * Una cuenta publicitaria: trae de Meta las métricas por anuncio y por día, y
  *  1. guarda campañas, conjuntos y anuncios (con su creatividad),
- *  2. guarda las métricas diarias con el gasto en soles,
- *  3. registra el gasto como «Meta Ads» por campaña y día (reemplaza al CSV en esos días),
- *     así el CPA real, el ROAS y la utilidad lo usan sin cambios.
+ *  2. guarda las métricas diarias con el gasto en soles (TC de la tienda si la cuenta es en dólares),
+ *  3. registra el gasto como «Meta Ads» por campaña y día (reemplaza al CSV en esos días).
+ * Solo toca los datos de esta cuenta: si otra falla, la suya queda intacta.
  */
-export async function syncMetaStore(admin: SupabaseClient, storeId: string, days = DAILY_SYNC_DAYS, f: typeof fetch = fetch): Promise<SyncResult> {
-  const until = limaToday();
-  const since = addDays(until, -(days - 1));
-
-  const [{ data: meta }, { data: settings }] = await Promise.all([
-    admin.from("store_meta_settings").select("capi_token_encrypted, ad_account_id, ad_account_currency").eq("store_id", storeId).maybeSingle(),
-    admin.from("store_settings").select("usd_rate, apply_igv").eq("store_id", storeId).maybeSingle(),
-  ]);
-  if (!meta?.ad_account_id || !meta.capi_token_encrypted) return { ok: false, error: "Meta no está conectado" };
-
-  const fail = async (error: string) => {
-    await admin.from("store_meta_settings").update({ last_sync_error: error.slice(0, 1000) }).eq("store_id", storeId);
-    return { ok: false as const, error };
-  };
-
-  let token: string;
-  try {
-    token = decryptSecret(meta.capi_token_encrypted);
-  } catch {
-    return fail("No se pudo descifrar el token de Meta");
-  }
-
-  const usd = meta.ad_account_currency === "USD";
+async function syncAccount(
+  admin: SupabaseClient,
+  storeId: string,
+  token: string,
+  account: Account,
+  since: string,
+  until: string,
+  settings: { usd_rate: number | null; apply_igv: boolean | null } | null,
+  f: typeof fetch,
+): Promise<AccountResult> {
+  const acct = account.ad_account_id;
+  const usd = account.currency === "USD";
   const rate = usd ? Number(settings?.usd_rate ?? 1) : 1;
   const igv = settings?.apply_igv ? IGV_RATE : 0;
 
   let rows: InsightRow[];
   try {
-    rows = await fetchInsights(token, meta.ad_account_id, since, until, f);
+    rows = await fetchInsights(token, acct, since, until, f);
   } catch (e) {
-    return fail(e instanceof MetaApiError ? e.message : "No se pudo leer las métricas de Meta");
+    return { ok: false, error: e instanceof MetaApiError ? e.message : "No se pudo leer las métricas de Meta" };
   }
 
   // 1. Campañas, conjuntos y anuncios
   const entities = new Map<string, Record<string, unknown>>();
   const now = new Date().toISOString();
   for (const r of rows) {
-    entities.set(r.campaignId, { store_id: storeId, id: r.campaignId, level: "campaign", name: r.campaignName, updated_at: now });
-    entities.set(r.adsetId, { store_id: storeId, id: r.adsetId, level: "adset", name: r.adsetName, campaign_id: r.campaignId, updated_at: now });
-    entities.set(r.adId, { store_id: storeId, id: r.adId, level: "ad", name: r.adName, campaign_id: r.campaignId, adset_id: r.adsetId, updated_at: now });
+    entities.set(r.campaignId, { store_id: storeId, id: r.campaignId, level: "campaign", name: r.campaignName, ad_account_id: acct, updated_at: now });
+    entities.set(r.adsetId, { store_id: storeId, id: r.adsetId, level: "adset", name: r.adsetName, campaign_id: r.campaignId, ad_account_id: acct, updated_at: now });
+    entities.set(r.adId, {
+      store_id: storeId,
+      id: r.adId,
+      level: "ad",
+      name: r.adName,
+      campaign_id: r.campaignId,
+      adset_id: r.adsetId,
+      ad_account_id: acct,
+      updated_at: now,
+    });
   }
   const adIds = [...new Set(rows.map((r) => r.adId))];
   try {
@@ -70,15 +78,16 @@ export async function syncMetaStore(admin: SupabaseClient, storeId: string, days
   }
   if (entities.size) {
     const { error } = await admin.from("meta_entities").upsert([...entities.values()], { onConflict: "store_id,id" });
-    if (error) return fail("No se pudieron guardar las campañas");
+    if (error) return { ok: false, error: "No se pudieron guardar las campañas" };
   }
 
-  // 2. Métricas diarias (se reemplaza el rango completo: si un anuncio quedó en 0, desaparece)
-  await admin.from("meta_insights_daily").delete().eq("store_id", storeId).gte("date", since).lte("date", until);
+  // 2. Métricas diarias de esta cuenta (se reemplaza el rango: si un anuncio quedó en 0, desaparece)
+  await admin.from("meta_insights_daily").delete().eq("store_id", storeId).eq("ad_account_id", acct).gte("date", since).lte("date", until);
   if (rows.length) {
     const { error } = await admin.from("meta_insights_daily").insert(
       rows.map((r) => ({
         store_id: storeId,
+        ad_account_id: acct,
         date: r.date,
         ad_id: r.adId,
         adset_id: r.adsetId,
@@ -92,7 +101,7 @@ export async function syncMetaStore(admin: SupabaseClient, storeId: string, days
         updated_at: now,
       })),
     );
-    if (error) return fail("No se pudieron guardar las métricas");
+    if (error) return { ok: false, error: "No se pudieron guardar las métricas" };
   }
 
   // 3. Gasto por campaña y día
@@ -104,6 +113,9 @@ export async function syncMetaStore(admin: SupabaseClient, storeId: string, days
     byDay.set(key, cur);
   }
   const campaignIds = [...new Set(rows.map((r) => r.campaignId))];
+  // Todas las campañas conocidas de esta cuenta (también las que hoy quedaron en 0)
+  const { data: known } = await admin.from("meta_entities").select("id").eq("store_id", storeId).eq("ad_account_id", acct).eq("level", "campaign");
+  const accountCampaigns = [...new Set([...campaignIds, ...(known ?? []).map((k) => k.id as string)])];
   // Producto de cada campaña: el último que el vendedor le asignó a mano o al importar
   const { data: mapped } = campaignIds.length
     ? await admin.from("expenses").select("campaign_id, product_id").eq("store_id", storeId).in("campaign_id", campaignIds).not("product_id", "is", null).order("created_at", { ascending: false })
@@ -111,7 +123,16 @@ export async function syncMetaStore(admin: SupabaseClient, storeId: string, days
   const productOf = new Map<string, string>();
   for (const m of mapped ?? []) if (!productOf.has(m.campaign_id)) productOf.set(m.campaign_id, m.product_id);
 
-  await admin.from("expenses").delete().eq("store_id", storeId).eq("source", "meta_sync").gte("expense_date", since).lte("expense_date", until);
+  if (accountCampaigns.length) {
+    await admin
+      .from("expenses")
+      .delete()
+      .eq("store_id", storeId)
+      .eq("source", "meta_sync")
+      .in("campaign_id", accountCampaigns)
+      .gte("expense_date", since)
+      .lte("expense_date", until);
+  }
   // El CSV de esos días queda reemplazado por la sincronización (evita contar dos veces)
   if (campaignIds.length) {
     await admin
@@ -143,12 +164,96 @@ export async function syncMetaStore(admin: SupabaseClient, storeId: string, days
     }));
   if (expenses.length) {
     const { error } = await admin.from("expenses").upsert(expenses, { onConflict: "store_id,import_key" });
-    if (error) return fail("No se pudo registrar el gasto de Meta");
+    if (error) return { ok: false, error: "No se pudo registrar el gasto de Meta" };
   }
 
-  await admin.from("store_meta_settings").update({ last_sync_at: now, last_sync_error: null }).eq("store_id", storeId);
   const spend = Math.round(rows.reduce((s, r) => s + toPen(r.spend, rate, igv), 0) * 100) / 100;
-  return { ok: true, rows: rows.length, spend, since, until };
+  return { ok: true, rows: rows.length, spend };
+}
+
+/**
+ * Sincroniza todas las cuentas publicitarias activas de la tienda (o solo `onlyAccounts`).
+ * Cada cuenta guarda su propio estado; la tienda queda «sincronizada» si al menos una funcionó.
+ */
+export async function syncMetaStore(
+  admin: SupabaseClient,
+  storeId: string,
+  days = DAILY_SYNC_DAYS,
+  f: typeof fetch = fetch,
+  onlyAccounts?: string[],
+): Promise<SyncResult> {
+  const until = limaToday();
+  const since = addDays(until, -(days - 1));
+
+  const [{ data: meta }, { data: settings }, { data: accountRows }] = await Promise.all([
+    admin.from("store_meta_settings").select("capi_token_encrypted, ad_account_id, ad_account_name, ad_account_currency").eq("store_id", storeId).maybeSingle(),
+    admin.from("store_settings").select("usd_rate, apply_igv").eq("store_id", storeId).maybeSingle(),
+    admin.from("store_meta_accounts").select("ad_account_id, name, currency").eq("store_id", storeId).eq("enabled", true),
+  ]);
+  if (!meta?.capi_token_encrypted) return { ok: false, error: "Meta no está conectado" };
+
+  // Compatibilidad: una tienda conectada antes de «varias cuentas» solo tiene su cuenta principal
+  let accounts: Account[] = (accountRows ?? []) as Account[];
+  if (!accounts.length && meta.ad_account_id) accounts = [{ ad_account_id: meta.ad_account_id, name: meta.ad_account_name, currency: meta.ad_account_currency }];
+  if (onlyAccounts) accounts = accounts.filter((a) => onlyAccounts.includes(a.ad_account_id));
+  if (!accounts.length) return { ok: false, error: "Meta no está conectado" };
+
+  const fail = async (error: string) => {
+    await admin.from("store_meta_settings").update({ last_sync_error: error.slice(0, 1000) }).eq("store_id", storeId);
+    return { ok: false as const, error };
+  };
+
+  let token: string;
+  try {
+    token = decryptSecret(meta.capi_token_encrypted);
+  } catch {
+    return fail("No se pudo descifrar el token de Meta");
+  }
+
+  let rows = 0;
+  let spend = 0;
+  const failed: { account: string; error: string }[] = [];
+  for (const account of accounts) {
+    const r = await syncAccount(admin, storeId, token, account, since, until, settings, f);
+    const now = new Date().toISOString();
+    if (r.ok) {
+      rows += r.rows;
+      spend += r.spend;
+      await admin.from("store_meta_accounts").update({ last_sync_at: now, last_sync_error: null }).eq("store_id", storeId).eq("ad_account_id", account.ad_account_id);
+    } else {
+      failed.push({ account: account.name ?? account.ad_account_id, error: r.error });
+      await admin
+        .from("store_meta_accounts")
+        .update({ last_sync_error: r.error.slice(0, 1000) })
+        .eq("store_id", storeId)
+        .eq("ad_account_id", account.ad_account_id);
+    }
+  }
+
+  if (failed.length === accounts.length) return fail(failed.map((x) => `${x.account}: ${x.error}`).join(" · "));
+  await admin
+    .from("store_meta_settings")
+    .update({ last_sync_at: new Date().toISOString(), last_sync_error: failed.length ? failed.map((x) => `${x.account}: ${x.error}`).join(" · ").slice(0, 1000) : null })
+    .eq("store_id", storeId);
+  return { ok: true, rows, spend: Math.round(spend * 100) / 100, since, until, accounts: accounts.length, failed };
+}
+
+/**
+ * Lectura automática al abrir el panel: si la última tiene más de AUTO_SYNC_MINUTES, se marca
+ * (para que dos pestañas no lean a la vez) y se leen hoy y ayer. Pensado para usarse con after().
+ */
+export async function syncMetaIfStale(admin: SupabaseClient, storeId: string): Promise<void> {
+  const cutoff = new Date(Date.now() - AUTO_SYNC_MINUTES * 60_000).toISOString();
+  const { data } = await admin
+    .from("store_meta_settings")
+    .update({ last_sync_at: new Date().toISOString() })
+    .eq("store_id", storeId)
+    .eq("sync_enabled", true)
+    .not("ad_account_id", "is", null)
+    .or(`last_sync_at.is.null,last_sync_at.lt.${cutoff}`)
+    .select("store_id");
+  if (!data?.length) return;
+  await syncMetaStore(admin, storeId, AUTO_SYNC_DAYS);
 }
 
 /** Sincroniza todas las tiendas conectadas (cron diario). */
@@ -160,4 +265,19 @@ export async function syncAllMetaStores(admin: SupabaseClient) {
     results.push({ storeId: s.store_id, ok: r.ok, ...(r.ok ? {} : { error: r.error }) });
   }
   return results;
+}
+
+/**
+ * Para las páginas que muestran gasto (Inicio, Rendimiento, Gastos): después de responder,
+ * si la última lectura de Meta tiene más de una hora, se vuelve a leer en segundo plano.
+ * No frena la página: el dato nuevo aparece en la siguiente visita.
+ */
+export function refreshMetaInBackground(storeId: string) {
+  after(async () => {
+    try {
+      await syncMetaIfStale(createAdminClient(), storeId);
+    } catch (e) {
+      console.error("Lectura automática de Meta", e);
+    }
+  });
 }

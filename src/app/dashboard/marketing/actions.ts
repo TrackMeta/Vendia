@@ -241,18 +241,70 @@ export async function getMetaPixels(token: string, adAccountId: string, business
   }
 }
 
-/** Paso 3: guarda la conexión (token cifrado), elige o crea el Pixel, activa las conversiones y hace la primera sincronización. */
-export async function connectMeta(input: { token: string; adAccountId: string; pixelId?: string; newPixelName?: string }): Promise<ActionResult> {
+const accountsSchema = z.array(accountSchema).min(1, "Elige al menos una cuenta publicitaria").max(25, "Máximo 25 cuentas por tienda");
+
+/**
+ * Cuentas elegidas que el usuario del sistema aún no tiene asignadas: Vendia se da acceso
+ * (requiere usuario del sistema Administrador). Devuelve las cuentas listas o el error para mostrar.
+ */
+async function ensureAccess(token: string, info: Awaited<ReturnType<typeof inspectToken>>, ids: string[]): Promise<{ ok: true; accounts: AdAccount[] } | { ok: false; error: string }> {
+  const chosen: AdAccount[] = [];
+  for (const id of ids) {
+    const account = info.accounts.find((x) => x.id === id);
+    if (!account) return { ok: false, error: `El token no tiene acceso a la cuenta ${id}` };
+    if (!account.assigned) {
+      if (!account.businessId) return { ok: false, error: `No sabemos a qué Business Manager pertenece ${account.name}` };
+      try {
+        await grantAdAccountAccess(token, account.id, account.businessId, info.userId);
+      } catch (e) {
+        const error = `Meta no dejó que Vendia se dé acceso a «${account.name}». Dale al usuario del sistema el rol de Administrador en tu Business Manager (o asígnale esa cuenta) y vuelve a intentar.`;
+        await logMetaFailure("asignar cuenta", e, error);
+        return { ok: false, error };
+      }
+    }
+    chosen.push({ ...account, assigned: true });
+  }
+  return { ok: true, accounts: chosen };
+}
+
+/** Deja en store_meta_accounts exactamente las cuentas elegidas (las quitadas dejan de sincronizarse; su historial queda). */
+async function saveAccounts(storeId: string, accounts: AdAccount[]) {
+  const admin = createAdminClient();
+  const ids = accounts.map((a) => a.id);
+  await admin
+    .from("store_meta_accounts")
+    .delete()
+    .eq("store_id", storeId)
+    .not("ad_account_id", "in", `(${ids.map((i) => `"${i}"`).join(",")})`);
+  const { error } = await admin.from("store_meta_accounts").upsert(
+    accounts.map((a) => ({ store_id: storeId, ad_account_id: a.id, name: a.name.slice(0, 200), currency: a.currency, enabled: true })),
+    { onConflict: "store_id,ad_account_id" },
+  );
+  return error;
+}
+
+/**
+ * Paso 3: guarda la conexión (token cifrado) con una o varias cuentas publicitarias. La primera es la
+ * principal: de ahí sale el Pixel. Activa las conversiones y trae los últimos días de todas las cuentas.
+ */
+export async function connectMeta(input: {
+  token: string;
+  adAccountIds: string[];
+  pixelId?: string;
+  newPixelName?: string;
+  businessId?: string;
+}): Promise<ActionResult> {
   const { store } = await requireOwner();
   const parsed = z
     .object({
       token: z.string().max(1000),
-      adAccountId: accountSchema,
+      adAccountIds: accountsSchema,
       pixelId: z
         .string()
         .regex(/^\d{5,20}$/)
         .optional(),
       newPixelName: z.string().trim().min(2).max(100).optional(),
+      businessId: businessIdSchema,
     })
     .safeParse(input);
   if (!parsed.success) return { ok: false, error: parsed.error.issues[0].message };
@@ -261,44 +313,52 @@ export async function connectMeta(input: { token: string; adAccountId: string; p
   const t = await resolveToken(store.id, d.token);
   if (!t.ok) return t;
   const token = t.token;
+  const ids = [...new Set(d.adAccountIds)];
 
-  let account: AdAccount | undefined;
+  let accounts: AdAccount[];
   let userName: string;
   let pixelId: string;
   try {
     // Se vuelve a validar en el servidor: no se confía en lo que manda el navegador
-    const info = await inspectToken(token);
+    const info = await inspectToken(token, fetch, d.businessId);
     userName = info.userName;
-    account = info.accounts.find((x) => x.id === d.adAccountId && x.assigned);
-    if (!account) return { ok: false, error: "Ese token no tiene acceso a esa cuenta publicitaria" };
+    const access = await ensureAccess(token, info, ids);
+    if (!access.ok) return access;
+    accounts = access.accounts;
     if (d.pixelId) {
-      const pixels = await listPixels(token, account.id);
-      if (!pixels.some((p) => p.id === d.pixelId)) return { ok: false, error: "Ese Pixel no pertenece a la cuenta elegida" };
+      const pixels = await listPixels(token, accounts[0].id);
+      if (!pixels.some((p) => p.id === d.pixelId)) return { ok: false, error: "Ese Pixel no pertenece a la cuenta principal" };
       pixelId = d.pixelId;
     } else {
-      pixelId = await createPixel(token, account.id, d.newPixelName ?? store.name);
+      pixelId = await createPixel(token, accounts[0].id, d.newPixelName ?? store.name);
     }
   } catch (e) {
-    return { ok: false, error: metaError(e) };
+    const error = metaError(e);
+    await logMetaFailure("conectar", e, error);
+    return { ok: false, error };
   }
 
+  const primary = accounts[0];
   const admin = createAdminClient();
-  const values = {
-    pixel_id: pixelId,
-    capi_token_encrypted: encryptSecret(token),
-    enabled: true,
-    ad_account_id: account.id,
-    ad_account_name: account.name.slice(0, 200),
-    ad_account_currency: account.currency,
-    meta_user_name: userName.slice(0, 200),
-    connected_at: new Date().toISOString(),
-    sync_enabled: true,
-    last_sync_error: null,
-  };
-  const { error } = await admin.from("store_meta_settings").upsert({ store_id: store.id, ...values }, { onConflict: "store_id" });
-  if (error) return { ok: false, error: "No se pudo guardar la conexión" };
-  if (account.currency === "PEN" || account.currency === "USD") {
-    await admin.from("store_settings").update({ ad_currency: account.currency }).eq("store_id", store.id);
+  const { error } = await admin.from("store_meta_settings").upsert(
+    {
+      store_id: store.id,
+      pixel_id: pixelId,
+      capi_token_encrypted: encryptSecret(token),
+      enabled: true,
+      ad_account_id: primary.id,
+      ad_account_name: primary.name.slice(0, 200),
+      ad_account_currency: primary.currency,
+      meta_user_name: userName.slice(0, 200),
+      connected_at: new Date().toISOString(),
+      sync_enabled: true,
+      last_sync_error: null,
+    },
+    { onConflict: "store_id" },
+  );
+  if (error || (await saveAccounts(store.id, accounts))) return { ok: false, error: "No se pudo guardar la conexión" };
+  if (primary.currency === "PEN" || primary.currency === "USD") {
+    await admin.from("store_settings").update({ ad_currency: primary.currency }).eq("store_id", store.id);
   }
 
   after(async () => {
@@ -310,7 +370,67 @@ export async function connectMeta(input: { token: string; adAccountId: string; p
   });
   await revalidateStoreLandings(store.id, store.slug);
   revalidatePath("/dashboard/marketing");
-  return { ok: true, message: `Conectado a ${account.name}. Estamos trayendo los últimos ${FIRST_SYNC_DAYS} días de tus campañas.` };
+  const names = accounts.length === 1 ? primary.name : `${accounts.length} cuentas`;
+  return { ok: true, message: `Conectado a ${names}. Estamos trayendo los últimos ${FIRST_SYNC_DAYS} días de tus campañas.` };
+}
+
+/**
+ * Agregar o quitar cuentas con el token ya guardado (sin volver a pegarlo). Las nuevas traen sus
+ * últimos días; las quitadas dejan de sincronizarse (su historial se conserva).
+ */
+export async function updateMetaAccounts(input: { adAccountIds: string[]; businessId?: string }): Promise<ActionResult> {
+  const { store } = await requireOwner();
+  const parsed = z.object({ adAccountIds: accountsSchema, businessId: businessIdSchema }).safeParse(input);
+  if (!parsed.success) return { ok: false, error: parsed.error.issues[0].message };
+  const t = await resolveToken(store.id, "");
+  if (!t.ok) return t;
+  const ids = [...new Set(parsed.data.adAccountIds)];
+
+  const admin = createAdminClient();
+  const [{ data: before }, { data: settings }] = await Promise.all([
+    admin.from("store_meta_accounts").select("ad_account_id").eq("store_id", store.id),
+    admin.from("store_meta_settings").select("ad_account_id").eq("store_id", store.id).maybeSingle(),
+  ]);
+
+  let accounts: AdAccount[];
+  try {
+    const info = await inspectToken(t.token, fetch, parsed.data.businessId);
+    const access = await ensureAccess(t.token, info, ids);
+    if (!access.ok) return access;
+    accounts = access.accounts;
+  } catch (e) {
+    const error = metaError(e);
+    await logMetaFailure("cambiar cuentas", e, error);
+    return { ok: false, error };
+  }
+  if (await saveAccounts(store.id, accounts)) return { ok: false, error: "No se pudieron guardar las cuentas" };
+
+  // Si se quitó la cuenta principal, la primera elegida pasa a serlo (el Pixel no cambia)
+  if (!ids.includes(settings?.ad_account_id ?? "")) {
+    const primary = accounts[0];
+    await admin
+      .from("store_meta_settings")
+      .update({ ad_account_id: primary.id, ad_account_name: primary.name.slice(0, 200), ad_account_currency: primary.currency, sync_enabled: true })
+      .eq("store_id", store.id);
+  }
+
+  // Antes de «varias cuentas» la principal no estaba en la tabla: no se cuenta como nueva
+  const known = new Set([...(before ?? []).map((b) => b.ad_account_id as string), settings?.ad_account_id ?? ""]);
+  const added = ids.filter((id) => !known.has(id));
+  if (added.length) {
+    after(async () => {
+      try {
+        await syncMetaStore(createAdminClient(), store.id, FIRST_SYNC_DAYS, fetch, added);
+      } catch (e) {
+        console.error("Sincronización de cuentas nuevas de Meta", e);
+      }
+    });
+  }
+  revalidatePath("/dashboard/marketing");
+  revalidatePath("/dashboard/rendimiento");
+  const removed = [...known].filter((id) => id && !ids.includes(id)).length;
+  const parts = [added.length ? `${added.length} agregada(s): trayendo sus últimos ${FIRST_SYNC_DAYS} días` : "", removed ? `${removed} quitada(s)` : ""].filter(Boolean);
+  return { ok: true, message: `Cuentas actualizadas${parts.length ? ` · ${parts.join(" · ")}` : ""}.` };
 }
 
 /** Botón «Actualizar ahora»: últimos 7 días. */
@@ -321,17 +441,21 @@ export async function syncMetaNow(): Promise<ActionResult> {
   revalidatePath("/dashboard/rendimiento");
   revalidatePath("/dashboard");
   if (!r.ok) return { ok: false, error: r.error };
-  return { ok: true, message: `Actualizado: ${r.rows} filas · gasto S/ ${r.spend.toFixed(2)} (últimos 7 días)` };
+  const cuentas = r.accounts === 1 ? "1 cuenta" : `${r.accounts} cuentas`;
+  const fallas = r.failed.length ? ` · no se pudo leer: ${r.failed.map((x) => x.account).join(", ")}` : "";
+  return { ok: true, message: `Actualizado (${cuentas}): gasto S/ ${r.spend.toFixed(2)} en los últimos 7 días${fallas}` };
 }
 
-/** Desconecta la cuenta publicitaria (deja de sincronizar). El Pixel y el historial se conservan. */
+/** Desconecta todas las cuentas publicitarias (deja de sincronizar). El Pixel y el historial se conservan. */
 export async function disconnectMeta(): Promise<ActionResult> {
   const { store } = await requireOwner();
-  const { error } = await createAdminClient()
+  const admin = createAdminClient();
+  const { error } = await admin
     .from("store_meta_settings")
     .update({ ad_account_id: null, ad_account_name: null, ad_account_currency: null, connected_at: null, sync_enabled: false })
     .eq("store_id", store.id);
   if (error) return { ok: false, error: "No se pudo desconectar" };
+  await admin.from("store_meta_accounts").delete().eq("store_id", store.id);
   revalidatePath("/dashboard/marketing");
   return { ok: true, message: "Cuenta publicitaria desconectada. Tus datos anteriores se conservan." };
 }

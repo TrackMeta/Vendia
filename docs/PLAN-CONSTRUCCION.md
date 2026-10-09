@@ -79,6 +79,7 @@
 - [x] **Buscador rápido** (Ctrl+K o «/»): pedidos por teléfono, nombre o número; clientes; secciones.
 - [x] **Inicio nuevo:** 4 cifras clave, gráfico de pedidos y ventas por día (requiere `actualizacion-bloque-8.sql`), detalle compacto y guía de bienvenida plegable.
 - [x] **Rendimiento y Analítica unidas** (pestañas Anuncios · Embudo · Zonas) y embudo rediseñado.
+- [x] **Varias cuentas publicitarias de Meta por tienda** (requiere `actualizacion-bloque-9.sql`) y lectura automática al abrir el panel.
 - [x] **Modo oscuro** del panel (Claro / Oscuro / Como el dispositivo, en el pie del menú). Las landings siempre en claro.
 
 ## Pendiente del dueño

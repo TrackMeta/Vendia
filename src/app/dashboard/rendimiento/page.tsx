@@ -9,6 +9,7 @@ import { formatDateTime } from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
 import { cn } from "@/lib/utils";
 import { computePerformanceRow } from "@/modules/metrics";
+import { refreshMetaInBackground } from "@/modules/meta/sync";
 import { type DateRange, resolveRange } from "@/modules/metrics/date-range";
 import { FunnelView } from "./funnel-view";
 import { type PerfRow, PerformanceTable } from "./performance-table";
@@ -39,7 +40,7 @@ const chip = (active: boolean) => cn("rounded-full border px-3 py-1 text-sm whit
 async function AdsView({ storeId, range, level, levelHref }: { storeId: string; range: DateRange; level: Level; levelHref: (l: Level) => string }) {
   const supabase = await createClient();
   const cfg = LEVELS[level];
-  const [{ data }, { data: meta }] = await Promise.all([
+  const [{ data }, { data: meta }, { data: accounts }] = await Promise.all([
     cfg.rpc
       ? supabase.rpc("get_performance", {
           p_store_id: storeId,
@@ -51,13 +52,23 @@ async function AdsView({ storeId, range, level, levelHref }: { storeId: string; 
         })
       : supabase.rpc("get_product_stats", { p_store_id: storeId, p_from: range.from, p_to: range.to, p_from_date: range.startDate, p_to_date: range.endDate }),
     supabase.from("store_meta_settings").select("ad_account_id, ad_account_name, last_sync_at").eq("store_id", storeId).maybeSingle(),
+    supabase.from("store_meta_accounts").select("ad_account_id, name").eq("store_id", storeId),
   ]);
+
+  // Con varias cuentas, cada campaña/anuncio dice de qué cuenta viene
+  const accountName = new Map((accounts ?? []).map((a) => [a.ad_account_id as string, (a.name as string | null) ?? a.ad_account_id]));
+  const entityAccount = new Map<string, string>();
+  const ids = ((data ?? []) as Record<string, unknown>[]).map((r) => String(r.key ?? "")).filter((k) => /^\d{5,30}$/.test(k));
+  if (accountName.size > 1 && ids.length && (cfg.rpc === "campaign" || cfg.rpc === "adset" || cfg.rpc === "ad")) {
+    const { data: ents } = await supabase.from("meta_entities").select("id, ad_account_id").eq("store_id", storeId).in("id", ids.slice(0, 500));
+    for (const e of ents ?? []) if (e.ad_account_id) entityAccount.set(e.id as string, accountName.get(e.ad_account_id as string) ?? (e.ad_account_id as string));
+  }
 
   const rows: PerfRow[] = ((data ?? []) as Record<string, unknown>[]).map((r) => ({
     ...computePerformanceRow(r),
     key: String(r.key ?? r.product_id),
     name: String(r.name ?? r.key ?? "—"),
-    subtitle: [r.adset_name, r.campaign_name].filter(Boolean).join(" · ") || null,
+    subtitle: [r.adset_name, r.campaign_name, entityAccount.get(String(r.key ?? ""))].filter(Boolean).join(" · ") || null,
     status: (r.status as string | null) ?? null,
     thumbnail: (r.thumbnail_url as string | null) ?? null,
   }));
@@ -77,7 +88,7 @@ async function AdsView({ storeId, range, level, levelHref }: { storeId: string; 
           {meta?.ad_account_id ? (
             <>
               <BrandIcon name="meta" className="size-4" />
-              {meta.ad_account_name} · sincronizado {meta.last_sync_at ? formatDateTime(meta.last_sync_at) : "—"}
+              {accountName.size > 1 ? `${accountName.size} cuentas` : meta.ad_account_name} · leído {meta.last_sync_at ? formatDateTime(meta.last_sync_at) : "—"}
             </>
           ) : (
             <>
@@ -123,6 +134,7 @@ export default async function PerformancePage({ searchParams }: PageProps<"/dash
   const rp = rangeParams(sp);
   const range = resolveRange(rp.rango, rp.desde, rp.hasta);
   const { store } = await requireOwner();
+  refreshMetaInBackground(store.id);
 
   const href = (params: Record<string, string | undefined>) => {
     const q = new URLSearchParams();

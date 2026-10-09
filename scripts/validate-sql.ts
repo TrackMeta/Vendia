@@ -417,6 +417,21 @@ async function main() {
 
   console.log("\n— Bloque 8: ventas por día —");
   await step("pedidos y ventas por día", `select public.get_daily_orders(${range}) -> 0`);
+
+  console.log("\n— Varias cuentas de Meta por tienda —");
+  await step(
+    "dos cuentas publicitarias",
+    `insert into public.store_meta_accounts (store_id, ad_account_id, name, currency) values
+      ('${storeId}', 'act_111111', 'Cuenta soles', 'PEN'), ('${storeId}', 'act_222222', 'Cuenta dólares', 'USD') returning name`,
+  );
+  await step("cuentas de la tienda", `select count(*) from public.store_meta_accounts where store_id = '${storeId}'`);
+  await step(
+    "métrica con su cuenta",
+    `insert into public.meta_insights_daily (store_id, date, ad_id, campaign_id, spend, spend_pen, ad_account_id)
+     values ('${storeId}', current_date - 2, '130202', '130200', 10, 37.5, 'act_222222') returning ad_account_id`,
+  );
+  await step("entidad con su cuenta", `update public.meta_entities set ad_account_id = 'act_111111' where store_id = '${storeId}' and id = '120200' returning ad_account_id`);
+  await step("rendimiento con varias cuentas", `select jsonb_array_length(public.get_performance(${range}, current_date - 3, current_date + 1, 'campaign'))`);
   console.log("\nOK — prueba de humo completa");
 }
 

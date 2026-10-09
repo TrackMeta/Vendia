@@ -12,6 +12,7 @@ import { formatDateTime, formatMoney, formatNumber, formatPercent, formatRatio }
 import { createClient } from "@/lib/supabase/server";
 import { computeDashboardMetrics, fromOrderStats } from "@/modules/metrics";
 import { buildSeries, type DailyRow } from "@/modules/metrics/daily";
+import { refreshMetaInBackground } from "@/modules/meta/sync";
 import { resolveRange } from "@/modules/metrics/date-range";
 import { parseSaleMode, REAL_SALE_MODES } from "@/modules/metrics/real-sale";
 import type { OrderStatus } from "@/modules/orders/state-machine";
@@ -46,6 +47,7 @@ export default async function DashboardHome({ searchParams }: PageProps<"/dashbo
   const rp = rangeParams(sp);
   const range = resolveRange(rp.rango, rp.desde, rp.hasta);
   const { store } = await requireOwner();
+  refreshMetaInBackground(store.id);
   const supabase = await createClient();
 
   const [{ data: stats }, { data: recent }, { data: expenseTotals }, { data: settings }, { data: daily, error: dailyError }] = await Promise.all([

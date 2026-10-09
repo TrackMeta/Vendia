@@ -1,5 +1,5 @@
 /**
- * Meta Marketing API (solo lectura de campañas + crear/leer Pixels).
+ * Meta Marketing API (solo lectura de campañas + crear/leer Pixels + darse acceso a cuentas del Business Manager).
  * Vendia NUNCA modifica campañas, conjuntos ni anuncios.
  * El token es de un usuario del sistema del Business Manager del vendedor
  * (ads_read + ads_management + business_management) y se guarda cifrado.
@@ -56,19 +56,63 @@ async function all<T>(f: Fetch, path: string, token: string, params: Record<stri
   return out;
 }
 
-export type AdAccount = { id: string; name: string; currency: string; status: number; business: string | null };
+/**
+ * assigned: el token ya tiene acceso. Si es false, la cuenta es de su Business Manager pero aún no
+ * está asignada al usuario del sistema: Vendia puede darse acceso (grantAdAccountAccess) con businessId.
+ */
+export type AdAccount = { id: string; name: string; currency: string; status: number; business: string | null; businessId: string | null; assigned: boolean };
 
-/** Valida el token y lista sus cuentas publicitarias (con moneda). */
-export async function inspectToken(token: string, f: Fetch = fetch): Promise<{ userName: string; accounts: AdAccount[] }> {
+type RawAccount = { id: string; name: string; currency: string; account_status: number; business?: { id?: string; name: string } };
+const ACCOUNT_FIELDS = "id,name,currency,account_status,business{id,name}";
+
+/** Valida el token y lista sus cuentas publicitarias: las asignadas y las de sus Business Managers que aún no lo están. */
+export async function inspectToken(token: string, f: Fetch = fetch): Promise<{ userId: string; userName: string; accounts: AdAccount[] }> {
   const me = await graph<{ id: string; name?: string }>(f, "me", token, { fields: "id,name" });
-  const accounts = await all<{ id: string; name: string; currency: string; account_status: number; business?: { name: string } }>(f, "me/adaccounts", token, {
-    fields: "id,name,currency,account_status,business{name}",
-    limit: "100",
-  });
-  return {
-    userName: me.name ?? me.id,
-    accounts: accounts.map((a) => ({ id: a.id, name: a.name, currency: a.currency, status: a.account_status, business: a.business?.name ?? null })),
-  };
+  const mine = await all<RawAccount>(f, "me/adaccounts", token, { fields: ACCOUNT_FIELDS, limit: "100" });
+  const accounts: AdAccount[] = mine.map((a) => ({
+    id: a.id,
+    name: a.name,
+    currency: a.currency,
+    status: a.account_status,
+    business: a.business?.name ?? null,
+    businessId: a.business?.id ?? null,
+    assigned: true,
+  }));
+
+  // Business Managers del token: los de sus cuentas y, si Meta lo permite, los que lista /me/businesses
+  const businesses = new Map<string, string>();
+  for (const a of accounts) if (a.businessId) businesses.set(a.businessId, a.business ?? "");
+  const listed = await all<{ id: string; name: string }>(f, "me/businesses", token, { fields: "id,name", limit: "50" }).catch(() => []);
+  for (const b of listed) businesses.set(b.id, b.name);
+
+  // Cuentas de esos Business Managers que el usuario del sistema todavía no tiene asignadas
+  const seen = new Set(accounts.map((a) => a.id));
+  for (const [businessId, businessName] of businesses) {
+    for (const edge of ["owned_ad_accounts", "client_ad_accounts"]) {
+      const rows = await all<RawAccount>(f, `${businessId}/${edge}`, token, { fields: ACCOUNT_FIELDS, limit: "100" }).catch(() => []);
+      for (const r of rows) {
+        if (seen.has(r.id)) continue;
+        seen.add(r.id);
+        accounts.push({ id: r.id, name: r.name, currency: r.currency, status: r.account_status, business: r.business?.name ?? businessName, businessId, assigned: false });
+      }
+    }
+  }
+  return { userId: me.id, userName: me.name ?? me.id, accounts };
+}
+
+/**
+ * Vendia se asigna una cuenta publicitaria del Business Manager (para que no tengas que ir a
+ * «Usuarios del sistema» cada vez que creas una cuenta). Meta solo lo permite si el usuario del
+ * sistema es Administrador del Business Manager.
+ */
+export async function grantAdAccountAccess(token: string, adAccountId: string, businessId: string, userId: string, f: Fetch = fetch): Promise<void> {
+  await graph<{ success?: boolean }>(
+    f,
+    `${adAccountId}/assigned_users`,
+    token,
+    { user: userId, business: businessId, tasks: JSON.stringify(["MANAGE", "ADVERTISE", "ANALYZE"]) },
+    "POST",
+  );
 }
 
 export type Pixel = { id: string; name: string; lastFired: string | null };

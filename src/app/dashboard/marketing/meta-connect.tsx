@@ -1,6 +1,6 @@
 "use client";
 
-import { CheckCircle2, KeyRound, Loader2, RefreshCw, Unplug } from "lucide-react";
+import { CheckCircle2, KeyRound, Loader2, RefreshCw, Search, Unplug } from "lucide-react";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import { SimpleBadge } from "@/components/dashboard/status-badge";
@@ -40,38 +40,59 @@ export function MetaConnect({ connection, storeName }: { connection: MetaConnect
   const [pixels, setPixels] = useState<Pixel[] | null>(null);
   const [pixelChoice, setPixelChoice] = useState<string>("new");
   const [pixelName, setPixelName] = useState(`Pixel ${storeName}`);
+  // true: cambiar de cuenta con el token ya guardado (no hay que volver a pegarlo)
+  const [useSaved, setUseSaved] = useState(false);
+  const tokenToSend = useSaved ? "" : token;
 
-  const check = () =>
+  const check = (saved = useSaved) =>
     startTransition(async () => {
-      const r = await checkMetaToken(token);
+      const r = await checkMetaToken(saved ? "" : token);
       if (!r.ok) {
         toast.error(r.error);
         return;
       }
       setUserName(r.userName);
       setAccounts(r.accounts);
+      setAccountId("");
       setPixels(null);
-      if (r.accounts.length === 1) loadPixels(r.accounts[0].id);
+      if (r.accounts.length === 1) loadPixels(r.accounts[0].id, saved);
     });
 
-  const loadPixels = (id: string) => {
+  const loadPixels = (id: string, saved = useSaved) => {
     setAccountId(id);
     setPixels(null);
     startTransition(async () => {
-      const r = await getMetaPixels(token, id);
+      const r = await getMetaPixels(saved ? "" : token, id);
       if (!r.ok) {
         toast.error(r.error);
         return;
+      }
+      if (r.granted) {
+        toast.success("Listo: Vendia se dio acceso a esta cuenta en tu Business Manager");
+        setAccounts((list) => list?.map((a) => (a.id === id ? { ...a, assigned: true } : a)) ?? null);
       }
       setPixels(r.pixels);
       setPixelChoice(r.pixels[0]?.id ?? "new");
     });
   };
 
+  const changeAccount = () => {
+    setUseSaved(true);
+    setEditing(true);
+    check(true);
+  };
+
+  const changeToken = () => {
+    setUseSaved(false);
+    setAccounts(null);
+    setPixels(null);
+    setEditing(true);
+  };
+
   const connect = () =>
     startTransition(async () => {
       const r = await connectMeta({
-        token,
+        token: tokenToSend,
         adAccountId: accountId,
         ...(pixelChoice === "new" ? { newPixelName: pixelName } : { pixelId: pixelChoice }),
       });
@@ -125,8 +146,11 @@ export function MetaConnect({ connection, storeName }: { connection: MetaConnect
               <Button onClick={() => run(syncMetaNow)} disabled={pending}>
                 {pending ? <Loader2 className="animate-spin" /> : <RefreshCw />} Actualizar ahora
               </Button>
-              <Button variant="outline" onClick={() => setEditing(true)} disabled={pending}>
-                <KeyRound /> Cambiar token o cuenta
+              <Button variant="outline" onClick={changeAccount} disabled={pending}>
+                <Search /> Cambiar cuenta publicitaria
+              </Button>
+              <Button variant="outline" onClick={changeToken} disabled={pending}>
+                <KeyRound /> Cambiar token
               </Button>
               <Button
                 variant="ghost"
@@ -141,37 +165,55 @@ export function MetaConnect({ connection, storeName }: { connection: MetaConnect
           </div>
         ) : (
           <div className="flex flex-col gap-4">
-            <ol className="list-decimal space-y-1 pl-5 text-sm text-muted-foreground">
-              <li>
-                En tu <b>Business Manager → Configuración del negocio → Usuarios del sistema</b>, crea un usuario del sistema (o usa uno existente).
-              </li>
-              <li>Asígnale tu <b>cuenta publicitaria</b> y tu <b>Pixel</b> (o tu dataset).</li>
-              <li>
-                «Generar nuevo token» con los permisos <b>ads_read</b>, <b>ads_management</b> y <b>business_management</b>. Cópialo y pégalo aquí.
-              </li>
-            </ol>
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="meta-token">Token del usuario del sistema</Label>
-              <div className="flex flex-wrap gap-2">
-                <Input
-                  id="meta-token"
-                  type="password"
-                  autoComplete="off"
-                  value={token}
-                  onChange={(e) => {
-                    setToken(e.target.value);
-                    setAccounts(null);
-                    setPixels(null);
-                  }}
-                  className="min-w-0 flex-1"
-                  placeholder="EAAB…"
-                />
-                <Button onClick={check} disabled={pending || token.trim().length < 50}>
-                  {pending && !accounts ? <Loader2 className="animate-spin" /> : null} Verificar
+            {useSaved ? (
+              <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+                <span>Con tu token guardado. ¿Creaste una cuenta nueva? Aparece aquí: al elegirla, Vendia se da acceso sola.</span>
+                <Button variant="outline" size="sm" onClick={() => check(true)} disabled={pending}>
+                  {pending && !accountId ? <Loader2 className="animate-spin" /> : <RefreshCw />} Buscar cuentas
+                </Button>
+                <Button variant="ghost" size="sm" onClick={() => setEditing(false)}>
+                  Cancelar
                 </Button>
               </div>
-              <p className="text-xs text-muted-foreground">Se guarda cifrado y nadie (ni tu equipo) lo puede volver a ver.</p>
-            </div>
+            ) : (
+              <>
+                <ol className="list-decimal space-y-1 pl-5 text-sm text-muted-foreground">
+                  <li>
+                    En <b>developers.facebook.com → Mis apps → Crear app</b>, crea una app de tipo <b>Negocio</b> unida a tu Business Manager (es gratis y no
+                    necesita revisión de Meta).
+                  </li>
+                  <li>
+                    En tu <b>Business Manager → Configuración del negocio → Usuarios del sistema</b>, crea un usuario del sistema con rol <b>Administrador</b> y
+                    asígnale la app. Como administrador, Vendia podrá darse acceso sola a las cuentas publicitarias que crees después.
+                  </li>
+                  <li>
+                    «Generar nuevo token»: elige tu app y marca <b>ads_read</b>, <b>ads_management</b> y <b>business_management</b>. Cópialo y pégalo aquí.
+                  </li>
+                </ol>
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor="meta-token">Token del usuario del sistema</Label>
+                  <div className="flex flex-wrap gap-2">
+                    <Input
+                      id="meta-token"
+                      type="password"
+                      autoComplete="off"
+                      value={token}
+                      onChange={(e) => {
+                        setToken(e.target.value);
+                        setAccounts(null);
+                        setPixels(null);
+                      }}
+                      className="min-w-0 flex-1"
+                      placeholder="EAAB…"
+                    />
+                    <Button onClick={() => check(false)} disabled={pending || token.trim().length < 50}>
+                      {pending && !accounts ? <Loader2 className="animate-spin" /> : null} Verificar
+                    </Button>
+                  </div>
+                  <p className="text-xs text-muted-foreground">Se guarda cifrado y nadie (ni tu equipo) lo puede volver a ver.</p>
+                </div>
+              </>
+            )}
 
             {accounts ? (
               <div className="flex flex-col gap-1.5">
@@ -185,6 +227,7 @@ export function MetaConnect({ connection, storeName }: { connection: MetaConnect
                       {a.name} · {a.currency}
                       {a.business ? ` · ${a.business}` : ""}
                       {a.status !== 1 ? " · (inactiva)" : ""}
+                      {a.assigned ? "" : " · nueva: Vendia se dará acceso"}
                     </option>
                   ))}
                 </select>

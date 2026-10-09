@@ -9,7 +9,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { buildServerEvent, META_GRAPH_VERSION } from "@/modules/meta/events";
 import { sendMarketingEvent } from "@/modules/meta/capi";
-import { type AdAccount, createPixel, inspectToken, listPixels, MetaApiError, type Pixel } from "@/modules/meta/marketing-api";
+import { type AdAccount, createPixel, grantAdAccountAccess, inspectToken, listPixels, MetaApiError, type Pixel } from "@/modules/meta/marketing-api";
 import { FIRST_SYNC_DAYS, syncMetaStore } from "@/modules/meta/sync";
 import { landingCacheTag } from "@/modules/landing/public-data";
 
@@ -137,32 +137,61 @@ const accountSchema = z.string().regex(/^act_\d{5,25}$/, "Cuenta publicitaria in
 
 const metaError = (e: unknown) => (e instanceof MetaApiError ? e.message : "No se pudo conectar con Meta");
 
+/** Token pegado ahora o, si viene vacío, el que ya está guardado (cifrado) para esta tienda. */
+async function resolveToken(storeId: string, token: string | undefined): Promise<{ ok: true; token: string } | { ok: false; error: string }> {
+  if (token?.trim()) {
+    const t = tokenSchema.safeParse(token);
+    return t.success ? { ok: true, token: t.data } : { ok: false, error: t.error.issues[0].message };
+  }
+  const { data } = await createAdminClient().from("store_meta_settings").select("capi_token_encrypted").eq("store_id", storeId).maybeSingle();
+  if (!data?.capi_token_encrypted) return { ok: false, error: "Primero pega el token de tu usuario del sistema" };
+  return { ok: true, token: decryptSecret(data.capi_token_encrypted) };
+}
+
 export type TokenCheck = { ok: true; userName: string; accounts: AdAccount[] } | { ok: false; error: string };
 
-/** Paso 1: valida el token y lista las cuentas publicitarias (el token no se guarda todavía). */
+/** Paso 1: valida el token y lista las cuentas publicitarias (el token no se guarda todavía). Vacío = token guardado. */
 export async function checkMetaToken(token: string): Promise<TokenCheck> {
-  await requireOwner();
-  const t = tokenSchema.safeParse(token);
-  if (!t.success) return { ok: false, error: t.error.issues[0].message };
+  const { store } = await requireOwner();
+  const t = await resolveToken(store.id, token);
+  if (!t.ok) return t;
   try {
-    const r = await inspectToken(t.data);
-    if (!r.accounts.length) {
-      return { ok: false, error: "El token no tiene cuentas publicitarias asignadas. En el Business Manager, asígnale tu cuenta al usuario del sistema." };
+    const { userName, accounts } = await inspectToken(t.token);
+    if (!accounts.length) {
+      return { ok: false, error: "El token no tiene cuentas publicitarias. En el Business Manager, dale al usuario del sistema el rol de Administrador o asígnale tu cuenta." };
     }
-    return { ok: true, ...r };
+    return { ok: true, userName, accounts };
   } catch (e) {
     return { ok: false, error: metaError(e) };
   }
 }
 
-/** Paso 2: Pixels de la cuenta elegida. */
-export async function getMetaPixels(token: string, adAccountId: string): Promise<{ ok: true; pixels: Pixel[] } | { ok: false; error: string }> {
-  await requireOwner();
-  const t = tokenSchema.safeParse(token);
+/** Paso 2: Pixels de la cuenta elegida. Si la cuenta es nueva (no asignada), Vendia primero se da acceso. */
+export async function getMetaPixels(token: string, adAccountId: string): Promise<{ ok: true; pixels: Pixel[]; granted: boolean } | { ok: false; error: string }> {
+  const { store } = await requireOwner();
+  const t = await resolveToken(store.id, token);
+  if (!t.ok) return t;
   const a = accountSchema.safeParse(adAccountId);
-  if (!t.success || !a.success) return { ok: false, error: "Datos inválidos" };
+  if (!a.success) return { ok: false, error: "Datos inválidos" };
+  let granted = false;
   try {
-    return { ok: true, pixels: await listPixels(t.data, a.data) };
+    const info = await inspectToken(t.token);
+    const account = info.accounts.find((x) => x.id === a.data);
+    if (!account) return { ok: false, error: "Ese token no tiene acceso a esa cuenta publicitaria" };
+    if (!account.assigned && account.businessId) {
+      try {
+        await grantAdAccountAccess(t.token, account.id, account.businessId, info.userId);
+        granted = true;
+      } catch (e) {
+        console.error("Meta: asignar cuenta al usuario del sistema", e);
+        return {
+          ok: false,
+          error:
+            "Meta no dejó que Vendia se dé acceso a esta cuenta. En el Business Manager, dale al usuario del sistema el rol de Administrador (o asígnale esta cuenta) y vuelve a intentar.",
+        };
+      }
+    }
+    return { ok: true, pixels: await listPixels(t.token, account.id), granted };
   } catch (e) {
     return { ok: false, error: metaError(e) };
   }
@@ -173,7 +202,7 @@ export async function connectMeta(input: { token: string; adAccountId: string; p
   const { store } = await requireOwner();
   const parsed = z
     .object({
-      token: tokenSchema,
+      token: z.string().max(1000),
       adAccountId: accountSchema,
       pixelId: z
         .string()
@@ -185,22 +214,25 @@ export async function connectMeta(input: { token: string; adAccountId: string; p
   if (!parsed.success) return { ok: false, error: parsed.error.issues[0].message };
   const d = parsed.data;
   if (!d.pixelId && !d.newPixelName) return { ok: false, error: "Elige un Pixel o crea uno nuevo" };
+  const t = await resolveToken(store.id, d.token);
+  if (!t.ok) return t;
+  const token = t.token;
 
   let account: AdAccount | undefined;
   let userName: string;
   let pixelId: string;
   try {
     // Se vuelve a validar en el servidor: no se confía en lo que manda el navegador
-    const info = await inspectToken(d.token);
+    const info = await inspectToken(token);
     userName = info.userName;
-    account = info.accounts.find((x) => x.id === d.adAccountId);
+    account = info.accounts.find((x) => x.id === d.adAccountId && x.assigned);
     if (!account) return { ok: false, error: "Ese token no tiene acceso a esa cuenta publicitaria" };
     if (d.pixelId) {
-      const pixels = await listPixels(d.token, account.id);
+      const pixels = await listPixels(token, account.id);
       if (!pixels.some((p) => p.id === d.pixelId)) return { ok: false, error: "Ese Pixel no pertenece a la cuenta elegida" };
       pixelId = d.pixelId;
     } else {
-      pixelId = await createPixel(d.token, account.id, d.newPixelName ?? store.name);
+      pixelId = await createPixel(token, account.id, d.newPixelName ?? store.name);
     }
   } catch (e) {
     return { ok: false, error: metaError(e) };
@@ -209,7 +241,7 @@ export async function connectMeta(input: { token: string; adAccountId: string; p
   const admin = createAdminClient();
   const values = {
     pixel_id: pixelId,
-    capi_token_encrypted: encryptSecret(d.token),
+    capi_token_encrypted: encryptSecret(token),
     enabled: true,
     ad_account_id: account.id,
     ad_account_name: account.name.slice(0, 200),

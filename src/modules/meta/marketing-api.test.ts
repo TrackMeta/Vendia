@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { fetchAdCreatives, fetchInsights, friendlyMetaError, inspectToken, leadsFrom, MetaApiError } from "./marketing-api";
+import { fetchAdCreatives, fetchInsights, friendlyMetaError, grantAdAccountAccess, inspectToken, leadsFrom, MetaApiError } from "./marketing-api";
 
 /** fetch simulado: responde según la ruta y guarda las URLs pedidas. */
 function mockFetch(routes: Record<string, unknown>) {
@@ -37,6 +37,41 @@ describe("Token y cuentas", () => {
       ["act_222", "USD", "Mi BM"],
     ]);
     expect(calls[0]).toContain("access_token=TOKEN");
+  });
+
+  it("muestra las cuentas del Business Manager que aún no están asignadas", async () => {
+    const { f } = mockFetch({
+      "/me?": { id: "999", name: "Vendia Sistema" },
+      "/me/adaccounts": { data: [{ id: "act_111", name: "Cuenta 1", currency: "PEN", account_status: 1, business: { id: "555", name: "Mi BM" } }] },
+      "/555/owned_ad_accounts": {
+        data: [
+          { id: "act_111", name: "Cuenta 1", currency: "PEN", account_status: 1 },
+          { id: "act_333", name: "Cuenta nueva", currency: "USD", account_status: 1 },
+        ],
+      },
+      "/555/client_ad_accounts": { data: [] },
+      // /me/businesses no simulado: Meta puede negarlo y no debe romper nada
+    });
+    const r = await inspectToken("TOKEN", f);
+    expect(r.userId).toBe("999");
+    expect(r.accounts.map((a) => [a.id, a.assigned, a.businessId])).toEqual([
+      ["act_111", true, "555"],
+      ["act_333", false, "555"],
+    ]);
+  });
+
+  it("pide acceso a una cuenta para el usuario del sistema", async () => {
+    const calls: { url: string; body: string }[] = [];
+    const f = (async (input: RequestInfo | URL, init?: RequestInit) => {
+      calls.push({ url: String(input), body: String(init?.body ?? "") });
+      return new Response(JSON.stringify({ success: true }), { status: 200 });
+    }) as typeof fetch;
+    await grantAdAccountAccess("TOKEN", "act_333", "555", "999", f);
+    expect(calls[0].url).toContain("/act_333/assigned_users");
+    const body = new URLSearchParams(calls[0].body);
+    expect(body.get("user")).toBe("999");
+    expect(body.get("business")).toBe("555");
+    expect(JSON.parse(body.get("tasks")!)).toEqual(["MANAGE", "ADVERTISE", "ANALYZE"]);
   });
 
   it("explica los errores de token y permisos", async () => {

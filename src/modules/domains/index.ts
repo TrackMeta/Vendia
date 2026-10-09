@@ -60,6 +60,7 @@ export function isPassthroughPath(pathname: string): boolean {
     pathname.startsWith("/_next/") ||
     pathname.startsWith("/p/") ||
     pathname.startsWith("/couriers/") ||
+    pathname.startsWith("/icons/") ||
     /\.[a-z0-9]{2,5}$/i.test(pathname)
   );
 }

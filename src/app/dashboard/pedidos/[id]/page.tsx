@@ -1,4 +1,4 @@
-import { AlertTriangle, ArrowLeft, MessageCircle } from "lucide-react";
+import { AlertTriangle, ArrowLeft, MessageCircle, Phone } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -147,6 +147,20 @@ export default async function OrderDetailPage({ params }: PageProps<"/dashboard/
   return (
     <div className="flex flex-col gap-6">
       <LiveRefresh />
+      {/* Celular: llamar y WhatsApp siempre a mano, sobre la barra de navegación */}
+      <div className="fixed inset-x-0 bottom-[calc(3.6rem+env(safe-area-inset-bottom))] z-20 flex gap-2 border-t bg-background/95 p-2 backdrop-blur md:hidden">
+        <a href={`tel:+${order.customer_phone}`} className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-foreground py-3 text-sm font-semibold text-background">
+          <Phone className="size-4" /> Llamar
+        </a>
+        <a
+          href={`https://wa.me/${order.customer_phone}?text=${waText}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-[#25D366] py-3 text-sm font-semibold text-white"
+        >
+          <MessageCircle className="size-4" /> WhatsApp
+        </a>
+      </div>
       <div className="flex flex-col gap-3">
         <Link href="/dashboard/pedidos" className="flex w-fit items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
           <ArrowLeft className="size-4" /> Pedidos
@@ -257,7 +271,7 @@ export default async function OrderDetailPage({ params }: PageProps<"/dashboard/
                     {i.offer_name ? <span className="text-muted-foreground"> · {i.offer_name}</span> : null}
                     <span className="text-muted-foreground"> · {i.quantity} u.</span>
                   </span>
-                  <span>{formatMoney(i.line_price)}</span>
+                  <span className="shrink-0 whitespace-nowrap tabular-nums">{formatMoney(i.line_price)}</span>
                 </div>
               ))}
               {hasVariants && mainItem ? (
@@ -430,6 +444,7 @@ export default async function OrderDetailPage({ params }: PageProps<"/dashboard/
           </Card>
         </div>
       </div>
+      <div className="h-16 md:hidden" aria-hidden />
     </div>
   );
 }

@@ -1,6 +1,6 @@
-import { CheckCircle2, Circle } from "lucide-react";
+import { ArrowRight, CheckCircle2, Circle } from "lucide-react";
 import Link from "next/link";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { createClient } from "@/lib/supabase/server";
 import { DismissWelcome } from "./welcome-dismiss";
 
@@ -47,40 +47,57 @@ export async function WelcomeChecklist({ storeId }: { storeId: string }) {
   if (required.every((s) => s.done)) return null;
   const next = steps.find((s) => !s.done);
 
+  const pct = Math.round((done / steps.length) * 100);
+
+  // Compacta: una franja con el progreso y el siguiente paso; la lista completa se despliega a pedido
   return (
-    <Card className="border-primary/30">
-      <CardHeader className="flex flex-row items-start justify-between gap-3">
-        <div className="flex flex-col gap-1.5">
-          <CardTitle>Bienvenido a Vendia 👋</CardTitle>
-          <CardDescription>
-            {done} de {steps.length} pasos listos. {next ? `Sigue con: ${next.title}.` : ""}
-          </CardDescription>
-        </div>
-        <DismissWelcome />
-      </CardHeader>
+    <Card size="sm">
       <CardContent className="flex flex-col gap-3">
-        <div className="h-1.5 overflow-hidden rounded-full bg-muted">
-          <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${Math.round((done / steps.length) * 100)}%` }} />
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+          <div className="flex min-w-48 flex-1 flex-col gap-1.5">
+            <p className="text-sm">
+              <span className="font-medium">Configura tu tienda</span>
+              <span className="text-muted-foreground">
+                {" "}
+                · {done} de {steps.length} pasos
+              </span>
+            </p>
+            <div className="h-1.5 overflow-hidden rounded-full bg-muted">
+              <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${pct}%` }} />
+            </div>
+          </div>
+          {next ? (
+            <Link href={next.href} className="flex items-center gap-1.5 rounded-lg bg-foreground px-3 py-1.5 text-sm font-medium text-background hover:bg-foreground/85">
+              Siguiente: {next.title} <ArrowRight className="size-3.5" />
+            </Link>
+          ) : null}
+          <DismissWelcome />
         </div>
-        <ol className="grid gap-2 sm:grid-cols-2">
-          {steps.map((s) => (
-            <li key={s.key}>
-              <Link href={s.href} className={`flex gap-2.5 rounded-lg border p-2.5 hover:bg-muted/50 ${s.key === next?.key ? "border-primary/50 bg-primary/5" : ""}`}>
-                {s.done ? <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-emerald-600" /> : <Circle className="mt-0.5 size-4 shrink-0 text-muted-foreground" />}
-                <span className="flex flex-col">
-                  <span className={`text-sm font-medium ${s.done ? "text-muted-foreground line-through" : ""}`}>
-                    {s.title}
-                    {s.optional ? <span className="font-normal text-muted-foreground"> (opcional)</span> : null}
+        <details className="group">
+          <summary className="w-fit cursor-pointer list-none text-xs text-muted-foreground hover:text-foreground">
+            <span className="group-open:hidden">Ver todos los pasos</span>
+            <span className="hidden group-open:inline">Ocultar pasos</span>
+          </summary>
+          <ol className="mt-3 grid gap-2 sm:grid-cols-2">
+            {steps.map((s) => (
+              <li key={s.key}>
+                <Link href={s.href} className={`flex gap-2.5 rounded-lg border p-2.5 hover:bg-muted/50 ${s.key === next?.key ? "border-primary/50 bg-primary/5" : ""}`}>
+                  {s.done ? <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-emerald-600" /> : <Circle className="mt-0.5 size-4 shrink-0 text-muted-foreground" />}
+                  <span className="flex flex-col">
+                    <span className={`text-sm font-medium ${s.done ? "text-muted-foreground line-through" : ""}`}>
+                      {s.title}
+                      {s.optional ? <span className="font-normal text-muted-foreground"> (opcional)</span> : null}
+                    </span>
+                    <span className="text-xs text-muted-foreground">{s.text}</span>
                   </span>
-                  <span className="text-xs text-muted-foreground">{s.text}</span>
-                </span>
-              </Link>
-            </li>
-          ))}
-        </ol>
-        <Link href="/dashboard/ayuda" className="w-fit text-sm text-primary hover:underline">
-          ¿Dudas? Mira la guía de ayuda
-        </Link>
+                </Link>
+              </li>
+            ))}
+          </ol>
+          <Link href="/dashboard/ayuda" className="mt-3 inline-block text-sm text-primary hover:underline">
+            ¿Dudas? Mira la guía de ayuda
+          </Link>
+        </details>
       </CardContent>
     </Card>
   );

@@ -9,7 +9,7 @@ import { formatDateTime, one } from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
 import { NewLandingDialog } from "./new-landing-dialog";
 
-export const metadata: Metadata = { title: "Landing Pages" };
+export const metadata: Metadata = { title: "Landings" };
 
 export default async function LandingsPage({ searchParams }: PageProps<"/dashboard/landings">) {
   const { nuevo } = await searchParams;
@@ -36,7 +36,7 @@ export default async function LandingsPage({ searchParams }: PageProps<"/dashboa
   return (
     <div>
       <PageHeader
-        title="Landing Pages"
+        title="Landings"
         description="Imágenes + botones + botón fijo + formulario emergente. Edita, publica y pega el link en Meta Ads."
         actions={dialog}
       />
@@ -48,7 +48,7 @@ export default async function LandingsPage({ searchParams }: PageProps<"/dashboa
           action={products?.length ? dialog : <Link href="/dashboard/productos/nuevo" className="text-sm font-medium underline">Crear producto</Link>}
         />
       ) : (
-        <div className="rounded-xl border">
+        <div className="overflow-hidden rounded-xl bg-card ring-1 ring-foreground/10">
           <Table>
             <TableHeader>
               <TableRow>

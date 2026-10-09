@@ -40,19 +40,23 @@ export const ORDER_STATUS_LABELS: Record<OrderStatus, string> = {
   returned: "Devuelto",
 };
 
-export type StatusTone = "neutral" | "info" | "progress" | "success" | "danger";
+/**
+ * attention: falta que alguien actúe (confirmar) · progress: confirmado/preparando · transit: en camino
+ * success: venta · cancelled: anulado (normal en contraentrega, no es alarma) · danger: pérdida (no entregado/devuelto)
+ */
+export type StatusTone = "neutral" | "info" | "attention" | "progress" | "transit" | "success" | "cancelled" | "danger";
 
 export const ORDER_STATUS_TONE: Record<OrderStatus, StatusTone> = {
-  new: "info",
-  pending_confirmation: "info",
+  new: "attention",
+  pending_confirmation: "attention",
   confirmed: "progress",
   preparing: "progress",
-  shipped: "progress",
-  out_for_delivery: "progress",
-  at_agency: "progress",
+  shipped: "transit",
+  out_for_delivery: "transit",
+  at_agency: "transit",
   delivered: "success",
   collected: "success",
-  cancelled: "danger",
+  cancelled: "cancelled",
   failed_delivery: "danger",
   returned: "danger",
 };

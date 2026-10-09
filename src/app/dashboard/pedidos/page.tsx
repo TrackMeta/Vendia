@@ -156,10 +156,56 @@ export default async function OrdersPage({ searchParams }: PageProps<"/dashboard
           icon={ShoppingBag}
           title={total ? "No hay pedidos con este filtro" : "Aún no tienes pedidos"}
           description={total ? "Prueba con otro estado, zona o búsqueda." : "Publica una landing y comparte su link en tus anuncios, o registra un pedido a mano."}
+          action={
+            total ? (
+              <Link href="/dashboard/pedidos" className="text-sm font-medium text-primary hover:underline">
+                Quitar filtros
+              </Link>
+            ) : (
+              <Link href="/dashboard/pedidos/nuevo" className="rounded-lg bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground hover:bg-primary/85">
+                Crear pedido manual
+              </Link>
+            )
+          }
         />
       ) : (
         <>
-          <div className="rounded-xl border">
+          {/* Celular: tarjetas (la tabla se corta en pantallas angostas) */}
+          <ul className="flex flex-col gap-2 md:hidden">
+            {orders.map((o) => {
+              const item = (o.order_items as { product_name: string; offer_name: string | null; quantity: number }[])[0];
+              const risky = o.is_possible_duplicate || ((o.risk_reasons as string[] | null) ?? []).some((r) => r !== "posible_duplicado");
+              return (
+                <li key={o.id}>
+                  <Link href={`/dashboard/pedidos/${o.id}`} className="flex flex-col gap-1.5 rounded-xl bg-card p-3 ring-1 ring-foreground/10 active:bg-muted/60">
+                    <span className="flex items-center justify-between gap-2">
+                      <span className="flex items-center gap-1 text-sm font-semibold">
+                        #{o.order_number}
+                        {risky ? <AlertTriangle className="size-3.5 text-amber-500" aria-label="Revisar: posible duplicado o riesgo" /> : null}
+                      </span>
+                      <OrderStatusBadge status={o.status as OrderStatus} />
+                    </span>
+                    <span className="flex items-baseline justify-between gap-2">
+                      <span className="truncate font-medium">{o.customer_name}</span>
+                      <span className="shrink-0 font-semibold tabular-nums">{formatMoney(o.total)}</span>
+                    </span>
+                    <span className="truncate text-xs text-muted-foreground">
+                      {displayPeruPhone(o.customer_phone)} · {item?.product_name}
+                      {item?.quantity ? ` (${item.quantity} u.)` : ""}
+                    </span>
+                    <span className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
+                      <span className="flex min-w-0 items-center gap-1.5">
+                        <ZoneBadge zone={o.zone as "lima" | "provincia"} />
+                        <span className="truncate">{o.district_name}</span>
+                      </span>
+                      <span className="shrink-0">{formatDateTime(o.created_at)}</span>
+                    </span>
+                  </Link>
+                </li>
+              );
+            })}
+          </ul>
+          <div className="hidden overflow-hidden rounded-xl bg-card ring-1 ring-foreground/10 md:block">
             <Table>
               <TableHeader>
                 <TableRow>

@@ -45,7 +45,7 @@ export default async function ProductsPage() {
           }
         />
       ) : (
-        <div className="rounded-xl border">
+        <div className="overflow-hidden rounded-xl bg-card ring-1 ring-foreground/10">
           <Table>
             <TableHeader>
               <TableRow>

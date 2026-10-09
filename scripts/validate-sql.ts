@@ -414,6 +414,9 @@ async function main() {
   await step("utilidad con embalaje", `select public.get_order_stats(${range}) -> 'shipping_cost'`);
   await step("rendimiento con embalaje", `select jsonb_array_length(public.get_performance(${range}, current_date - 1, current_date + 1, 'page'))`);
   await step("equipo con color", `select public.get_store_team('${storeId}') -> 0 -> 'color'`);
+
+  console.log("\n— Bloque 8: ventas por día —");
+  await step("pedidos y ventas por día", `select public.get_daily_orders(${range}) -> 0`);
   console.log("\nOK — prueba de humo completa");
 }
 

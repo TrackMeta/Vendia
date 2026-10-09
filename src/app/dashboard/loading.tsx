@@ -16,7 +16,7 @@ export default function DashboardLoading() {
           <Skeleton key={i} className="h-20 rounded-xl" />
         ))}
       </div>
-      <div className="flex flex-col gap-2 rounded-xl border p-4">
+      <div className="flex flex-col gap-2 rounded-xl bg-card p-4 ring-1 ring-foreground/10">
         {Array.from({ length: 6 }, (_, i) => (
           <Skeleton key={i} className="h-9 w-full" />
         ))}

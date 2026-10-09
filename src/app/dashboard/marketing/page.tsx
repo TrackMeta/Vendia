@@ -82,7 +82,7 @@ export default async function MarketingPage() {
         </CardContent>
       </Card>
 
-      <details className="group rounded-xl border p-4 [&_[data-slot=card]]:border-0 [&_[data-slot=card]]:shadow-none">
+      <details className="group rounded-xl bg-card p-4 ring-1 ring-foreground/10 [&_[data-slot=card]]:border-0 [&_[data-slot=card]]:shadow-none">
         <summary className="cursor-pointer text-sm font-medium">Configuración manual del Pixel y Conversions API (avanzado)</summary>
         <p className="mt-1 text-xs text-muted-foreground">Solo si no usas «Conectar Meta». Aquí también activas o pausas el envío de Lead y Purchase.</p>
         <MetaSettingsForm

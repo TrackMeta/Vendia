@@ -74,7 +74,7 @@ export default async function AbandonedPage({ searchParams }: PageProps<"/dashbo
             const message = `Hola${firstName ? ` ${firstName}` : ""}, te escribimos de ${store.name}. Vimos que te interesó ${r.offer_name ? `«${r.offer_name}» de ` : ""}${landingTitle ?? "nuestro producto"}. ¿Te ayudamos a completar tu pedido? Pagas al recibir.`;
             const st = STATUS[r.status as keyof typeof STATUS];
             return (
-              <div key={r.id} className="flex flex-wrap items-center gap-3 rounded-xl border p-3">
+              <div key={r.id} className="flex flex-wrap items-center gap-3 rounded-xl bg-card p-3 ring-1 ring-foreground/10">
                 <div className="flex min-w-0 flex-1 flex-col gap-0.5">
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="font-semibold">{r.customer_name || "Sin nombre"}</span>

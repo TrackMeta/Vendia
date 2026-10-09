@@ -1,6 +1,6 @@
 "use client";
 
-import { AlertTriangle, Download, FileSpreadsheet, MapPin, Printer, UserCheck } from "lucide-react";
+import { AlertTriangle, Building2, Bus, Download, FileSpreadsheet, MapPin, Printer, UserCheck } from "lucide-react";
 import Link from "next/link";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
@@ -78,8 +78,22 @@ const BULK_ACTIONS: Record<string, BulkAction[]> = {
   ],
 };
 
+/** Mensaje de bandeja vacía: dice qué significa y qué viene después. */
+const EMPTY_TEXT: Record<string, { title: string; text: string }> = {
+  confirmar: { title: "Todo confirmado", text: "Cuando entre un pedido nuevo aparecerá aquí para llamar o escribir por WhatsApp al cliente." },
+  despachar: { title: "Nada por despachar", text: "Los pedidos que confirmes pasan aquí para descargar la planilla del courier e imprimir rótulos." },
+  "en-camino": { title: "Nada en camino", text: "Aquí verás los pedidos enviados hasta que se entreguen o lleguen a la agencia." },
+};
+
+/** Zona en gris con ícono: no compite con los colores de estado del pedido. */
 export function ZoneBadge({ zone }: { zone: "lima" | "provincia" }) {
-  return <SimpleBadge tone={zone === "lima" ? "info" : "progress"}>{zone === "lima" ? "Lima" : "Provincia"}</SimpleBadge>;
+  const Icon = zone === "lima" ? Building2 : Bus;
+  return (
+    <span className="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-medium whitespace-nowrap text-muted-foreground">
+      <Icon className="size-3" aria-hidden />
+      {zone === "lima" ? "Lima" : "Provincia"}
+    </span>
+  );
 }
 
 export function LogisticsTable({
@@ -133,7 +147,12 @@ export function LogisticsTable({
     });
 
   if (!orders.length) {
-    return <p className="rounded-xl border border-dashed px-6 py-12 text-center text-sm text-muted-foreground">No hay pedidos en esta bandeja.</p>;
+    return (
+      <div className="flex flex-col items-center gap-1 rounded-xl border border-dashed px-6 py-12 text-center">
+        <p className="font-medium">{EMPTY_TEXT[view]?.title ?? "No hay pedidos en esta bandeja"}</p>
+        <p className="max-w-sm text-sm text-muted-foreground">{EMPTY_TEXT[view]?.text ?? "Prueba con otra zona o quita el filtro «Mis pendientes»."}</p>
+      </div>
+    );
   }
 
   const selectedIds = [...selected];
@@ -220,7 +239,7 @@ export function LogisticsTable({
           const product = item ? itemLabel(item) : "";
           const risks = (o.risk_reasons ?? []).filter((r) => r !== "posible_duplicado");
           return (
-            <div key={o.id} className="flex gap-3 rounded-xl border p-3">
+            <div key={o.id} className="flex gap-3 rounded-xl bg-card p-3 ring-1 ring-foreground/10">
               <input
                 type="checkbox"
                 checked={selected.has(o.id)}

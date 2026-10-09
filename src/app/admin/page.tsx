@@ -28,7 +28,7 @@ type Errors = {
 
 function Stat({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-xl border p-4">
+    <div className="rounded-xl bg-card p-4 ring-1 ring-foreground/10">
       <p className="text-xs text-muted-foreground">{label}</p>
       <p className="text-2xl font-semibold tabular-nums">{value}</p>
     </div>
@@ -270,7 +270,7 @@ export default async function AdminPage({ searchParams }: PageProps<"/admin">) {
         <Stat label="Tiendas" value={`${formatNumber(o.stores)}${o.stores_blocked ? ` (${o.stores_blocked} bloq.)` : ""}`} />
         <Stat label="Landings publicadas" value={formatNumber(o.landings_published)} />
         <Stat label="Pedidos (30 días)" value={`${formatNumber(o.orders_30d)} / ${formatNumber(o.orders)}`} />
-        <Stat label="Revenue entregado" value={formatMoney(o.revenue)} />
+        <Stat label="Ingreso entregado" value={formatMoney(o.revenue)} />
         <Stat label="Entregados" value={formatNumber(o.delivered)} />
         <Stat label="Eventos Meta fallidos" value={formatNumber(o.meta_events_failed)} />
         <Stat label="Errores integraciones (7 d)" value={formatNumber(o.integration_errors_7d)} />
@@ -287,7 +287,7 @@ export default async function AdminPage({ searchParams }: PageProps<"/admin">) {
           </Link>
         ))}
       </div>
-      <div className="overflow-x-auto rounded-xl border">{body}</div>
+      <div className="overflow-x-auto rounded-xl bg-card ring-1 ring-foreground/10">{body}</div>
     </main>
   );
 }

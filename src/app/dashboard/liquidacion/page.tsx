@@ -52,12 +52,12 @@ export default async function SettlementPage() {
     <div className="flex max-w-4xl flex-col gap-6">
       <PageHeader title="Liquidación" description="Cuánto te debe cada courier de Lima (lo que cobró menos su envío) y desde cuándo. Al liquidar, los pedidos pasan a «Cobrado»." />
       <div className="grid gap-3 sm:grid-cols-2">
-        <div className="rounded-xl border border-primary/40 bg-primary/5 p-4">
+        <div className="dark rounded-xl bg-[#202124] p-4 text-white">
           <p className="text-xs text-muted-foreground">Lima: por recibir de los couriers</p>
           <p className="text-2xl font-semibold tabular-nums">{formatMoney(limaNet)}</p>
           <p className="text-xs text-muted-foreground">{rows.length} entrega(s) sin liquidar</p>
         </div>
-        <div className="rounded-xl border p-4">
+        <div className="rounded-xl bg-card p-4 ring-1 ring-foreground/10">
           <p className="text-xs text-muted-foreground">Provincia: saldo por cobrar en agencia</p>
           <p className="text-2xl font-semibold tabular-nums">{formatMoney(provinceDue)}</p>
           <p className="text-xs text-muted-foreground">{atAgency?.length ?? 0} pedido(s) esperando que el cliente pague y recoja</p>

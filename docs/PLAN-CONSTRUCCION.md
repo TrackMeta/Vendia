@@ -70,6 +70,16 @@
 - [x] **Costo de embalaje** por unidad en la utilidad.
 - [x] **Instalar en el celular (PWA).**
 
+## Bloque 8: Diseño y velocidad
+- [x] **Velocidad:** Vercel en São Paulo (junto a la base), sesión verificada sin consultar, esqueleto al instante, precarga al pasar el mouse y caché de 30 s.
+- [x] **Paleta Vendia:** rojo #E53935 (acciones e identidad), grafito #202124 (menú), blanco y gris claro. Estados con su propio color (cancelado en gris).
+- [x] **Logo y favicon** provisionales (V blanca sobre rojo) en vez del logo de Next.js.
+- [x] **Menú agrupado** (Operación, Ventas, Números, Ajustes) y todo en español.
+- [x] **Celular:** barra inferior, pedidos como tarjetas, Llamar/WhatsApp fijos en el detalle.
+- [x] **Buscador rápido** (Ctrl+K o «/»): pedidos por teléfono, nombre o número; clientes; secciones.
+- [x] **Inicio nuevo:** 4 cifras clave, gráfico de pedidos y ventas por día (requiere `actualizacion-bloque-8.sql`), detalle compacto y guía de bienvenida plegable.
+- [ ] Modo oscuro: los colores ya están definidos; falta el interruptor.
+
 ## Pendiente del dueño
 - [x] Enviar **Kontrol** para analizarlo (ver docs/KONTROL.md).
 - [ ] Restablecer la **contraseña de la base de datos** (opcional; sin ella, el SQL se pega a mano).

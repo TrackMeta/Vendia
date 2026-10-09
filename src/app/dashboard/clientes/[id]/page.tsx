@@ -67,7 +67,7 @@ export default async function CustomerPage({ params }: PageProps<"/dashboard/cli
         <Stat label="Entregados" value={customer.delivered_count} />
         <Stat label="Cancelados" value={customer.cancelled_count} />
         <Stat label="No entregados" value={customer.failed_count} />
-        <Stat label="Revenue" value={formatMoney(customer.revenue)} />
+        <Stat label="Ingreso" value={formatMoney(customer.revenue)} />
       </div>
 
       <Card>

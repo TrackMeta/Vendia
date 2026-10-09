@@ -41,7 +41,7 @@ export default async function CustomersPage({ searchParams }: PageProps<"/dashbo
       {!customers?.length ? (
         <EmptyState icon={Users} title={q ? "Sin resultados" : "Aún no tienes clientes"} description="Los clientes se crean automáticamente con cada pedido." />
       ) : (
-        <div className="rounded-xl border">
+        <div className="overflow-hidden rounded-xl bg-card ring-1 ring-foreground/10">
           <Table>
             <TableHeader>
               <TableRow>
@@ -50,7 +50,7 @@ export default async function CustomersPage({ searchParams }: PageProps<"/dashbo
                 <TableHead className="text-right">Pedidos</TableHead>
                 <TableHead className="hidden text-right sm:table-cell">Entregados</TableHead>
                 <TableHead className="hidden text-right sm:table-cell">Cancel./No entreg.</TableHead>
-                <TableHead className="text-right">Revenue</TableHead>
+                <TableHead className="text-right">Ingreso</TableHead>
                 <TableHead className="hidden lg:table-cell">Último pedido</TableHead>
               </TableRow>
             </TableHeader>

@@ -41,7 +41,7 @@ export default async function NotificationsPage() {
       {!list?.length ? (
         <EmptyState icon={Bell} title="Sin notificaciones" description="Aquí verás cada pedido nuevo y los avisos importantes de tu tienda." />
       ) : (
-        <div className="flex flex-col divide-y rounded-xl border">
+        <div className="flex flex-col divide-y overflow-hidden rounded-xl bg-card ring-1 ring-foreground/10">
           {list.map((n) => {
             const isUnread = !readSet.has(n.id);
             const content = (

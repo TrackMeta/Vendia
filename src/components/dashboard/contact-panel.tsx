@@ -79,7 +79,7 @@ export function ContactPanel({ order, sequence, storeName, compact = false }: { 
   const waHref = whatsappConfirmLink(order, storeName);
 
   return (
-    <div className={cn("flex flex-col gap-3", !compact && "rounded-xl border p-3")}>
+    <div className={cn("flex flex-col gap-3", !compact && "rounded-xl bg-card p-3 ring-1 ring-foreground/10")}>
       {/* Avance de la secuencia */}
       <div className="flex flex-wrap items-center gap-1.5">
         {labels.map((label, i) => {

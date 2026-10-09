@@ -25,7 +25,7 @@ function profitClass(v: number) {
 function MetricsTable({ rows, firstColumn, showVisits, showSpend = true }: { rows: Row[]; firstColumn: string; showVisits?: boolean; showSpend?: boolean }) {
   if (!rows.length) return <p className="rounded-xl border border-dashed px-6 py-12 text-center text-sm text-muted-foreground">Sin datos en este periodo.</p>;
   return (
-    <div className="overflow-x-auto rounded-xl border">
+    <div className="overflow-x-auto rounded-xl bg-card ring-1 ring-foreground/10">
       <Table>
         <TableHeader>
           <TableRow>
@@ -36,7 +36,7 @@ function MetricsTable({ rows, firstColumn, showVisits, showSpend = true }: { row
             <TableHead className="text-right">Confirm.</TableHead>
             <TableHead className="text-right">Ventas</TableHead>
             <TableHead className="text-right" title="Ventas reales ÷ pedidos enviados">Efectividad</TableHead>
-            <TableHead className="text-right">Revenue real</TableHead>
+            <TableHead className="text-right">Ingreso real</TableHead>
             {showSpend ? <TableHead className="text-right">CPA pedido</TableHead> : null}
             {showSpend ? <TableHead className="text-right">CPA real</TableHead> : null}
             {showSpend ? <TableHead className="text-right">ROAS real</TableHead> : null}
@@ -107,7 +107,7 @@ export default async function AnalyticsPage({ searchParams }: PageProps<"/dashbo
     }
     content = (
       <div className="flex flex-col gap-4">
-        <div className="flex flex-col gap-1 rounded-xl border p-4">
+        <div className="flex flex-col gap-1 rounded-xl bg-card p-4 ring-1 ring-foreground/10">
           {steps.map((s, i) => (
             <div key={s.key} className="flex flex-col gap-1">
               {i > 0 ? (

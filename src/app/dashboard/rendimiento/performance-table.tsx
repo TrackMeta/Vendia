@@ -32,7 +32,7 @@ const COLUMNS: Column[] = [
   { id: "sales", label: "Ventas reales", group: "Vendia", kind: "number", get: (r) => r.delivered, highlight: true },
   { id: "cpa", label: "CPA real", group: "Vendia", kind: "money", get: (r) => r.cpa.perDelivered, highlight: true, hint: "Gasto ÷ ventas reales" },
   { id: "effectiveRate", label: "% venta", group: "Vendia", kind: "percent", get: (r) => r.effectiveRate, hint: "Ventas reales ÷ pedidos" },
-  { id: "revenue", label: "Revenue real", group: "Vendia", kind: "money", get: (r) => r.revenue },
+  { id: "revenue", label: "Ingreso real", group: "Vendia", kind: "money", get: (r) => r.revenue },
   { id: "roas", label: "ROAS real", group: "Vendia", kind: "ratio", get: (r) => r.roas.real, highlight: true },
   { id: "profit", label: "Utilidad", group: "Vendia", kind: "money", get: (r) => r.profit, highlight: true },
 ];
@@ -127,7 +127,7 @@ export function PerformanceTable({ rows, firstColumn, showMeta }: { rows: PerfRo
         </Popover>
       </div>
 
-      <div className="overflow-x-auto rounded-xl border">
+      <div className="overflow-x-auto rounded-xl bg-card ring-1 ring-foreground/10">
         <table className="w-full text-sm">
           <thead className="bg-muted/40 text-xs text-muted-foreground">
             <tr>

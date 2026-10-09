@@ -14,7 +14,7 @@ const GUIDES: Guide[] = [
     steps: [
       "Configuración: pon tu WhatsApp, el envío a Lima y provincia, y el adelanto de provincia.",
       "Productos: crea el producto con fotos, tu costo y sus ofertas (1 unidad, 2 unidades…).",
-      "Landing Pages: elige una plantilla (Clásica, Video primero, Packs o Product page), edítala y publícala.",
+      "Landings: elige una plantilla (Clásica, Video primero, Packs o Product page), edítala y publícala.",
       "Marketing: conecta Meta y pega la plantilla de URL en tus anuncios.",
     ],
     link: { href: "/dashboard/configuracion", label: "Ir a Configuración" },
@@ -93,7 +93,7 @@ export default async function HelpPage() {
       {store.role === "owner" ? <ShowWelcomeButton /> : null}
       <div className="grid gap-4 md:grid-cols-2">
         {GUIDES.map((g) => (
-          <section key={g.title} className="flex flex-col gap-2 rounded-xl border p-4">
+          <section key={g.title} className="flex flex-col gap-2 rounded-xl bg-card p-4 ring-1 ring-foreground/10">
             <h2 className="font-semibold">{g.title}</h2>
             <ol className="list-decimal space-y-1 pl-5 text-sm text-muted-foreground">
               {g.steps.map((s) => (
@@ -108,7 +108,7 @@ export default async function HelpPage() {
           </section>
         ))}
       </div>
-      <section className="flex flex-col gap-2 rounded-xl border p-4">
+      <section className="flex flex-col gap-2 rounded-xl bg-card p-4 ring-1 ring-foreground/10">
         <h2 className="font-semibold">Glosario</h2>
         <dl className="grid gap-x-6 gap-y-2 text-sm sm:grid-cols-2">
           {GLOSSARY.map(([term, def]) => (

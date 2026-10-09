@@ -59,7 +59,7 @@ export default async function ExpensesPage({ searchParams }: PageProps<"/dashboa
       <DateRangeFilter basePath="/dashboard/gastos" range={range} />
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-        <div className="rounded-xl border border-primary/40 bg-primary/5 p-4">
+        <div className="dark rounded-xl bg-[#202124] p-4 text-white">
           <p className="text-xs text-muted-foreground">Gasto publicitario</p>
           <p className="text-2xl font-semibold">{formatMoney(t.ad_spend ?? 0)}</p>
           <p className="text-xs text-muted-foreground">
@@ -67,12 +67,12 @@ export default async function ExpensesPage({ searchParams }: PageProps<"/dashboa
             {Number(t.igv ?? 0) > 0 ? ` · incluye IGV ${formatMoney(t.igv)}` : ""}
           </p>
         </div>
-        <div className="rounded-xl border p-4">
+        <div className="rounded-xl bg-card p-4 ring-1 ring-foreground/10">
           <p className="text-xs text-muted-foreground">Otros gastos</p>
           <p className="text-2xl font-semibold">{formatMoney(t.other_expenses ?? 0)}</p>
           <p className="text-xs text-muted-foreground">Se restan en la utilidad</p>
         </div>
-        <div className="col-span-2 rounded-xl border p-4">
+        <div className="col-span-2 rounded-xl bg-card p-4 ring-1 ring-foreground/10">
           <p className="text-xs text-muted-foreground">Solo referencia de caja</p>
           <p className="text-2xl font-semibold">{formatMoney(t.reference_only ?? 0)}</p>
           <p className="text-xs text-muted-foreground">
@@ -88,7 +88,7 @@ export default async function ExpensesPage({ searchParams }: PageProps<"/dashboa
           description="Registra tu gasto en Meta Ads a mano o importa el reporte del Administrador de anuncios."
         />
       ) : (
-        <div className="rounded-xl border">
+        <div className="overflow-hidden rounded-xl bg-card ring-1 ring-foreground/10">
           <Table>
             <TableHeader>
               <TableRow>

@@ -1,11 +1,20 @@
 "use client"
 
-import { useTheme } from "next-themes"
+import { useSyncExternalStore } from "react"
 import { Toaster as Sonner, type ToasterProps } from "sonner"
 import { CircleCheckIcon, InfoIcon, TriangleAlertIcon, OctagonXIcon, Loader2Icon } from "lucide-react"
 
 const Toaster = ({ ...props }: ToasterProps) => {
-  const { theme = "system" } = useTheme()
+  // Sigue el tema del panel (clase «dark» en <html>), no el del sistema: las landings siempre en claro
+  const theme = useSyncExternalStore(
+    (cb) => {
+      const obs = new MutationObserver(cb)
+      obs.observe(document.documentElement, { attributes: true, attributeFilter: ["class"] })
+      return () => obs.disconnect()
+    },
+    () => (document.documentElement.classList.contains("dark") ? "dark" : "light"),
+    () => "light"
+  )
 
   return (
     <Sonner

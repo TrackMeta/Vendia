@@ -36,7 +36,7 @@ export function KpiCard({
   featured?: boolean;
 }) {
   return (
-    <div className={cn("flex flex-col gap-1 rounded-xl p-4 ring-1", featured ? "dark bg-[#202124] text-white ring-transparent" : "bg-card ring-foreground/10")}>
+    <div className={cn("flex flex-col gap-1 rounded-xl p-4 ring-1", featured ? "dark bg-[#202124] text-white ring-transparent in-[.dark]:ring-white/10" : "bg-card ring-foreground/10")}>
       <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
         {label}
         {help ? <Help label={label}>{help}</Help> : null}

@@ -17,7 +17,7 @@ export function BrandLogo({ className, tone = "dark" }: { className?: string; to
   return (
     <span className={cn("inline-flex items-center gap-2", className)}>
       <BrandMark />
-      <span className={cn("text-[17px] font-semibold tracking-tight", tone === "light" ? "text-white" : "text-[#202124]")}>Vendia</span>
+      <span className={cn("text-[17px] font-semibold tracking-tight", tone === "light" ? "text-white" : "text-foreground")}>Vendia</span>
     </span>
   );
 }

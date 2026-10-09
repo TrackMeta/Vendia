@@ -8,10 +8,12 @@ import { logout } from "@/app/(auth)/actions";
 import { BrandLogo } from "@/components/brand";
 import { NotificationBell } from "@/components/dashboard/notifications";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
+import type { ThemePref } from "@/lib/theme";
 import { cn } from "@/lib/utils";
 import { CommandMenu, SearchButton } from "./command-menu";
 import { HELP_ITEM, isActive, type NavItem, visibleGroups } from "./nav";
 import { StoreSwitcher } from "./store-switcher";
+import { ThemeToggle, useEffectiveDark } from "./theme-toggle";
 
 const FULL_PREFETCH = { kind: "full" } as unknown as Parameters<ReturnType<typeof useRouter>["prefetch"]>[1];
 
@@ -109,6 +111,7 @@ export function DashboardShell({
   role,
   unread,
   stores,
+  theme,
 }: {
   children: React.ReactNode;
   storeName: string;
@@ -119,10 +122,13 @@ export function DashboardShell({
   role: "owner" | "staff";
   unread: number;
   stores: { id: string; name: string; role: "owner" | "staff" }[];
+  theme: ThemePref;
 }) {
   const [open, setOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const isOwner = role === "owner";
+  const [themePref, setThemePref] = useState<ThemePref>(theme);
+  const dark = useEffectiveDark(themePref);
   // Una sola campana montada (una sola suscripción en tiempo real): en el menú en escritorio, en el encabezado en celular.
   const isDesktop = useSyncExternalStore(
     (cb) => {
@@ -163,7 +169,10 @@ export function DashboardShell({
       </div>
       <div className="flex flex-col gap-0.5 border-t border-sidebar-border p-3">
         <NavLink item={HELP_ITEM} onNavigate={() => setOpen(false)} />
-        <p className="truncate px-3 pt-1 text-xs text-muted-foreground">{userEmail}</p>
+        <div className="px-3 pt-1 pb-1">
+          <ThemeToggle value={themePref} onChange={setThemePref} />
+        </div>
+        <p className="truncate px-3 text-xs text-muted-foreground">{userEmail}</p>
         <form action={logout}>
           <button
             type="submit"
@@ -177,7 +186,7 @@ export function DashboardShell({
   );
 
   return (
-    <div className="flex min-h-svh w-full bg-canvas">
+    <div className={cn("flex min-h-svh w-full bg-canvas text-foreground", dark && "dark")}>
       <aside className="sticky top-0 hidden h-svh w-60 shrink-0 md:block">{sidebar}</aside>
       <Sheet open={open} onOpenChange={setOpen}>
         <SheetContent side="left" className="dark w-72 border-none bg-sidebar p-0 text-sidebar-foreground">

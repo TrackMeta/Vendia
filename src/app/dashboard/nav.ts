@@ -6,7 +6,6 @@ import {
   Megaphone,
   MousePointerClick,
   Package,
-  Plug,
   Receipt,
   Settings,
   ShoppingBag,
@@ -70,7 +69,6 @@ export const NAV_GROUPS: NavGroup[] = [
     label: "Ajustes",
     items: [
       { href: "/dashboard/equipo", label: "Equipo", icon: UserCog, ownerOnly: true, keywords: "confirmadores comisiones invitar" },
-      { href: "/dashboard/integraciones", label: "Integraciones", icon: Plug, ownerOnly: true, keywords: "webhook api" },
       { href: "/dashboard/dominios", label: "Dominios", icon: Globe, ownerOnly: true },
       { href: "/dashboard/configuracion", label: "Configuración", icon: Settings, ownerOnly: true, keywords: "whatsapp embalaje envio" },
     ],

@@ -19,6 +19,10 @@ const nextConfig: NextConfig = {
       : [],
   },
   // Archivos que casi no cambian: el navegador y la CDN los guardan (las landings cargan más rápido)
+  // Secciones que se quitaron: los enlaces viejos (avisos, favoritos) llevan a un lugar útil
+  async redirects() {
+    return [{ source: "/dashboard/integraciones", destination: "/dashboard/configuracion", permanent: false }];
+  },
   async headers() {
     return [
       { source: "/ubigeo-pe.json", headers: [{ key: "Cache-Control", value: "public, max-age=86400, stale-while-revalidate=604800" }] },

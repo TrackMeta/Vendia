@@ -82,7 +82,7 @@ export async function requireStore() {
   return { user, store };
 }
 
-/** Exige ser DUEÑO de la tienda (gastos, configuración, catálogo, Meta, integraciones). */
+/** Exige ser DUEÑO de la tienda (gastos, configuración, catálogo, Meta). */
 export async function requireOwner() {
   const ctx = await requireStore();
   if (ctx.store.role !== "owner") redirect("/dashboard/pedidos?sinpermiso=1");

@@ -35,7 +35,7 @@ export default async function NotificationsPage() {
     <div className="flex max-w-3xl flex-col gap-4">
       <PageHeader
         title="Notificaciones"
-        description="Pedidos nuevos, clientes riesgosos, secuencias de contacto terminadas y fallos de integraciones."
+        description="Pedidos nuevos, clientes riesgosos y secuencias de contacto terminadas."
         actions={unread ? <MarkAllReadButton storeId={store.id} /> : null}
       />
       {!list?.length ? (

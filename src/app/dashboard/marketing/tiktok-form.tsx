@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { TIKTOK_URL_TEMPLATE } from "@/modules/tiktok/events";
 import { saveTikTokSettings } from "./tiktok-actions";
+import { BrandIcon } from "@/components/brand-icons";
 
 export function TikTokSettingsForm({
   initial,
@@ -27,7 +28,9 @@ export function TikTokSettingsForm({
   return (
     <Card>
       <CardHeader>
-        <CardTitle>TikTok</CardTitle>
+        <CardTitle className="flex items-center gap-2">
+          <BrandIcon name="tiktok" className="size-6" /> TikTok
+        </CardTitle>
         <CardDescription>
           Listo para cuando anuncies en TikTok: Pixel en tus landings (ViewContent, ClickButton, SubmitForm) y Events API desde el servidor (SubmitForm y
           CompletePayment cuando hay venta real), con el mismo id para que TikTok no cuente doble.

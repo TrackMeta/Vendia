@@ -30,7 +30,7 @@ import { type PaymentRow, PaymentsCard } from "./payments-card";
 import { ShippingCard } from "./shipping-card";
 import { StatusActions } from "./status-actions";
 import { VariantsEditor } from "./variants-editor";
-import { BrandIcon } from "@/components/brand-icons";
+import { BrandIcon, SourceIcon } from "@/components/brand-icons";
 
 export const metadata: Metadata = { title: "Pedido" };
 
@@ -390,7 +390,12 @@ export default async function OrderDetailPage({ params }: PageProps<"/dashboard/
             </CardHeader>
             <CardContent>
               <Row label="Landing">{landing ? landing.title : "—"}</Row>
-              <Row label="Fuente">{attr?.utm_source ?? "Directo / orgánico"}</Row>
+              <Row label="Fuente">
+                <span className="inline-flex items-center gap-1.5">
+                  <SourceIcon source={attr?.utm_source} />
+                  {attr?.utm_source ?? "Directo / orgánico"}
+                </span>
+              </Row>
               <Row label="Medio">{attr?.utm_medium ?? "—"}</Row>
               <Row label="Campaña">{attr?.utm_campaign ?? "—"}</Row>
               <Row label="Anuncio">{ad?.name ?? attr?.utm_content ?? "—"}</Row>

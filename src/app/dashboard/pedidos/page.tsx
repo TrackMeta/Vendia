@@ -14,6 +14,7 @@ import { cn } from "@/lib/utils";
 import { CONTACT_RESULTS, type ContactResult, RISK_LABELS } from "@/modules/orders/contact";
 import { ORDER_STATUS_LABELS, ORDER_STATUSES, type OrderStatus } from "@/modules/orders/state-machine";
 import { ZoneBadge } from "../logistica/logistics-table";
+import { SourceIcon } from "@/components/brand-icons";
 
 export const metadata: Metadata = { title: "Pedidos" };
 
@@ -289,10 +290,16 @@ export default async function OrdersPage({ searchParams }: PageProps<"/dashboard
                       <TableCell className="hidden xl:table-cell">
                         <div className="flex max-w-40 flex-col">
                           {o.source === "manual" ? (
-                            <SimpleBadge>Manual{o.source_channel ? ` · ${o.source_channel}` : ""}</SimpleBadge>
+                            <span className="flex items-center gap-1.5">
+                              <SourceIcon source={o.source_channel} />
+                              <SimpleBadge>Manual{o.source_channel ? ` · ${o.source_channel}` : ""}</SimpleBadge>
+                            </span>
                           ) : (
                             <>
-                              <span className="truncate">{attr?.utm_source ?? "Directo"}</span>
+                              <span className="flex items-center gap-1.5 truncate">
+                                <SourceIcon source={attr?.utm_source} />
+                                {attr?.utm_source ?? "Directo"}
+                              </span>
                               {attr?.utm_campaign ? <span className="truncate text-xs text-muted-foreground">{attr.utm_campaign}</span> : null}
                             </>
                           )}

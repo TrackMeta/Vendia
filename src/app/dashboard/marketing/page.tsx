@@ -11,6 +11,7 @@ import { parseSyncInterval } from "@/modules/meta/schedule";
 import { MetaConnect } from "./meta-connect";
 import { TikTokSettingsForm } from "./tiktok-form";
 import { MetaSettingsForm, RetryButton, TestEventButton, UrlTemplate } from "./meta-forms";
+import { BrandIcon } from "@/components/brand-icons";
 
 export const metadata: Metadata = { title: "Marketing" };
 
@@ -31,7 +32,7 @@ export default async function MarketingPage() {
     supabase.rpc("meta_token_configured", { p_store_id: store.id }),
     supabase
       .from("marketing_events")
-      .select("id, event_name, event_id, status, attempts, last_error, created_at, sent_at, orders (order_number)")
+      .select("id, platform, event_name, event_id, status, attempts, last_error, created_at, sent_at, orders (order_number)")
       .eq("store_id", store.id)
       .order("created_at", { ascending: false })
       .limit(50),
@@ -168,7 +169,10 @@ export default async function MarketingPage() {
                     <TableRow key={e.id}>
                       <TableCell>
                         <div className="flex flex-col">
-                          <span className="font-medium">{e.event_name}</span>
+                          <span className="flex items-center gap-1.5 font-medium">
+                            <BrandIcon name={e.platform === "tiktok" ? "tiktok" : "meta"} className="size-4" />
+                            {e.event_name}
+                          </span>
                           <span className="font-mono text-[11px] text-muted-foreground">{e.event_id.slice(0, 24)}…</span>
                         </div>
                       </TableCell>

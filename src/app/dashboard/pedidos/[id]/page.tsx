@@ -1,4 +1,4 @@
-import { AlertTriangle, ArrowLeft, Phone } from "lucide-react";
+import { AlertTriangle, ArrowLeft, MapPin, Phone } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -21,6 +21,7 @@ import {
   RISK_LABELS,
 } from "@/modules/orders/contact";
 import { itemLabel, type VariantBreakdown } from "@/modules/orders/items";
+import { mapsLink } from "@/modules/orders/location";
 import { type PaymentKind, type PaymentMethod, RECEIPTS_BUCKET } from "@/modules/orders/payments";
 import { ORDER_STATUS_LABELS, type OrderStatus } from "@/modules/orders/state-machine";
 import { ZoneBadge } from "../../logistica/logistics-table";
@@ -254,6 +255,16 @@ export default async function OrderDetailPage({ params }: PageProps<"/dashboard/
                   <span className="text-xs text-muted-foreground">(ubigeo {order.district_code})</span>
                 </p>
                 {order.customer_notes ? <p className="mt-2 text-muted-foreground">Nota del cliente: {order.customer_notes}</p> : null}
+                {mapsLink(order.delivery_location as string | null) ? (
+                  <a
+                    href={mapsLink(order.delivery_location as string | null)!}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="mt-2 inline-flex items-center gap-1.5 text-sm font-medium text-primary hover:underline"
+                  >
+                    <MapPin className="size-4" /> Ver ubicación en el mapa
+                  </a>
+                ) : null}
               </div>
             </CardContent>
           </Card>
@@ -324,6 +335,7 @@ export default async function OrderDetailPage({ params }: PageProps<"/dashboard/
               shipping_cost: Number(order.shipping_cost),
               return_shipments: order.return_shipments,
               dni: order.dni,
+              delivery_location: (order.delivery_location as string | null) ?? null,
               exported_at: order.exported_at,
             }}
           />

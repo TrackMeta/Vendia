@@ -6,6 +6,7 @@ import { z } from "zod";
 import { requireStore } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
+import { parseDeliveryLocation } from "@/modules/orders/location";
 import { COURIER_IDS, courierName, PACKAGE_SIZES, SHALOM_DESTINATIONS } from "@/modules/couriers";
 import { maybeSendPurchase } from "@/modules/meta/capi";
 import { CANCEL_REASONS, CONTACT_RESULTS, FAILURE_REASONS } from "@/modules/orders/contact";
@@ -259,6 +260,18 @@ const shippingSchema = z
       .trim()
       .refine((v) => !v || /^\d{8}$/.test(v), "El DNI debe tener 8 dígitos")
       .transform((v) => v || null),
+    // Link de Google Maps o coordenadas (lo manda el cliente por WhatsApp)
+    delivery_location: z
+      .string()
+      .max(600)
+      .transform((v, ctx) => {
+        const r = parseDeliveryLocation(v);
+        if (!r.ok) {
+          ctx.addIssue({ code: "custom", message: r.error });
+          return z.NEVER;
+        }
+        return r.value;
+      }),
   })
   .partial();
 
@@ -277,7 +290,10 @@ export async function updateOrderShipping(orderId: string, input: ShippingInput)
 
   const supabase = await createClient();
   const { error } = await supabase.from("orders").update(values).eq("id", id.data).eq("store_id", store.id);
-  if (error) return { ok: false, error: "No se pudieron guardar los datos de envío" };
+  if (error) {
+    const sqlMissing = error.message.includes("delivery_location");
+    return { ok: false, error: sqlMissing ? "Para guardar la ubicación falta correr supabase/actualizacion-bloque-11.sql en Supabase" : "No se pudieron guardar los datos de envío" };
+  }
   revalidateOrders(id.data);
   return { ok: true, message: "Datos de envío guardados" };
 }

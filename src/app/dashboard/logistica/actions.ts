@@ -8,8 +8,15 @@ import { COURIER_IDS, type VendiaExportOrder } from "@/modules/couriers";
 
 export type ExportOrder = VendiaExportOrder & { id: string; zone: "lima" | "provincia" };
 
-const SELECT =
-  "id, zone, order_number, customer_name, customer_phone, dni, district_name, province_name, department_name, address, reference, balance_due, agency_destination, package_size, package_weight, order_items (product_id, offer_id, product_name, offer_name, quantity, variant_breakdown)";
+const BASE_SELECT =
+  "id, zone, order_number, customer_name, customer_phone, dni, district_name, province_name, department_name, address, reference, balance_due, agency_destination, package_size, package_weight, customer_notes, order_items (product_id, offer_id, product_name, offer_name, quantity, variant_breakdown)";
+const SELECT = `${BASE_SELECT}, delivery_location`;
+
+/** Columnas a leer: si la base aún no tiene la ubicación de entrega (falta su SQL), se exporta sin ella. */
+async function exportSelect(supabase: Awaited<ReturnType<typeof createClient>>): Promise<string> {
+  const { error } = await supabase.from("orders").select("delivery_location").limit(1);
+  return error ? BASE_SELECT : SELECT;
+}
 
 type Row = Omit<ExportOrder, "items"> & {
   order_items: {
@@ -56,7 +63,7 @@ export async function getExportOrders(orderIds: string[]): Promise<{ ok: true; o
   const parsed = ids.safeParse(orderIds);
   if (!parsed.success) return { ok: false, error: "Selección inválida" };
   const supabase = await createClient();
-  const { data, error } = await supabase.from("orders").select(SELECT).eq("store_id", store.id).in("id", parsed.data).order("order_number");
+  const { data, error } = await supabase.from("orders").select(await exportSelect(supabase)).eq("store_id", store.id).in("id", parsed.data).order("order_number");
   if (error) return { ok: false, error: "No se pudieron leer los pedidos" };
   return { ok: true, orders: await toExportOrders(supabase, (data ?? []) as unknown as Row[]) };
 }
@@ -86,7 +93,7 @@ export async function reserveExport(input: { courierId: string; orderIds: string
   if (error) return { ok: false, error: error.code === "P0001" ? error.message : "No se pudo reservar la exportación" };
   const r = data as { batch_id: string; order_ids: string[]; skipped: number };
 
-  const { data: rows } = await supabase.from("orders").select(SELECT).eq("store_id", store.id).in("id", r.order_ids).order("order_number");
+  const { data: rows } = await supabase.from("orders").select(await exportSelect(supabase)).eq("store_id", store.id).in("id", r.order_ids).order("order_number");
   revalidatePath("/dashboard/logistica");
   revalidatePath("/dashboard/pedidos");
   return { ok: true, batchId: r.batch_id, orders: await toExportOrders(supabase, (rows ?? []) as unknown as Row[]), skipped: r.skipped };
@@ -101,6 +108,6 @@ export async function getBatchExport(
   const supabase = await createClient();
   const { data: batch } = await supabase.from("export_batches").select("id, courier_id, origin_agency").eq("id", batchId).eq("store_id", store.id).maybeSingle();
   if (!batch) return { ok: false, error: "Lote no encontrado" };
-  const { data: rows } = await supabase.from("orders").select(SELECT).eq("store_id", store.id).eq("export_batch_id", batchId).order("order_number");
+  const { data: rows } = await supabase.from("orders").select(await exportSelect(supabase)).eq("store_id", store.id).eq("export_batch_id", batchId).order("order_number");
   return { ok: true, courierId: batch.courier_id, originAgency: batch.origin_agency, orders: await toExportOrders(supabase, (rows ?? []) as unknown as Row[]) };
 }

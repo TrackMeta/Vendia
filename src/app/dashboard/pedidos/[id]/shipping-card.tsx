@@ -1,6 +1,6 @@
 "use client";
 
-import { Eye, EyeOff, KeyRound } from "lucide-react";
+import { Eye, EyeOff, KeyRound, MapPin } from "lucide-react";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import { AgencyPicker } from "@/components/dashboard/agency-picker";
@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { formatMoney } from "@/lib/format";
 import { COURIERS, PACKAGE_SIZES } from "@/modules/couriers";
+import { mapsLink } from "@/modules/orders/location";
 import { updateOrderShipping } from "../actions";
 
 export type ShippingData = {
@@ -26,6 +27,8 @@ export type ShippingData = {
   shipping_cost: number;
   return_shipments: number | null;
   dni: string | null;
+  /** Link de Google Maps o coordenadas. */
+  delivery_location: string | null;
   exported_at: string | null;
 };
 
@@ -82,6 +85,8 @@ export function ShippingCard({
         shipping_cost: d.shipping_cost,
         return_shipments: d.return_shipments ?? "",
         dni: d.dni ?? "",
+        // Solo si cambió (así guardar el envío nunca depende de esta columna)
+        ...((d.delivery_location ?? "") !== (initial.delivery_location ?? "") ? { delivery_location: d.delivery_location ?? "" } : {}),
       });
       if (r.ok) toast.success(r.message ?? "Guardado");
       else toast.error(r.error);
@@ -155,11 +160,40 @@ export function ShippingCard({
             ) : null}
           </>
         ) : (
-          <div className="sm:col-span-2">
-            <Field label="Código de seguimiento / guía" htmlFor="tracking_code">
-              <Input id="tracking_code" value={d.tracking_code ?? ""} onChange={(e) => set("tracking_code", e.target.value)} />
-            </Field>
-          </div>
+          <>
+            <div className="sm:col-span-2">
+              <Field
+                label="Ubicación de entrega (opcional)"
+                htmlFor="delivery_location"
+                hint="Pega el link de Google Maps que te mandó el cliente por WhatsApp, o sus coordenadas. Va en la planilla de Eva para el motorizado."
+              >
+                <div className="flex gap-2">
+                  <Input
+                    id="delivery_location"
+                    value={d.delivery_location ?? ""}
+                    onChange={(e) => set("delivery_location", e.target.value)}
+                    placeholder="https://maps.app.goo.gl/…  o  -12.0464, -77.0428"
+                    className="min-w-0 flex-1"
+                  />
+                  {mapsLink(initial.delivery_location) ? (
+                    <a
+                      href={mapsLink(initial.delivery_location)!}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex shrink-0 items-center gap-1.5 rounded-lg border px-3 text-sm hover:bg-muted"
+                    >
+                      <MapPin className="size-4" /> Ver en el mapa
+                    </a>
+                  ) : null}
+                </div>
+              </Field>
+            </div>
+            <div className="sm:col-span-2">
+              <Field label="Código de seguimiento / guía" htmlFor="tracking_code">
+                <Input id="tracking_code" value={d.tracking_code ?? ""} onChange={(e) => set("tracking_code", e.target.value)} />
+              </Field>
+            </div>
+          </>
         )}
 
         <Field label="Medida del paquete" htmlFor="package_size" hint={`Por defecto la del producto: ${defaultSize}.`}>

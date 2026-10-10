@@ -444,6 +444,12 @@ async function main() {
   } catch {
     console.log("  ✓ un intervalo fuera de la lista se rechaza");
   }
+
+  console.log("\n— Ubicación de entrega —");
+  await step(
+    "guardar coordenadas en el pedido",
+    `update public.orders set delivery_location = '-12.0464, -77.0428' where id = '${o10.order_id}' returning delivery_location`,
+  );
   console.log("\nOK — prueba de humo completa");
 }
 

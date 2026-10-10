@@ -25,6 +25,10 @@ export type CourierOrder = {
   amountToCollect?: number;
   description?: string;
   quantity?: number;
+  /** Link de Google Maps o coordenadas (los agrega el equipo al trabajar el pedido). */
+  location?: string | null;
+  /** Nota del cliente para la entrega. */
+  notes?: string | null;
   // Shalom (provincia, agencia)
   agency?: string | null;
   /** Lo que dijo el cliente (provincia/distrito); si no hay agencia se sugiere desde acá. */
@@ -130,18 +134,22 @@ export function evaDistrict(name: string | null | undefined): string {
 const label = (o: CourierOrder) => (o.orderNumber ? `#${o.orderNumber}` : o.customer || "Un pedido");
 
 // ── Eva Courier (Lima, contraentrega) — hoja FORMULARIO ──
-// B destinatario · C celular · D distrito · E dirección · F referencia · H método
-// · I importe a cobrar · K descripción · L cantidad
+// A código de pedido · B destinatario · C celular · D distrito · E dirección · F referencia
+// · G link de Maps o coordenadas · H método · I importe a cobrar · J observaciones · K descripción · L cantidad
 function evaRows(orders: CourierOrder[]): Cell[][] {
   return orders.map((o) => {
     const f: Cell[] = [];
+    // El número del pedido viaja a Eva: así cada entrega de su liquidación se cuadra con Vendia
+    if (o.orderNumber) f[0] = String(o.orderNumber);
     f[1] = o.customer || "";
     f[2] = phone9(o.phone);
     f[3] = (evaDistrict(o.district) || String(o.district ?? "")).toUpperCase();
     f[4] = o.address || "";
     f[5] = o.reference || "";
+    if (o.location) f[6] = o.location;
     f[7] = "EFECTIVO";
     f[8] = N(o.amountToCollect);
+    if (o.notes) f[9] = o.notes.slice(0, 250);
     f[10] = String(o.description ?? "").slice(0, 250);
     f[11] = N(qty(o));
     return f;
@@ -274,6 +282,8 @@ export type VendiaExportOrder = {
   agency_destination: string | null;
   package_size: string | null;
   package_weight: number | string | null;
+  customer_notes?: string | null;
+  delivery_location?: string | null;
   items: {
     product_name: string;
     offer_name: string | null;
@@ -299,6 +309,8 @@ export function toCourierOrder(o: VendiaExportOrder): CourierOrder {
     reference: o.reference,
     amountToCollect: Number(o.balance_due),
     description: o.items.map((i) => itemLabel(i)).join(" + "),
+    location: o.delivery_location ?? null,
+    notes: o.customer_notes ?? null,
     quantity: o.items.reduce((s, i) => s + i.quantity, 0),
     agency: o.agency_destination,
     city: o.district_name === o.province_name ? o.province_name : `${o.province_name} ${o.district_name}`,

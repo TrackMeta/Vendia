@@ -79,6 +79,28 @@ describe("Excel con la plantilla oficial", () => {
     // las macros del courier se copian intactas
     expect(entryByName(entries, "xl/vbaProject.bin")).toBeTruthy();
   });
+
+  it("Eva: número de pedido, ubicación (Maps o coordenadas) y nota del cliente", async () => {
+    const orders: CourierOrder[] = [
+      {
+        orderNumber: 1042,
+        customer: "Ana",
+        phone: "987654321",
+        district: "Miraflores",
+        address: "Av. Larco 123",
+        amountToCollect: 89.9,
+        description: "Faja",
+        quantity: 1,
+        location: "-12.1211, -77.0297",
+        notes: "Tocar el timbre 2",
+      },
+    ];
+    const out = await buildCourierFile("eva", orders, template("eva.xlsm"));
+    const xml = await entryText(entryByName(readZip(out.bytes.buffer as ArrayBuffer), "xl/worksheets/sheet2.xml")!);
+    expect(xml).toMatch(/r="A2"[^>]*>(<is><t[^>]*>|<v>)1042</);
+    expect(xml).toContain(">-12.1211, -77.0297<");
+    expect(xml).toContain(">Tocar el timbre 2<");
+  });
 });
 
 describe("Pedido de Vendia → plantilla", () => {

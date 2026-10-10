@@ -1,14 +1,12 @@
 "use client";
 
-import { Copy, RefreshCw, Send } from "lucide-react";
+import { RefreshCw, Send } from "lucide-react";
 import { useActionState, useEffect, useTransition } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { retryFailedEvents, saveMetaSettings, sendTestEvent } from "./actions";
-import { BrandIcon } from "@/components/brand-icons";
 
 export const URL_TEMPLATE =
   "utm_source=facebook&utm_medium=paid&utm_campaign={{campaign.name}}&utm_content={{ad.name}}&utm_term={{adset.name}}&campaign_id={{campaign.id}}&adset_id={{adset.id}}&ad_id={{ad.id}}";
@@ -40,17 +38,11 @@ export function MetaSettingsForm({
   }, [state]);
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <BrandIcon name="meta" className="size-6" /> Conectar Meta
-        </CardTitle>
-        <CardDescription>
-          Events Manager → tu Pixel → Configuración. El token se genera en «Conversions API → Generar token de acceso». Se guarda cifrado y nunca se
-          envía al navegador.
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
+    <div className="flex flex-col gap-4">
+      <p className="text-xs text-muted-foreground">
+        Solo si no usas «Conectar Meta» o quieres ajustar el envío. El Pixel ID está en Events Manager → tu Pixel → Configuración; el token, en «Conversions API →
+        Generar token de acceso». Se guarda cifrado y nunca se envía al navegador.
+      </p>
         <form action={action} className="grid gap-4 sm:grid-cols-2">
           <div className="flex flex-col gap-2">
             <Label htmlFor="pixel_id">Pixel ID (identificador del conjunto de datos)</Label>
@@ -92,26 +84,10 @@ export function MetaSettingsForm({
             </Button>
           </div>
         </form>
-      </CardContent>
-    </Card>
-  );
-}
-
-export function UrlTemplate() {
-  return (
-    <div className="flex flex-col gap-2">
-      <code className="block rounded-md bg-muted p-3 text-xs break-all">{URL_TEMPLATE}</code>
-      <Button
-        variant="outline"
-        size="sm"
-        className="w-fit"
-        onClick={() => {
-          void navigator.clipboard.writeText(URL_TEMPLATE);
-          toast.success("Plantilla copiada");
-        }}
-      >
-        <Copy /> Copiar
-      </Button>
+      <div className="flex flex-wrap items-center gap-3 border-t pt-3">
+        <TestEventButton />
+        <span className="text-xs text-muted-foreground">Con el código de prueba puesto, el evento aparece en Events Manager → Probar eventos.</span>
+      </div>
     </div>
   );
 }

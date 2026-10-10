@@ -61,7 +61,19 @@ function AccountPicker({ accounts, chosen, onToggle }: { accounts: AdAccount[]; 
  * Después se pueden agregar o quitar cuentas sin volver a pegar el token.
  * El token viaja solo al servidor de Vendia y se guarda cifrado; nunca se vuelve a mostrar.
  */
-export function MetaConnect({ connection, storeName }: { connection: MetaConnection; storeName: string }) {
+export function MetaConnect({
+  connection,
+  storeName,
+  signal,
+  extras,
+}: {
+  connection: MetaConnection;
+  storeName: string;
+  /** ¿Meta está recibiendo los eventos? (una línea, arriba) */
+  signal?: React.ReactNode;
+  /** Secciones desplegables al final: plantilla de URL y configuración avanzada. */
+  extras?: React.ReactNode;
+}) {
   const [pending, startTransition] = useTransition();
   const [mode, setMode] = useState<Mode>(connection.connected ? "view" : "connect");
   const [token, setToken] = useState("");
@@ -209,6 +221,7 @@ export function MetaConnect({ connection, storeName }: { connection: MetaConnect
         </CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
+        {signal}
         {mode === "view" && connection.connected ? (
           <div className="flex flex-col gap-3">
             <div className="flex flex-col divide-y rounded-lg border">
@@ -402,6 +415,7 @@ export function MetaConnect({ connection, storeName }: { connection: MetaConnect
             ) : null}
           </div>
         )}
+        {extras ? <div className="flex flex-col gap-2 border-t pt-4">{extras}</div> : null}
       </CardContent>
     </Card>
   );

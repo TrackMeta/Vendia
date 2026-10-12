@@ -8,12 +8,9 @@ export default function HomePage() {
       <BrandLogo className="scale-125" />
       <span className="rounded-full border px-3 py-1 text-xs text-muted-foreground">Contraentrega · Perú</span>
       <h1 className="text-4xl font-semibold tracking-tight sm:text-5xl">
-        Vende con landing pages y conoce tu <span className="text-primary">utilidad real</span>
+        Vende y conoce tu <span className="text-primary">utilidad real</span>
       </h1>
-      <p className="max-w-xl text-lg text-muted-foreground">
-        Crea tu landing, recibe pedidos COD con ubicaciones exactas del Perú y mide cuánto te cuesta cada venta
-        entregada, no cada formulario.
-      </p>
+      <p className="max-w-xl text-lg text-muted-foreground">Recibe pedidos COD con ubicaciones exactas del Perú y mide cuánto te cuesta cada venta entregada.</p>
       <div className="flex flex-wrap justify-center gap-3">
         <Link href="/registro" className={buttonVariants({ size: "lg" })}>
           Crear mi tienda

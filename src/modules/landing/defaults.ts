@@ -1,4 +1,5 @@
 import type { FormBlock, FormBlockType, LandingContent, PageBlock, PageBlockType, ThankYouUpsell, WhatsappButton } from "./schema";
+import { DEFAULT_PRIVACY_NOTICE } from "./schema";
 
 export function newBlockId(): string {
   return Math.random().toString(36).slice(2, 10) + Date.now().toString(36).slice(-4);
@@ -79,7 +80,7 @@ export function createFormBlock(type: FormBlockType): FormBlock {
     case "form_offers":
       return { id, type, title: "Selecciona tu oferta" };
     case "form_fields":
-      return { id, type, singleNameField: true, askDni: false, askWhatsapp: false, requireReference: true, askNotes: false, askEmail: false, districtSearch: true };
+      return { id, type, singleNameField: true, askDni: false, askWhatsapp: false, askReference: true, requireReference: true, askNotes: false, askEmail: false, districtSearch: true, privacyNotice: DEFAULT_PRIVACY_NOTICE };
     case "form_summary":
       return { id, type };
     case "form_submit":

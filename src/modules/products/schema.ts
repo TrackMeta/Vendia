@@ -2,10 +2,11 @@ import { z } from "zod";
 import { PACKAGE_SIZES } from "@/modules/couriers";
 
 const money = z.coerce.number({ error: "Ingresa un monto válido" }).min(0, "No puede ser negativo").max(1_000_000);
+// Vacío, null o sin enviar = sin monto (null). Antes un null se convertía en 0.
 const optionalMoney = z
-  .union([z.literal(""), z.coerce.number().min(0).max(1_000_000)])
+  .union([z.literal(""), z.null(), z.coerce.number().min(0).max(1_000_000)])
   .optional()
-  .transform((v) => (v === "" || v === undefined ? null : v));
+  .transform((v) => (v === "" || v === undefined || v === null ? null : v));
 
 export const productInput = z.object({
   name: z.string().trim().min(1, "Ingresa el nombre").max(160),
@@ -51,10 +52,12 @@ export const offerInput = z.object({
   quantity: z.coerce.number().int().min(1).max(100),
   price: money,
   compare_at_price: optionalMoney,
+  // La pantalla manda null cuando la etiqueta está vacía
   badge: z
     .string()
     .trim()
     .max(40)
+    .nullable()
     .optional()
     .transform((v) => (v ? v : null)),
   image_path: z.string().max(500).nullable().optional(),

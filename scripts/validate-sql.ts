@@ -515,6 +515,43 @@ async function main() {
     console.error(`  ✗ se esperaba «Faja verano» y llegó «${named}»`);
     process.exit(1);
   }
+
+  console.log("\n— Filtro en Embudo y Zonas —");
+  await step(
+    "visita con conjunto y anuncio",
+    `select public.track_landing_event('${landingId}', 'page_view', 'sesionfiltro1', null, null, '120200001', null, null, '230001', '340001')`,
+  );
+  await step("conjunto y anuncio guardados", `select adset_id || '/' || ad_id from public.page_events where session_id = 'sesionfiltro1'`);
+  const all = (await step("embudo sin filtro", `select public.get_funnel(${range})`)) as Record<string, number>;
+  const camp = (await step("embudo de una campaña", `select public.get_funnel(${range}, null, 'campaign', '120200001')`)) as Record<string, number>;
+  if (!(Number(camp.orders) === 1 && Number(camp.visits) === 1 && Number(all.orders) > 1)) {
+    console.error(`  ✗ el filtro por campaña debería dejar 1 pedido y 1 visita (llegó ${JSON.stringify(camp)})`);
+    process.exit(1);
+  }
+  const ad = (await step("embudo de un anuncio", `select public.get_funnel(${range}, null, 'ad', '340001')`)) as Record<string, number>;
+  if (Number(ad.visits) !== 1) {
+    console.error("  ✗ la visita del anuncio no se contó");
+    process.exit(1);
+  }
+  await step("embudo de un producto", `select public.get_funnel(${range}, null, 'product', '${productId}') ->> 'orders'`);
+  await step("embudo de una página", `select public.get_funnel(${range}, null, 'page', '${landingId}') ->> 'visits'`);
+  await step("embudo de un ángulo", `select public.get_funnel(${range}, null, 'angle', 'Acné') ->> 'orders'`);
+  await step("embudo del formulario filtrado", `select public.get_form_funnel(${range}, 'campaign', '120200001') ->> 'orders'`);
+  const zones = (await step(
+    "zonas de una campaña",
+    `select jsonb_array_length(public.get_geo_stats(${range}, 'department', null, 'campaign', '120200001'))`,
+  )) as number;
+  if (zones !== 1) {
+    console.error(`  ✗ zonas de la campaña: se esperaba 1 departamento y llegaron ${zones}`);
+    process.exit(1);
+  }
+  try {
+    await db.query(`select public.get_funnel(${range}, null, 'inventado', 'x')`);
+    console.error("  ✗ un filtro inventado debería rechazarse");
+    process.exit(1);
+  } catch {
+    console.log("  ✓ un filtro inventado se rechaza");
+  }
   console.log("\nOK — prueba de humo completa");
 }
 

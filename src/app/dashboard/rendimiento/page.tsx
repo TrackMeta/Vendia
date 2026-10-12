@@ -11,6 +11,8 @@ import { cn } from "@/lib/utils";
 import { computePerformanceRow } from "@/modules/metrics";
 import { refreshMetaInBackground } from "@/modules/meta/sync";
 import { type DateRange, resolveRange } from "@/modules/metrics/date-range";
+import type { PerfFilter } from "./filter";
+import { FilterPicker } from "./filter-picker";
 import { FunnelView } from "./funnel-view";
 import { type PerfRow, PerformanceTable } from "./performance-table";
 import { type GeoLevel, ZonesView } from "./zones-view";
@@ -26,31 +28,40 @@ const VIEWS = {
 type View = keyof typeof VIEWS;
 
 const LEVELS = {
-  campanas: { label: "Campañas", first: "Campaña", rpc: "campaign" },
-  conjuntos: { label: "Conjuntos", first: "Conjunto", rpc: "adset" },
-  anuncios: { label: "Anuncios", first: "Anuncio", rpc: "ad" },
-  angulos: { label: "Ángulos", first: "Ángulo", rpc: "angle" },
-  productos: { label: "Productos", first: "Producto", rpc: null },
-  paginas: { label: "Páginas", first: "Página", rpc: "page" },
+  campanas: { label: "Campañas", first: "Campaña", rpc: "campaign", filter: "campaign", one: "campaña" },
+  conjuntos: { label: "Conjuntos", first: "Conjunto", rpc: "adset", filter: "adset", one: "conjunto" },
+  anuncios: { label: "Anuncios", first: "Anuncio", rpc: "ad", filter: "ad", one: "anuncio" },
+  angulos: { label: "Ángulos", first: "Ángulo", rpc: "angle", filter: "angle", one: "ángulo" },
+  productos: { label: "Productos", first: "Producto", rpc: null, filter: "product", one: "producto" },
+  paginas: { label: "Páginas", first: "Página", rpc: "page", filter: "page", one: "página" },
 } as const;
 type Level = keyof typeof LEVELS;
 
+
 const chip = (active: boolean) => cn("rounded-full border px-3 py-1 text-sm whitespace-nowrap", active ? "border-foreground bg-foreground text-background" : "hover:bg-muted");
+
+/** Filas de Rendimiento → Anuncios para un nivel (también son las opciones del filtro del Embudo y Zonas). */
+async function levelRows(storeId: string, range: DateRange, level: Level) {
+  const supabase = await createClient();
+  const cfg = LEVELS[level];
+  const { data } = cfg.rpc
+    ? await supabase.rpc("get_performance", {
+        p_store_id: storeId,
+        p_from: range.from,
+        p_to: range.to,
+        p_from_date: range.startDate,
+        p_to_date: range.endDate,
+        p_level: cfg.rpc,
+      })
+    : await supabase.rpc("get_product_stats", { p_store_id: storeId, p_from: range.from, p_to: range.to, p_from_date: range.startDate, p_to_date: range.endDate });
+  return (data ?? []) as Record<string, unknown>[];
+}
 
 async function AdsView({ storeId, range, level, levelHref }: { storeId: string; range: DateRange; level: Level; levelHref: (l: Level) => string }) {
   const supabase = await createClient();
   const cfg = LEVELS[level];
-  const [{ data }, { data: meta }, { data: accounts }] = await Promise.all([
-    cfg.rpc
-      ? supabase.rpc("get_performance", {
-          p_store_id: storeId,
-          p_from: range.from,
-          p_to: range.to,
-          p_from_date: range.startDate,
-          p_to_date: range.endDate,
-          p_level: cfg.rpc,
-        })
-      : supabase.rpc("get_product_stats", { p_store_id: storeId, p_from: range.from, p_to: range.to, p_from_date: range.startDate, p_to_date: range.endDate }),
+  const [data, { data: meta }, { data: accounts }] = await Promise.all([
+    levelRows(storeId, range, level),
     supabase.from("store_meta_settings").select("ad_account_id, ad_account_name, last_sync_at").eq("store_id", storeId).maybeSingle(),
     supabase.from("store_meta_accounts").select("ad_account_id, name").eq("store_id", storeId),
   ]);
@@ -124,6 +135,41 @@ async function AdsView({ storeId, range, level, levelHref }: { storeId: string; 
   );
 }
 
+/** Fila de chips (Todo, Campañas, Conjuntos…) y el selector de cuál ver, para el Embudo y Zonas. */
+function FilterBar({
+  level,
+  filter,
+  options,
+  hrefFor,
+}: {
+  level: Level | null;
+  filter: PerfFilter;
+  options: { value: string; label: string; href: string }[];
+  hrefFor: (l: Level | null) => string;
+}) {
+  return (
+    <div className="flex flex-col gap-2">
+      <div className="flex gap-1.5 overflow-x-auto pb-1">
+        <Link href={hrefFor(null)} className={chip(level === null)}>
+          Todo
+        </Link>
+        {(Object.keys(LEVELS) as Level[]).map((l) => (
+          <Link key={l} href={hrefFor(l)} className={chip(level === l)}>
+            {LEVELS[l].label}
+          </Link>
+        ))}
+      </div>
+      {level ? (
+        options.length ? (
+          <FilterPicker options={options} value={filter?.key ?? options[0].value} label={`Elegir ${LEVELS[level].one}`} />
+        ) : (
+          <p className="text-sm text-muted-foreground">No hay {LEVELS[level].label.toLowerCase()} con datos en este periodo. Cambia las fechas o elige «Todo».</p>
+        )
+      ) : null}
+    </div>
+  );
+}
+
 export default async function PerformancePage({ searchParams }: PageProps<"/dashboard/rendimiento">) {
   const sp = await searchParams;
   const view: View = typeof sp.vista === "string" && sp.vista in VIEWS ? (sp.vista as View) : "anuncios";
@@ -136,6 +182,17 @@ export default async function PerformancePage({ searchParams }: PageProps<"/dash
   const { store } = await requireOwner();
   refreshMetaInBackground(store.id);
 
+  // Filtro del Embudo y Zonas (?filtro=campanas&item=<id>): sin item elegido, el primero de la lista
+  const filterLevel: Level | null = view !== "anuncios" && typeof sp.filtro === "string" && sp.filtro in LEVELS ? (sp.filtro as Level) : null;
+  const filterRows = filterLevel ? await levelRows(store.id, range, filterLevel) : [];
+  const filterOptions = filterRows
+    .map((r) => ({ value: String(r.key ?? r.product_id ?? ""), label: String(r.name ?? r.key ?? "—") }))
+    .filter((o) => o.value);
+  const askedItem = typeof sp.item === "string" ? sp.item.slice(0, 200) : null;
+  const picked = filterOptions.find((o) => o.value === askedItem) ?? filterOptions[0] ?? null;
+  const filter: PerfFilter = filterLevel && picked ? { level: LEVELS[filterLevel].filter, key: picked.value, name: picked.label } : null;
+  const filterParams = { filtro: filterLevel ?? undefined, item: filterLevel && picked ? picked.value : undefined };
+
   const href = (params: Record<string, string | undefined>) => {
     const q = new URLSearchParams();
     for (const [k, v] of Object.entries({ rango: rp.rango, desde: rp.desde, hasta: rp.hasta, ...params })) if (v) q.set(k, v);
@@ -146,8 +203,8 @@ export default async function PerformancePage({ searchParams }: PageProps<"/dash
     view === "anuncios"
       ? { vista: undefined, nivel: level }
       : view === "zonas"
-        ? { vista: view, geo: geo !== "department" ? geo : undefined, padre: parent ?? undefined, nombre: parentName ?? undefined }
-        : { vista: view };
+        ? { vista: view, geo: geo !== "department" ? geo : undefined, padre: parent ?? undefined, nombre: parentName ?? undefined, ...filterParams }
+        : { vista: view, ...filterParams };
 
   return (
     <div className="flex flex-col gap-4">
@@ -177,15 +234,34 @@ export default async function PerformancePage({ searchParams }: PageProps<"/dash
       <DateRangeFilter basePath="/dashboard/rendimiento" range={range} params={keep} />
 
       {view === "anuncios" ? <AdsView storeId={store.id} range={range} level={level} levelHref={(l) => href({ nivel: l })} /> : null}
-      {view === "embudo" ? <FunnelView storeId={store.id} range={range} /> : null}
-      {view === "zonas" ? (
+      {view !== "anuncios" ? (
+        <FilterBar
+          level={filterLevel}
+          filter={filter}
+          options={filterOptions.map((o) => ({
+            ...o,
+            href:
+              view === "zonas"
+                ? href({ vista: "zonas", geo: geo !== "department" ? geo : undefined, padre: parent ?? undefined, nombre: parentName ?? undefined, filtro: filterLevel ?? undefined, item: o.value })
+                : href({ vista: view, filtro: filterLevel ?? undefined, item: o.value }),
+          }))}
+          hrefFor={(l) =>
+            view === "zonas"
+              ? href({ vista: "zonas", geo: geo !== "department" ? geo : undefined, padre: parent ?? undefined, nombre: parentName ?? undefined, filtro: l ?? undefined })
+              : href({ vista: view, filtro: l ?? undefined })
+          }
+        />
+      ) : null}
+      {view === "embudo" && !(filterLevel && !filter) ? <FunnelView storeId={store.id} range={range} filter={filter} /> : null}
+      {view === "zonas" && !(filterLevel && !filter) ? (
         <ZonesView
           storeId={store.id}
           range={range}
           level={geo}
           parent={parent}
           parentName={parentName}
-          hrefFor={(g) => href({ vista: "zonas", geo: g.geo, padre: g.padre, nombre: g.nombre })}
+          filter={filter}
+          hrefFor={(g) => href({ vista: "zonas", geo: g.geo, padre: g.padre, nombre: g.nombre, ...filterParams })}
         />
       ) : null}
     </div>

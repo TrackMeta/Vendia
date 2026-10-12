@@ -6,6 +6,8 @@ import { createClient } from "@/lib/supabase/server";
 import { cn } from "@/lib/utils";
 import { computeRowMetrics } from "@/modules/metrics";
 import type { DateRange } from "@/modules/metrics/date-range";
+import { FilterSqlMissing } from "./funnel-view";
+import type { PerfFilter } from "./filter";
 
 export type GeoLevel = "department" | "province" | "district";
 
@@ -25,6 +27,7 @@ export async function ZonesView({
   level,
   parent,
   parentName,
+  filter = null,
   hrefFor,
 }: {
   storeId: string;
@@ -32,10 +35,13 @@ export async function ZonesView({
   level: GeoLevel;
   parent: string | null;
   parentName: string | null;
+  filter?: PerfFilter;
   hrefFor: (geo: { geo?: GeoLevel; padre?: string; nombre?: string }) => string;
 }) {
   const supabase = await createClient();
-  const { data } = await supabase.rpc("get_geo_stats", { p_store_id: storeId, p_from: range.from, p_to: range.to, p_level: level, p_parent: parent });
+  const by = filter ? { p_filter_level: filter.level, p_filter_key: filter.key } : {};
+  const { data, error } = await supabase.rpc("get_geo_stats", { p_store_id: storeId, p_from: range.from, p_to: range.to, p_level: level, p_parent: parent, ...by });
+  if (error && filter) return <FilterSqlMissing />;
   const nextLevel: GeoLevel | null = level === "department" ? "province" : level === "province" ? "district" : null;
   const rows: Row[] = ((data ?? []) as Record<string, unknown>[]).map((r) => ({
     ...computeRowMetrics(r),

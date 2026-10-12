@@ -1,5 +1,6 @@
 "use client";
 
+import { DEFAULT_PRIVACY_NOTICE } from "@/modules/landing/schema";
 import { ImageDropzone } from "@/components/dashboard/image-dropzone";
 import { publicAssetUrl } from "@/lib/env";
 import { newBlockId } from "@/modules/landing/defaults";
@@ -343,7 +344,10 @@ export function FormBlockInspector({ block, onChange, ctx }: { block: FormBlock;
             Siempre se piden: nombre, celular, departamento/provincia/distrito y dirección.
           </p>
           <ToggleField label="Nombre completo en un solo campo" checked={block.singleNameField} onChange={(singleNameField) => set({ singleNameField })} />
-          <ToggleField label="Referencia obligatoria" checked={block.requireReference} onChange={(requireReference) => set({ requireReference })} />
+          <ToggleField label="Pedir referencia" checked={block.askReference ?? true} onChange={(askReference) => set({ askReference })} />
+          {(block.askReference ?? true) ? (
+            <ToggleField label="Referencia obligatoria" checked={block.requireReference} onChange={(requireReference) => set({ requireReference })} />
+          ) : null}
           <ToggleField label="Pedir DNI" checked={block.askDni} onChange={(askDni) => set({ askDni })} />
           <ToggleField label="Pedir otro número de WhatsApp" checked={block.askWhatsapp} onChange={(askWhatsapp) => set({ askWhatsapp })} />
           <ToggleField label="Campo de observaciones" checked={block.askNotes} onChange={(askNotes) => set({ askNotes })} />
@@ -354,9 +358,23 @@ export function FormBlockInspector({ block, onChange, ctx }: { block: FormBlock;
             checked={block.districtSearch ?? true}
             onChange={(districtSearch) => set({ districtSearch })}
           />
-          <p className="mt-2 text-xs text-muted-foreground">
-            En provincia el DNI se pide siempre (lo exige la agencia). Debajo de los campos se muestra un aviso de privacidad.
-          </p>
+          <p className="mt-2 text-xs text-muted-foreground">En provincia el DNI se pide siempre (lo exige la agencia).</p>
+          <div className="mt-2 flex flex-col gap-1">
+            <TextField
+              label="Aviso de privacidad (debajo de los campos)"
+              multiline
+              value={block.privacyNotice ?? DEFAULT_PRIVACY_NOTICE}
+              onChange={(privacyNotice) => set({ privacyNotice: privacyNotice.slice(0, 400) })}
+            />
+            <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
+              <span>Déjalo vacío para no mostrarlo. Te recomendamos avisar que podrías escribirle si no termina su pedido.</span>
+              {(block.privacyNotice ?? DEFAULT_PRIVACY_NOTICE) !== DEFAULT_PRIVACY_NOTICE ? (
+                <button type="button" className="shrink-0 underline" onClick={() => set({ privacyNotice: DEFAULT_PRIVACY_NOTICE })}>
+                  Restaurar
+                </button>
+              ) : null}
+            </div>
+          </div>
         </div>
       );
     case "form_summary":

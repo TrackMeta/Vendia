@@ -1,5 +1,6 @@
 "use client";
 
+import { DEFAULT_PRIVACY_NOTICE } from "@/modules/landing/schema";
 import { Check, CheckCircle2, Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
@@ -38,8 +39,6 @@ function newIdempotencyKey() {
     : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
 }
 
-export const PRIVACY_NOTICE =
-  "Usamos tus datos solo para coordinar tu pedido por llamada o WhatsApp. Si no terminas tu pedido, podemos escribirte para ayudarte.";
 
 const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 
@@ -99,7 +98,7 @@ export function CodForm({ data, preview, preferredOfferId }: { data: LandingRend
     if (phone.replace(/\D/g, "").length < 9) return "Ingresa tu celular de 9 dígitos";
     if (!ubigeo.district) return "Selecciona tu departamento, provincia y distrito";
     if (address.trim().length < 5) return "Ingresa tu dirección completa";
-    if (fieldsBlock?.requireReference && reference.trim().length < 3) return "Ingresa una referencia de tu dirección";
+    if (fieldsBlock?.requireReference && fieldsBlock.askReference !== false && reference.trim().length < 3) return "Ingresa una referencia de tu dirección";
     if (provincia && !/^\d{8}$/.test(dni)) return "Ingresa tu DNI (8 dígitos): lo pide la agencia para entregarte";
     if (dni && !/^\d{8}$/.test(dni)) return "El DNI debe tener 8 dígitos";
     if (email.trim() && !EMAIL_RE.test(email.trim())) return "Revisa tu correo";
@@ -357,9 +356,11 @@ export function CodForm({ data, preview, preferredOfferId }: { data: LandingRend
                 <Field label="Dirección completa" required>
                   <input className={inputClass} autoComplete="street-address" value={address} onChange={(e) => setAddress(e.target.value)} placeholder="Av. Los Héroes 123, Dpto 402" />
                 </Field>
-                <Field label="Referencia" required={block.requireReference}>
-                  <input className={inputClass} value={reference} onChange={(e) => setReference(e.target.value)} placeholder="Frente al parque, casa verde" />
-                </Field>
+                {block.askReference !== false ? (
+                  <Field label="Referencia" required={block.requireReference}>
+                    <input className={inputClass} value={reference} onChange={(e) => setReference(e.target.value)} placeholder="Frente al parque, casa verde" />
+                  </Field>
+                ) : null}
                 {block.askEmail ? (
                   <Field label="Correo (opcional)">
                     <input
@@ -378,7 +379,9 @@ export function CodForm({ data, preview, preferredOfferId }: { data: LandingRend
                     <textarea className={`${inputClass} h-20 py-2`} value={notes} onChange={(e) => setNotes(e.target.value)} />
                   </Field>
                 ) : null}
-                <p className="text-[11px] leading-snug text-zinc-500">{PRIVACY_NOTICE}</p>
+                {(block.privacyNotice ?? DEFAULT_PRIVACY_NOTICE).trim() ? (
+                  <p className="text-[11px] leading-snug whitespace-pre-line text-zinc-500">{block.privacyNotice ?? DEFAULT_PRIVACY_NOTICE}</p>
+                ) : null}
               </div>
             );
           case "form_bumps":

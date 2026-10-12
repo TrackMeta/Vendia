@@ -5,6 +5,16 @@ import { cn } from "@/lib/utils";
 import { Help } from "@/components/dashboard/metric";
 import { buildFunnel, type FunnelStep } from "@/modules/metrics";
 import type { DateRange } from "@/modules/metrics/date-range";
+import type { PerfFilter } from "./filter";
+
+/** Aviso cuando el filtro necesita la actualización de la base de datos (Bloque 14). */
+export function FilterSqlMissing() {
+  return (
+    <p className="rounded-xl border border-dashed px-6 py-8 text-center text-sm text-muted-foreground">
+      Para filtrar por campaña, conjunto, anuncio, ángulo, producto o página falta correr la actualización de la base de datos (Bloque 14).
+    </p>
+  );
+}
 
 /** Con menos de esto en la etapa anterior, un porcentaje no dice nada (3 visitas → 1 pedido no es tendencia). */
 const MIN_FOR_INSIGHT = 10;
@@ -113,12 +123,16 @@ const FORM_STEPS: [string, string][] = [
 ];
 
 /** Embudo: de la visita al pedido cobrado, en dos tramos (en la landing / después del pedido). */
-export async function FunnelView({ storeId, range }: { storeId: string; range: DateRange }) {
+export async function FunnelView({ storeId, range, filter = null }: { storeId: string; range: DateRange; filter?: PerfFilter }) {
   const supabase = await createClient();
-  const [{ data }, { data: formData, error: formError }] = await Promise.all([
-    supabase.rpc("get_funnel", { p_store_id: storeId, p_from: range.from, p_to: range.to }),
-    supabase.rpc("get_form_funnel", { p_store_id: storeId, p_from: range.from, p_to: range.to }),
+  const by = filter ? { p_filter_level: filter.level, p_filter_key: filter.key } : {};
+  const [{ data, error }, { data: formData, error: formError }] = await Promise.all([
+    supabase.rpc("get_funnel", { p_store_id: storeId, p_from: range.from, p_to: range.to, ...by }),
+    supabase.rpc("get_form_funnel", { p_store_id: storeId, p_from: range.from, p_to: range.to, ...by }),
   ]);
+  if (error && filter) return <FilterSqlMissing />;
+  // Las visitas por conjunto o anuncio se guardan desde el Bloque 14; los pedidos sí están completos
+  const partialVisits = filter?.level === "adset" || filter?.level === "ad";
   const steps = buildFunnel((data ?? {}) as Record<string, unknown>);
   // Dentro del formulario: en qué campo se quedan (si falta el SQL del Bloque 13, no se muestra)
   const formSteps: FunnelStep[] = formError
@@ -170,13 +184,20 @@ export async function FunnelView({ storeId, range }: { storeId: string; range: D
   if (!visits && !orders) {
     return (
       <p className="rounded-xl border border-dashed px-6 py-12 text-center text-sm text-muted-foreground">
-        Aún no hay visitas en este periodo. Cuando alguien entre a tus landings, aquí verás en qué paso se quedan.
+        {filter
+          ? `Sin visitas ni pedidos de «${filter.name}» en este periodo.`
+          : "Aún no hay visitas en este periodo. Cuando alguien entre a tus landings, aquí verás en qué paso se quedan."}
       </p>
     );
   }
 
   return (
     <div className="flex flex-col gap-4">
+      {partialVisits ? (
+        <p className="text-xs text-muted-foreground">
+          Las visitas por conjunto y anuncio se cuentan desde el 12 de octubre de 2026 (antes solo se guardaba la campaña). Los pedidos sí están todos.
+        </p>
+      ) : null}
       <div className="grid gap-3 sm:grid-cols-3">
         <Summary
           label="De visita a pedido"

@@ -199,6 +199,10 @@ export const pageBlock = z.discriminatedUnion("type", [
 export const formImageBlock = z.object({ id, type: z.literal("form_image"), src: imagePath, alt: shortText.default("") });
 export const formTextBlock = z.object({ id, type: z.literal("form_text"), text: longText, align: align.default("center") });
 export const formOffersBlock = z.object({ id, type: z.literal("form_offers"), title: shortText.default("") });
+/** Aviso de privacidad debajo de los campos del formulario (editable por landing; vacío = no se muestra). */
+export const DEFAULT_PRIVACY_NOTICE =
+  "Usamos tus datos solo para coordinar tu pedido por llamada o WhatsApp. Si no terminas tu pedido, podemos escribirte para ayudarte.";
+
 export const formFieldsBlock = z.object({
   id,
   type: z.literal("form_fields"),
@@ -206,11 +210,14 @@ export const formFieldsBlock = z.object({
   singleNameField: z.boolean().default(true),
   askDni: z.boolean().default(false),
   askWhatsapp: z.boolean().default(false),
+  /** Mostrar el campo «Referencia» */
+  askReference: z.boolean().default(true),
   requireReference: z.boolean().default(true),
   askNotes: z.boolean().default(false),
   askEmail: z.boolean().default(false),
   /** Buscador «Busca tu distrito» sobre las 3 listas. Apagado = solo Departamento → Provincia → Distrito (como Releasit/EasySell). */
   districtSearch: z.boolean().default(true),
+  privacyNotice: z.string().trim().max(400).default(DEFAULT_PRIVACY_NOTICE),
 });
 export const formSummaryBlock = z.object({ id, type: z.literal("form_summary") });
 

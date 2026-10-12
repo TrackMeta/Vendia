@@ -47,6 +47,8 @@ export function trackEvent(landingId: string, event: TrackEvent, extra: TrackExt
     utm_source: attribution.utm_source,
     utm_campaign: attribution.utm_campaign,
     campaign_id: attribution.campaign_id,
+    adset_id: attribution.adset_id,
+    ad_id: attribution.ad_id,
     ...(extra.angle ? { angle: extra.angle } : {}),
     ...(extra.priceVariant ? { price_variant: extra.priceVariant } : {}),
   });

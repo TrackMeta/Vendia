@@ -9,6 +9,8 @@ const schema = z.object({
   utm_source: z.string().max(255).optional(),
   utm_campaign: z.string().max(255).optional(),
   campaign_id: z.string().max(64).optional(),
+  adset_id: z.string().max(64).optional(),
+  ad_id: z.string().max(64).optional(),
   angle: z.string().trim().max(60).optional(),
   price_variant: z.enum(["A", "B"]).optional(),
 });
@@ -33,12 +35,17 @@ export async function POST(request: NextRequest) {
     p_utm_campaign: parsed.data.utm_campaign ?? null,
     p_campaign_id: parsed.data.campaign_id ?? null,
   };
-  // Con ángulo y versión de precio; si la base aún no los conoce, la visita se guarda sin ellos
+  // Con ángulo, versión de precio, conjunto y anuncio; si la base aún no conoce alguno, la visita se guarda sin él
   const extra = {
     ...(parsed.data.angle ? { p_angle: parsed.data.angle } : {}),
     ...(parsed.data.price_variant ? { p_price_variant: parsed.data.price_variant } : {}),
   };
-  let { error } = await admin.rpc("track_landing_event", { ...base, ...extra });
+  const ids = {
+    ...(parsed.data.adset_id ? { p_adset_id: parsed.data.adset_id } : {}),
+    ...(parsed.data.ad_id ? { p_ad_id: parsed.data.ad_id } : {}),
+  };
+  let { error } = await admin.rpc("track_landing_event", { ...base, ...extra, ...ids });
+  if (error && Object.keys(ids).length) ({ error } = await admin.rpc("track_landing_event", { ...base, ...extra }));
   if (error && Object.keys(extra).length) ({ error } = await admin.rpc("track_landing_event", base));
   if (error) console.error("track_landing_event", error.message);
   return new NextResponse(null, { status: 204 });

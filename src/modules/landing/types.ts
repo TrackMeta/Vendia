@@ -81,7 +81,7 @@ export type LandingRenderData = {
   whatsapp?: string | null;
   shipping: { lima: number; province: number };
   advanceAmount: number;
-  /** Nombre del ángulo que ve el cliente (link ?angulo= o el de la landing): va a las visitas y al pedido. */
+  /** Nombre del ángulo que ve el cliente (link ?a= o el de la landing): va a las visitas y al pedido. */
   angle?: string | null;
   /** Versión de la prueba de precio que ve el cliente (null si no hay prueba). */
   priceVariant?: "A" | "B" | null;

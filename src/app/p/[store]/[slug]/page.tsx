@@ -3,7 +3,7 @@ import { cookies } from "next/headers";
 import { notFound, redirect } from "next/navigation";
 import { publicAssetUrl } from "@/lib/env";
 import { abCookieName, pickVariant, variantUrl } from "@/modules/landing/ab";
-import { ANGLE_PARAM, angleName, applyAngle, findAngle } from "@/modules/landing/angles";
+import { angleKeyFromQuery, angleName, applyAngle, findAngle } from "@/modules/landing/angles";
 import { savedPriceVariant, signPriceVariantB } from "@/modules/landing/price-test";
 import { getPublicLanding, toRenderData } from "@/modules/landing/public-data";
 import { AbRemember } from "@/modules/landing/render/ab-remember";
@@ -64,10 +64,9 @@ export default async function PublicLandingPage({ params, searchParams }: PagePr
     remember = { cookie, slug: landing.landing.slug };
   }
 
-  // Ángulo: ?angulo=acne muestra esa versión (textos e imágenes); sin él, la versión principal
+  // Ángulo: ?a=acne (o el antiguo ?angulo=acne) muestra esa versión (textos e imágenes); sin él, la versión principal
   const base = toRenderData(landing);
-  const rawAngle = query[ANGLE_PARAM];
-  const angle = findAngle(base.content, typeof rawAngle === "string" ? rawAngle.toLowerCase() : null);
+  const angle = findAngle(base.content, angleKeyFromQuery(query));
   // Prueba A/B de precio: cada visitante ve siempre la misma versión (cookie 30 días)
   const priceTest = landing.landing.settings?.price_test;
   const testing = Boolean(priceTest?.enabled && Object.keys(priceTest.offers ?? {}).length);

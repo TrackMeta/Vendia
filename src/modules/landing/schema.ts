@@ -311,7 +311,7 @@ export const thankYouUpsell = z.object({
 
 const REQUIRED_FORM_BLOCKS = ["form_offers", "form_fields", "form_submit"] as const;
 
-/** Etiqueta del ángulo en el link: `?angulo=acne` (minúsculas, números y guiones). */
+/** Etiqueta del ángulo en el link: `?a=acne` (minúsculas, números y guiones). */
 export const ANGLE_KEY = /^[a-z0-9](?:[a-z0-9-]{0,38}[a-z0-9])?$/;
 
 /**

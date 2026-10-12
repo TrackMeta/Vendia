@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { addAngle, angleKeyFrom, angleName, applyAngle, changedBlockIds, clearBlockOverride, setBlockOverride } from "./angles";
+import { addAngle, angleKeyFrom, angleName, applyAngle, changedBlockIds, clearBlockOverride, setBlockOverride, angleKeyFromQuery } from "./angles";
 import { createTemplate } from "./defaults";
 import { landingContent, type PageBlock } from "./schema";
 
@@ -50,5 +50,15 @@ describe("Ángulos de una landing", () => {
     expect(angleName(c, "acne", "Manchas")).toBe("Acné");
     expect(angleName(c, null, "Manchas")).toBe("Manchas");
     expect(angleName(c, null, "")).toBeNull();
+  });
+});
+
+describe("Link del ángulo", () => {
+  it("lee ?a= y el antiguo ?angulo=", () => {
+    expect(angleKeyFromQuery({ a: "Acne" })).toBe("acne");
+    expect(angleKeyFromQuery({ angulo: "acne" })).toBe("acne");
+    expect(angleKeyFromQuery({ a: "manchas", angulo: "acne" })).toBe("manchas");
+    expect(angleKeyFromQuery({ a: ["acne", "x"] })).toBe("acne");
+    expect(angleKeyFromQuery({ utm_source: "facebook" })).toBeNull();
   });
 });

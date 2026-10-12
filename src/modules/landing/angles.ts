@@ -5,8 +5,20 @@ import { type LandingAngle, type LandingContent, MAX_ANGLES, type PageBlock, pag
  * lo que cambia por bloque; al mostrarlo se combina con la versión principal.
  */
 
-/** Parámetro del link: /p/tienda/landing?angulo=acne */
-export const ANGLE_PARAM = "angulo";
+/** Parámetro del link: /p/tienda/landing?a=acne (corto para los anuncios) */
+export const ANGLE_PARAM = "a";
+/** Links antiguos (?angulo=acne) siguen funcionando */
+const LEGACY_ANGLE_PARAMS = ["angulo"];
+
+/** Clave del ángulo que trae el link (?a= o el antiguo ?angulo=), en minúsculas. */
+export function angleKeyFromQuery(query: Record<string, string | string[] | undefined>): string | null {
+  for (const param of [ANGLE_PARAM, ...LEGACY_ANGLE_PARAMS]) {
+    const value = query[param];
+    const first = Array.isArray(value) ? value[0] : value;
+    if (typeof first === "string" && first.trim()) return first.trim().toLowerCase();
+  }
+  return null;
+}
 
 export function findAngle(content: LandingContent, key: string | null | undefined): LandingAngle | null {
   if (!key) return null;

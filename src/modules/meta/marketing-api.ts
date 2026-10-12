@@ -44,6 +44,9 @@ async function graph<T>(f: Fetch, path: string, token: string, params: Record<st
   return json;
 }
 
+/** Tope de filas diarias por anuncio en una lectura (≈ 1000 anuncios activos durante 30 días). */
+const INSIGHTS_MAX_ROWS = 30_000;
+
 /** Recorre todas las páginas de un listado (paging.next ya incluye el token). */
 async function all<T>(f: Fetch, path: string, token: string, params: Record<string, string>, max = 5000): Promise<T[]> {
   const out: T[] = [];
@@ -208,7 +211,9 @@ export async function fetchInsights(token: string, adAccountId: string, since: s
     time_range: JSON.stringify({ since, until }),
     fields: "date_start,campaign_id,campaign_name,adset_id,adset_name,ad_id,ad_name,spend,impressions,reach,inline_link_clicks,actions",
     limit: "500",
-  });
+  }, INSIGHTS_MAX_ROWS);
+  // Sin cortar: si faltaran filas, el gasto quedaría incompleto (y la sincronización reemplaza esos días)
+  if (rows.length >= INSIGHTS_MAX_ROWS) throw new MetaApiError("La cuenta tiene demasiados anuncios para leerlos de una vez. Escríbenos para ampliar el límite.");
   return rows.map((r) => ({
     date: r.date_start,
     campaignId: r.campaign_id,

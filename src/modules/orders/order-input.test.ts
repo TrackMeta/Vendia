@@ -51,3 +51,38 @@ describe("Nombre completo", () => {
     expect(splitFullName(" María  Fernanda Rojas Díaz ")).toEqual({ first_name: "María Fernanda", last_name: "Rojas Díaz" });
   });
 });
+
+describe("Datos de seguimiento largos", () => {
+  it("recorta un campaign_id de 66 caracteres en vez de rechazar el pedido", () => {
+    const long = "1".repeat(66);
+    const parsed = orderInput.safeParse({ ...valid, attribution: { campaign_id: long, adset_id: long, ad_id: long, utm_campaign: "x".repeat(300) } });
+    expect(parsed.success).toBe(true);
+    if (!parsed.success) return;
+    expect(parsed.data.attribution.campaign_id).toBe("1".repeat(64));
+    expect(parsed.data.attribution.adset_id).toHaveLength(64);
+    expect(parsed.data.attribution.ad_id).toHaveLength(64);
+    expect(parsed.data.attribution.utm_campaign).toHaveLength(255);
+  });
+
+  it("recorta el ángulo y no rechaza una ficha de precio desconocida", () => {
+    const parsed = orderInput.parse({ ...valid, angle: "a".repeat(80), price_variant: "B" });
+    expect(parsed.angle).toHaveLength(60);
+    expect(parsed.price_variant).toBe("B");
+  });
+
+  it("los errores que puede ver el cliente están en español", () => {
+    const issues = [
+      orderInput.safeParse({ ...valid, address: "x".repeat(301) }),
+      orderInput.safeParse({ ...valid, reference: "x".repeat(301) }),
+      orderInput.safeParse({ ...valid, notes: "x".repeat(501) }),
+      orderInput.safeParse({ ...valid, whatsapp: "9".repeat(21) }),
+      orderInput.safeParse({ ...valid, first_name: "x".repeat(81) }),
+      orderInput.safeParse({ ...valid, last_name: "x".repeat(81) }),
+      orderInput.safeParse({ ...valid, email: `${"x".repeat(200)}@a.pe` }),
+    ];
+    for (const result of issues) {
+      expect(result.success).toBe(false);
+      expect(result.error?.issues[0]?.message).toMatch(/máximo|Revisa/);
+    }
+  });
+});

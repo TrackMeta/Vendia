@@ -37,8 +37,11 @@ export function VariantsManager({ productId, initialLabel, initial }: { productI
         label,
         variants: variants.map((v) => ({ id: v.id, name: v.name, sku: v.sku, stock: v.stock === null ? "" : v.stock, is_active: v.is_active })),
       });
-      if (r.ok) toast.success(r.message ?? "Guardado");
-      else toast.error(r.error);
+      if (!r.ok) return void toast.error(r.error);
+      // Las variantes nuevas reciben su id: así el próximo guardado las actualiza en vez de borrarlas y recrearlas
+      const byName = new Map(r.ids.map((x) => [x.name.trim().toLowerCase(), x.id]));
+      setVariants((vs) => vs.map((v) => ({ ...v, id: byName.get(v.name.trim().toLowerCase()) ?? v.id })));
+      toast.success(r.message ?? "Guardado");
     });
 
   return (

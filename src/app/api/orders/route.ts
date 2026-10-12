@@ -1,6 +1,7 @@
 import { after, NextResponse, type NextRequest } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { leadEventId } from "@/modules/meta/events";
+import { verifyPriceVariant } from "@/modules/landing/price-test";
 import { enqueueOrderEvent } from "@/modules/meta/capi";
 import { enqueueTikTokOrderEvent } from "@/modules/tiktok/events-api";
 import { zoneOf } from "@/modules/orders/contact";
@@ -15,6 +16,34 @@ function clientIp(request: NextRequest): string | null {
   if (!ip) return null;
   // Validación básica IPv4/IPv6 antes de enviarla a la columna inet
   return /^[0-9a-fA-F:.]{3,45}$/.test(ip) ? ip : null;
+}
+
+/**
+ * Revisa que las variantes elegidas sean del producto de la oferta, estén activas y
+ * haya una por unidad. Devuelve el mensaje para el cliente, o null si están bien.
+ * Si la consulta falla no bloquea: set_order_variants vuelve a validar después.
+ */
+async function checkVariants(supabase: ReturnType<typeof createAdminClient>, offerId: string, variantIds: string[]): Promise<string | null> {
+  const { data: offer, error: offerError } = await supabase.from("product_offers").select("product_id, quantity").eq("id", offerId).maybeSingle();
+  if (offerError) {
+    console.error("checkVariants offer", offerError.message);
+    return null;
+  }
+  if (!offer) return null; // create_cod_order responde «oferta no disponible»
+  if (variantIds.length !== Number(offer.quantity)) return "Elige la talla o variante de cada unidad de tu pedido";
+  const unique = [...new Set(variantIds)];
+  const { data: rows, error } = await supabase
+    .from("product_variants")
+    .select("id")
+    .eq("product_id", offer.product_id)
+    .eq("is_active", true)
+    .in("id", unique);
+  if (error) {
+    console.error("checkVariants variants", error.message);
+    return null;
+  }
+  if ((rows ?? []).length !== unique.length) return "La talla o variante que elegiste ya no está disponible. Recarga la página y elige otra.";
+  return null;
 }
 
 /**
@@ -57,6 +86,15 @@ export async function POST(request: NextRequest) {
     }
   }
 
+  // Variantes (talla, color…): se revisan ANTES de crear el pedido, para no crearlo sin tallas
+  if (input.variants?.length) {
+    const variantError = await checkVariants(supabase, input.offer_id, input.variants);
+    if (variantError) return NextResponse.json({ error: variantError }, { status: 400 });
+  }
+
+  // Prueba de precio: solo la ficha firmada por la página da el precio B; lo demás va con el precio normal
+  const priceVariant = input.price_variant ? verifyPriceVariant(input.landing_page_id, input.price_variant) : undefined;
+
   const { data, error } = await supabase.rpc("create_cod_order", {
     p: {
       landing_page_id: input.landing_page_id,
@@ -75,7 +113,7 @@ export async function POST(request: NextRequest) {
       delivery_method: input.delivery_method,
       notes: input.notes,
       attribution: input.attribution,
-      price_variant: input.price_variant,
+      price_variant: priceVariant,
       client_ip: ip,
       user_agent: request.headers.get("user-agent")?.slice(0, 1000) ?? null,
     },

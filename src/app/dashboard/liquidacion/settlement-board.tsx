@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatDate, formatDateTime, formatMoney } from "@/lib/format";
 import { courierName } from "@/modules/couriers";
+import { limaToday } from "@/modules/metrics/date-range";
 import { settleOrders, undoSettlement } from "./actions";
 import { CourierIcon } from "@/components/brand-icons";
 
@@ -20,6 +21,8 @@ export type PendingOrder = {
   shipping_cost: number;
   delivered_at: string;
   days: number;
+  /** Envío fallido: no cobró nada, solo descuenta su envío */
+  failed: boolean;
 };
 
 export type SettlementRow = { id: string; courier_id: string | null; order_count: number; gross: number; shipping: number; net: number; note: string | null; created_at: string };
@@ -37,7 +40,11 @@ export function SettlementBoard({ pending, history }: { pending: PendingOrder[];
   }
 
   const settle = (ids: string[], label: string, net: number) => {
-    if (!confirm(`¿${label} te depositó ${formatMoney(net)} por ${ids.length} pedido(s)? Pasarán a «Cobrado».`)) return;
+    const question =
+      net >= 0
+        ? `¿${label} te depositó ${formatMoney(net)} por ${ids.length} pedido(s)? Los entregados pasarán a «Cobrado».`
+        : `¿Le pagaste ${formatMoney(-net)} a ${label} por ${ids.length} envío(s) fallido(s)?`;
+    if (!confirm(question)) return;
     startTransition(async () => {
       const r = await settleOrders(ids, `Depósito de ${label}`);
       if (r.ok) {
@@ -80,7 +87,8 @@ export function SettlementBoard({ pending, history }: { pending: PendingOrder[];
                   <CourierIcon id={courierId} className="size-6" /> {label}
                 </CardTitle>
                 <CardDescription>
-                  Cobró {formatMoney(gross)} − envíos {formatMoney(shipping)} · {orders.length} entrega(s) ·{" "}
+                  Cobró {formatMoney(gross)} − envíos {formatMoney(shipping)} · {orders.filter((o) => !o.failed).length} entrega(s)
+                  {orders.some((o) => o.failed) ? ` + ${orders.filter((o) => o.failed).length} fallido(s)` : ""} ·{" "}
                   <span className={tone(oldest)}>{oldest > 0 ? `la más antigua hace ${oldest} día(s)` : "al día"}</span>
                 </CardDescription>
               </div>
@@ -107,7 +115,9 @@ export function SettlementBoard({ pending, history }: { pending: PendingOrder[];
                       #{o.order_number}
                     </Link>
                     <span className="text-muted-foreground">{o.customer_name}</span>
-                    <span className={`text-xs ${tone(o.days)}`}>entregado {formatDateTime(o.delivered_at)}</span>
+                    <span className={`text-xs ${o.failed ? "text-red-600" : tone(o.days)}`}>
+                      {o.failed ? `no entregado · ${formatDateTime(o.delivered_at)}` : `entregado ${formatDateTime(o.delivered_at)}`}
+                    </span>
                     <span className="ml-auto text-right tabular-nums">
                       {formatMoney(o.balance_due - o.shipping_cost)}
                       <span className="block text-xs text-muted-foreground">
@@ -137,7 +147,7 @@ export function SettlementBoard({ pending, history }: { pending: PendingOrder[];
                     {h.courier_id === "varios" ? "Varios couriers" : courierName(h.courier_id)}
                   </span>
                   <span className="text-muted-foreground">
-                    {formatDate(h.created_at)} · {h.order_count} pedido(s) · cobró {formatMoney(h.gross)} − envíos {formatMoney(h.shipping)}
+                    {formatDate(limaToday(new Date(h.created_at)))} · {h.order_count} pedido(s) · cobró {formatMoney(h.gross)} − envíos {formatMoney(h.shipping)}
                   </span>
                   <span className="ml-auto font-semibold tabular-nums">{formatMoney(h.net)}</span>
                   <Button

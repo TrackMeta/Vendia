@@ -43,6 +43,16 @@ async function resolveDomain(host: string): Promise<DomainTarget> {
 /** Dominio propio de un vendedor → su landing (el panel siempre está en el dominio de Vendia). */
 async function handleCustomDomain(request: NextRequest, host: string) {
   const { pathname } = request.nextUrl;
+  if (pathname.startsWith("/p/")) {
+    // Ruta normal de landing en un dominio propio: solo las tiendas de ese dominio (no la de otro vendedor)
+    const storeSlug = pathname.split("/")[2] ?? "";
+    const target = await resolveDomain(host);
+    if (!target) return new NextResponse("Dominio no configurado en Vendia", { status: 404 });
+    const ok = target.allStores
+      ? await rpc<boolean>("domain_serves_store", { p_domain: host, p_store_slug: storeSlug }).catch(() => false)
+      : target.storeSlug === storeSlug;
+    return ok ? NextResponse.next() : new NextResponse("Página no encontrada", { status: 404 });
+  }
   if (isPassthroughPath(pathname)) return NextResponse.next();
   const target = await resolveDomain(host);
   if (!target) return new NextResponse("Dominio no configurado en Vendia", { status: 404 });

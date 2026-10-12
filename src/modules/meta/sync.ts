@@ -39,6 +39,10 @@ async function syncAccount(
   f: typeof fetch,
 ): Promise<AccountResult> {
   const acct = account.ad_account_id;
+  // Solo soles y dólares: otra moneda se leería como si fueran soles
+  if (account.currency && account.currency !== "PEN" && account.currency !== "USD") {
+    return { ok: false, error: `La cuenta ${account.name ?? acct} está en ${account.currency}: Vendia solo convierte soles y dólares` };
+  }
   const usd = account.currency === "USD";
   const rate = usd ? Number(settings?.usd_rate ?? 1) : 1;
   const igv = settings?.apply_igv ? IGV_RATE : 0;

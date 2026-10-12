@@ -3,6 +3,7 @@
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { z } from "zod";
+import { safeRedirectPath } from "@/lib/safe-redirect";
 import { createClient } from "@/lib/supabase/server";
 
 export type AuthState = { error?: string; message?: string } | undefined;
@@ -10,7 +11,10 @@ export type AuthState = { error?: string; message?: string } | undefined;
 const emailSchema = z.email("Ingresa un correo válido").trim().toLowerCase();
 const passwordSchema = z.string().min(8, "La contraseña debe tener al menos 8 caracteres").max(72);
 
+/** Dirección de Vendia para los links de correo: la configurada (no la que diga el navegador). */
 async function origin() {
+  const site = process.env.NEXT_PUBLIC_SITE_URL;
+  if (site) return site.replace(/\/+$/, "");
   const h = await headers();
   const host = h.get("x-forwarded-host") ?? h.get("host");
   const proto = h.get("x-forwarded-proto") ?? (host?.startsWith("localhost") ? "http" : "https");
@@ -18,8 +22,7 @@ async function origin() {
 }
 
 function safeNext(next: FormDataEntryValue | null, fallback = "/dashboard"): string {
-  const value = typeof next === "string" ? next : "";
-  return value.startsWith("/") && !value.startsWith("//") ? value : fallback;
+  return safeRedirectPath(next, fallback);
 }
 
 export async function login(_prev: AuthState, formData: FormData): Promise<AuthState> {

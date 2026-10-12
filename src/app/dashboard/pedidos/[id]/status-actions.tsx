@@ -8,7 +8,8 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Textarea } from "@/components/ui/textarea";
 import { CANCEL_REASONS, FAILURE_REASONS } from "@/modules/orders/contact";
-import { allowedTransitions, nextStatus, ORDER_STATUS_LABELS, type OrderStatus, type Zone } from "@/modules/orders/state-machine";
+import Link from "next/link";
+import { allowedTransitions, isManualTransitionAllowed, nextStatus, ORDER_STATUS_LABELS, type OrderStatus, type Zone } from "@/modules/orders/state-machine";
 import { changeOrderStatus } from "../actions";
 import { AppSelect } from "@/components/dashboard/app-select";
 
@@ -25,8 +26,11 @@ export function StatusActions({ orderId, status, zone }: { orderId: string; stat
   const [target, setTarget] = useState<OrderStatus | null>(null);
   const [note, setNote] = useState("");
   const [reason, setReason] = useState("");
-  const next = nextStatus(status, zone);
-  const others = allowedTransitions(status, zone).filter((s) => s !== next);
+  // En Lima «Cobrado» se marca al liquidar con el courier (Liquidación)
+  const natural = nextStatus(status, zone);
+  const next = natural && isManualTransitionAllowed(status, natural, zone) ? natural : null;
+  const others = allowedTransitions(status, zone).filter((s) => s !== next && isManualTransitionAllowed(status, s, zone));
+  const settleHint = zone === "lima" && natural === "collected";
   const reasons = reasonsFor(target);
 
   const apply = (to: OrderStatus, withNote?: string, withReason?: string) =>
@@ -38,10 +42,15 @@ export function StatusActions({ orderId, status, zone }: { orderId: string; stat
       setNote("");
     });
 
-  if (!next && others.length === 0) return null;
+  if (!next && others.length === 0 && !settleHint) return null;
 
   return (
-    <div className="flex flex-wrap gap-2">
+    <div className="flex flex-wrap items-center gap-2">
+      {settleHint ? (
+        <Link href="/dashboard/liquidacion" className="text-sm text-muted-foreground underline">
+          Pasa a «Cobrado» cuando lo liquides en Liquidación
+        </Link>
+      ) : null}
       {next ? (
         <Button onClick={() => apply(next)} disabled={pending}>
           Marcar como {ORDER_STATUS_LABELS[next]}

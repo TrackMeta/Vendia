@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { normalizeContent } from "@/modules/landing/defaults";
+import { publicUpsell } from "@/modules/landing/public-content";
 import { getPublicLanding } from "@/modules/landing/public-data";
 import { UpsellOffer } from "./upsell-offer";
 
@@ -15,7 +16,8 @@ export default async function ThankYouPage({ params, searchParams }: PageProps<"
   if (!landing) notFound();
 
   const orderId = typeof o === "string" && /^[0-9a-f-]{36}$/i.test(o) ? o : null;
-  const upsell = normalizeContent(landing.landing.content).thank_you_upsell;
+  // Sin el costo: la oferta va a un componente del navegador
+  const upsell = publicUpsell(normalizeContent(landing.landing.content).thank_you_upsell);
   const orderNumber = typeof pedido === "string" && /^\d{1,10}$/.test(pedido) ? pedido : null;
   const whatsapp = landing.store.whatsapp?.replace(/\D/g, "");
   const waNumber = whatsapp ? (whatsapp.length === 9 ? `51${whatsapp}` : whatsapp) : null;

@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { slugify } from "@/lib/format";
+import { finishSlug, slugify, slugifyTyping } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { TEMPLATES, type TemplateKey } from "@/modules/landing/defaults";
 import { createLanding } from "./actions";
@@ -103,8 +103,10 @@ export function NewLandingDialog({
                 value={slug}
                 onChange={(e) => {
                   setSlugTouched(true);
-                  setSlug(slugify(e.target.value));
+                  // Se deja escribir el guion final; al salir del campo se limpia
+                  setSlug(slugifyTyping(e.target.value));
                 }}
+                onBlur={() => setSlug((v) => finishSlug(v))}
                 required
               />
             </div>

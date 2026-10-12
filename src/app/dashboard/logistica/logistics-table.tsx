@@ -11,6 +11,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { displayPeruPhone, formatDateTime, formatMoney } from "@/lib/format";
 import { CANCEL_REASONS, type ContactChannel, FAILURE_REASONS, RISK_LABELS } from "@/modules/orders/contact";
 import { itemLabel, type VariantBreakdown } from "@/modules/orders/items";
+import { courierName } from "@/modules/couriers";
 import type { OrderStatus } from "@/modules/orders/state-machine";
 import { assignOrders, changeOrdersStatus } from "../pedidos/actions";
 import { ExportDialog, type StoreCourier } from "./export-dialog";
@@ -37,6 +38,7 @@ export type LogisticsOrder = {
   is_possible_duplicate: boolean;
   risk_reasons: string[] | null;
   courier_name: string | null;
+  courier_id: string | null;
   tracking_code: string | null;
   assigned_to: string | null;
   contact_attempts: number;
@@ -73,7 +75,7 @@ const BULK_ACTIONS: Record<string, BulkAction[]> = {
   "en-camino": [
     { to: "out_for_delivery", label: "En reparto (Lima)" },
     { to: "at_agency", label: "En agencia (provincia)" },
-    { to: "collected", label: "Cobrado" },
+    { to: "collected", label: "Cobrado (provincia)" },
     { to: "delivered", label: "Entregado" },
     { to: "failed_delivery", label: "No entregado", reasons: FAILURE_REASONS },
   ],
@@ -302,9 +304,9 @@ export function LogisticsTable({
                   </p>
                 ) : null}
                 {o.exported_at && view === "despachar" ? <p className="text-xs text-muted-foreground">Ya exportado · {formatDateTime(o.exported_at)}</p> : null}
-                {o.tracking_code || o.courier_name ? (
+                {o.tracking_code || o.courier_name || o.courier_id ? (
                   <p className="text-xs text-muted-foreground">
-                    {o.courier_name ?? "Courier"} {o.tracking_code ? `· Guía ${o.tracking_code}` : ""}
+                    {o.courier_id ? courierName(o.courier_id) : (o.courier_name ?? "Courier")} {o.tracking_code ? `· Guía ${o.tracking_code}` : ""}
                   </p>
                 ) : null}
                 {view === "confirmar" ? (

@@ -4,6 +4,7 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { requireUser, STORE_COOKIE } from "@/lib/auth";
+import { finishSlug } from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
 
 export type OnboardingState = { error?: string } | undefined;
@@ -15,13 +16,13 @@ const schema = z.object({
     .trim()
     .toLowerCase()
     .min(3, "El enlace debe tener al menos 3 caracteres")
-    .max(40)
+    .max(40, "El enlace puede tener hasta 40 caracteres")
     .regex(/^[a-z0-9]+(-[a-z0-9]+)*$/, "Usa solo letras minúsculas, números y guiones"),
 });
 
 export async function createStore(_prev: OnboardingState, formData: FormData): Promise<OnboardingState> {
   await requireUser();
-  const parsed = schema.safeParse({ name: formData.get("name"), slug: formData.get("slug") });
+  const parsed = schema.safeParse({ name: formData.get("name"), slug: finishSlug(String(formData.get("slug") ?? "")) });
   if (!parsed.success) return { error: parsed.error.issues[0].message };
 
   const supabase = await createClient();

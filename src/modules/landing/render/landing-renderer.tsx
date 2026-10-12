@@ -40,20 +40,32 @@ export function LandingRenderer({
   selectedBlockId,
   onSelectBlock,
   forceFormOpen,
+  priceToken,
 }: {
   data: LandingRenderData;
   mode: "live" | "preview";
   selectedBlockId?: string | null;
   onSelectBlock?: (id: string) => void;
   forceFormOpen?: boolean;
+  /** Ficha firmada de la prueba de precio (solo en la landing pública) */
+  priceToken?: string | null;
 }) {
   const [formOpen, setFormOpen] = useState(false);
+  // El formulario emergente se monta la primera vez que se abre y luego solo se oculta:
+  // así no se pierde lo escrito ni la llave anti-duplicados al cerrar y volver a abrir.
+  const [formMounted, setFormMounted] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
   // Oferta elegida en el bloque «Producto»: el formulario la trae marcada
   const [preferredOfferId, setPreferredOfferId] = useState<string | null>(null);
   const { content } = data;
   const preview = mode === "preview";
   const popup = content.theme.formMode === "popup";
   const isOpen = popup && (formOpen || Boolean(forceFormOpen));
+  if (isOpen && !formMounted) setFormMounted(true);
+  // Mientras se envía el pedido, tocar afuera no cierra la ventana
+  const closeForm = () => {
+    if (!submitting) setFormOpen(false);
+  };
 
   const live = !preview && Boolean(data.landingId);
   const basePrice = (data.offers.find((o) => o.is_default) ?? data.offers[0])?.price ?? data.product.price;
@@ -165,7 +177,7 @@ export function LandingRenderer({
       case "embedded_form":
         return (
           <div id="vd-form" className="scroll-mt-4 bg-white px-4 py-5">
-            <CodForm key={preferredOfferId ?? "base"} data={data} preview={preview} preferredOfferId={preferredOfferId} />
+            <CodForm data={data} preview={preview} preferredOfferId={preferredOfferId} priceToken={priceToken} />
           </div>
         );
       case "product_hero":
@@ -214,7 +226,7 @@ export function LandingRenderer({
       {/* Si el modo es "incrustado" y no hay bloque de formulario, lo agregamos al final */}
       {!popup && !hasEmbeddedBlock ? (
         <div id="vd-form" className="scroll-mt-4 bg-white px-4 py-5">
-          <CodForm key={preferredOfferId ?? "base"} data={data} preview={preview} preferredOfferId={preferredOfferId} />
+          <CodForm data={data} preview={preview} preferredOfferId={preferredOfferId} priceToken={priceToken} />
         </div>
       ) : null}
 
@@ -235,10 +247,11 @@ export function LandingRenderer({
         </div>
       ) : null}
 
-      {isOpen ? (
+      {popup && formMounted ? (
         <div
-          className={`fixed inset-0 z-50 flex items-end justify-center bg-black/60 ${preview ? "" : "sm:items-center"}`}
-          onClick={() => setFormOpen(false)}
+          className={`fixed inset-0 z-50 items-end justify-center bg-black/60 ${isOpen ? "flex" : "hidden"} ${preview ? "" : "sm:items-center"}`}
+          aria-hidden={!isOpen}
+          onClick={closeForm}
         >
           <div
             role="dialog"
@@ -257,7 +270,7 @@ export function LandingRenderer({
             >
               <X className="size-5" />
             </button>
-            <CodForm data={data} preview={preview} preferredOfferId={preferredOfferId} />
+            <CodForm data={data} preview={preview} preferredOfferId={preferredOfferId} priceToken={priceToken} onSubmittingChange={setSubmitting} />
           </div>
         </div>
       ) : null}

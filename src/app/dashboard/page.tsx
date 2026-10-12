@@ -50,7 +50,7 @@ export default async function DashboardHome({ searchParams }: PageProps<"/dashbo
   refreshMetaInBackground(store.id);
   const supabase = await createClient();
 
-  const [{ data: stats }, { data: recent }, { data: expenseTotals }, { data: settings }, { data: daily, error: dailyError }] = await Promise.all([
+  const [{ data: stats }, { data: recent }, { data: expenseTotals }, { data: settings }, { data: daily, error: dailyError }, { data: meta }] = await Promise.all([
     supabase.rpc("get_order_stats", { p_store_id: store.id, p_from: range.from, p_to: range.to }),
     supabase
       .from("orders")
@@ -61,7 +61,9 @@ export default async function DashboardHome({ searchParams }: PageProps<"/dashbo
     supabase.rpc("get_expense_totals", { p_store_id: store.id, p_from: range.startDate, p_to: range.endDate }),
     supabase.from("store_settings").select("real_sale_mode").eq("store_id", store.id).single(),
     supabase.rpc("get_daily_orders", { p_store_id: store.id, p_from: range.from, p_to: range.to }),
+    supabase.from("store_meta_settings").select("ad_account_id, last_sync_at").eq("store_id", store.id).maybeSingle(),
   ]);
+  const metaConnected = Boolean(meta?.ad_account_id);
   const saleMode = parseSaleMode(settings?.real_sale_mode);
 
   const base = fromOrderStats((stats ?? {}) as Record<string, number>);
@@ -134,17 +136,29 @@ export default async function DashboardHome({ searchParams }: PageProps<"/dashbo
             adSpend === 0 ? (
               <p className="flex items-start gap-1.5 px-3 text-xs text-muted-foreground">
                 <Info className="mt-0.5 size-3.5 shrink-0" />
-                <span>
-                  Sin gasto en este periodo.{" "}
-                  <Link href="/dashboard/marketing" className="underline">
-                    Conecta Meta
-                  </Link>{" "}
-                  o{" "}
-                  <Link href="/dashboard/gastos" className="underline">
-                    registra tu gasto
-                  </Link>
-                  .
-                </span>
+                {metaConnected ? (
+                  // Meta conectado: no hubo gasto en esas fechas (anuncios apagados) o aún no se lee el día
+                  <span>
+                    Meta conectado: sin gasto en estas fechas
+                    {meta?.last_sync_at ? ` (leído ${formatDateTime(meta.last_sync_at)})` : ""}. Si tus anuncios están activos, prueba con otras fechas o{" "}
+                    <Link href="/dashboard/gastos" className="underline">
+                      registra otro gasto
+                    </Link>
+                    .
+                  </span>
+                ) : (
+                  <span>
+                    Sin gasto en este periodo.{" "}
+                    <Link href="/dashboard/marketing" className="underline">
+                      Conecta Meta
+                    </Link>{" "}
+                    o{" "}
+                    <Link href="/dashboard/gastos" className="underline">
+                      registra tu gasto
+                    </Link>
+                    .
+                  </span>
+                )}
               </p>
             ) : null
           }

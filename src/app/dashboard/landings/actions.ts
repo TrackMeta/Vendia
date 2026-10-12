@@ -4,8 +4,10 @@ import { revalidatePath, revalidateTag } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { requireOwner } from "@/lib/auth";
+import { finishSlug } from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
 import { createTemplate, TEMPLATES, type TemplateKey } from "@/modules/landing/defaults";
+import { revalidateProductLandings } from "@/modules/landing/cache";
 import { landingCacheTag } from "@/modules/landing/public-data";
 import { type LandingContent, landingContent, type PageBlock } from "@/modules/landing/schema";
 
@@ -28,7 +30,9 @@ const createSchema = z.object({
 
 export async function createLanding(_prev: ActionResult | undefined, formData: FormData): Promise<ActionResult> {
   const { store } = await requireOwner();
-  const parsed = createSchema.safeParse(Object.fromEntries(formData.entries()));
+  const raw = Object.fromEntries(formData.entries());
+  // Si se envía con Enter sin salir del campo, el enlace puede traer un guion al final
+  const parsed = createSchema.safeParse({ ...raw, slug: finishSlug(String(raw.slug ?? "")) });
   if (!parsed.success) return { ok: false, error: parsed.error.issues[0].message };
 
   const supabase = await createClient();
@@ -99,10 +103,12 @@ const settingsSchema = z.object({
 });
 export type LandingSettings = z.infer<typeof settingsSchema>;
 
+export type SaveLandingResult = { ok: true; message?: string; priceTestStartedAt: string | null } | { ok: false; error: string };
+
 export async function saveLanding(
   landingId: string,
   input: { title: string; slug: string; product_id: string; content: unknown; settings?: unknown },
-): Promise<ActionResult> {
+): Promise<SaveLandingResult> {
   const { store } = await requireOwner();
   const meta = z.object({ title: z.string().trim().min(1).max(160), slug: slugSchema, product_id: z.uuid() }).safeParse(input);
   if (!meta.success) return { ok: false, error: meta.error.issues[0].message };
@@ -121,6 +127,18 @@ export async function saveLanding(
   }
 
   const supabase = await createClient();
+  const { data: current } = await supabase
+    .from("landing_pages")
+    .select("slug, product_id, status, settings")
+    .eq("id", landingId)
+    .eq("store_id", store.id)
+    .maybeSingle();
+  if (!current) return { ok: false, error: "Landing no encontrada" };
+  // En una landing publicada el producto cambia al instante: no se puede pasar a uno inactivo
+  if (current.status === "published" && current.product_id !== meta.data.product_id) {
+    const { data: next } = await supabase.from("products").select("status").eq("id", meta.data.product_id).eq("store_id", store.id).maybeSingle();
+    if (next?.status !== "active") return { ok: false, error: "Ese producto no está activo: actívalo o publícalo con otro" };
+  }
   const productIds = collectProductIds(content.data);
   if (productIds.length) {
     const { data: own } = await supabase.from("products").select("id").eq("store_id", store.id).in("id", productIds);
@@ -133,7 +151,9 @@ export async function saveLanding(
     if (!offerIds.length) return { ok: false, error: "Pon el precio B de al menos una oferta para la prueba de precio" };
     const { data: own } = await supabase.from("product_offers").select("id").eq("store_id", store.id).eq("product_id", meta.data.product_id).in("id", offerIds);
     if ((own ?? []).length !== offerIds.length) return { ok: false, error: "La prueba de precio tiene ofertas de otro producto" };
-    if (!priceTest.started_at) priceTest.started_at = new Date().toISOString();
+    // Si la prueba ya corría, se conserva su inicio (la pantalla puede no tenerlo todavía)
+    const prev = (current.settings as { price_test?: { enabled?: boolean; started_at?: string | null } } | null)?.price_test;
+    if (!priceTest.started_at) priceTest.started_at = (prev?.enabled && prev.started_at) || new Date().toISOString();
   }
   const variantIds = ab.variants.map((v) => v.landing_id);
   if (variantIds.length) {
@@ -152,7 +172,16 @@ export async function saveLanding(
   revalidatePath("/dashboard/landings");
   // Los ajustes (A/B, precio) valen al instante en la landing publicada
   revalidateTag(landingCacheTag(store.slug, meta.data.slug), { expire: 0 });
-  return { ok: true, message: "Borrador guardado" };
+  // Si cambió el enlace, el anterior deja de existir: se limpia su caché también
+  if (current.slug !== meta.data.slug) {
+    revalidateTag(landingCacheTag(store.slug, current.slug), { expire: 0 });
+    // Las pruebas A/B de otras landings reparten visitas por enlace
+    if (current.status === "published") {
+      const { data: others } = await supabase.from("landing_pages").select("slug").eq("store_id", store.id).eq("status", "published");
+      for (const l of others ?? []) revalidateTag(landingCacheTag(store.slug, l.slug), { expire: 0 });
+    }
+  }
+  return { ok: true, message: "Borrador guardado", priceTestStartedAt: priceTest.enabled ? priceTest.started_at : null };
 }
 
 export async function publishLanding(landingId: string): Promise<ActionResult> {
@@ -290,6 +319,8 @@ export async function finishPriceTest(landingId: string, keep: "A" | "B"): Promi
     .eq("store_id", store.id);
   if (error) return { ok: false, error: "No se pudo terminar la prueba" };
   revalidateTag(landingCacheTag(store.slug, landing.slug), { expire: 0 });
+  // Los precios B cambian las ofertas del producto: valen para todas sus landings
+  if (keep === "B") await revalidateProductLandings(store.id, store.slug, landing.product_id);
   revalidatePath(`/dashboard/landings/${landingId}`);
   revalidatePath("/dashboard/productos");
   return { ok: true, message: keep === "B" ? "Listo: tus ofertas ya tienen el precio B" : "Prueba terminada: se quedan los precios de siempre" };

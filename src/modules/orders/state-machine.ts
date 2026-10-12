@@ -83,6 +83,12 @@ export function isTransitionAllowed(from: OrderStatus, to: OrderStatus, zone: Zo
   return false;
 }
 
+/** En Lima «Cobrado» = el courier ya te depositó: se marca desde Liquidación, no a mano. */
+export function isManualTransitionAllowed(from: OrderStatus, to: OrderStatus, zone: Zone = "lima"): boolean {
+  if (zone === "lima" && to === "collected") return false;
+  return isTransitionAllowed(from, to, zone);
+}
+
 export function allowedTransitions(from: OrderStatus, zone: Zone = "lima"): OrderStatus[] {
   return ORDER_STATUSES.filter((to) => isTransitionAllowed(from, to, zone));
 }

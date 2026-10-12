@@ -27,6 +27,15 @@ const nextConfig: NextConfig = {
     return [
       { source: "/ubigeo-pe.json", headers: [{ key: "Cache-Control", value: "public, max-age=86400, stale-while-revalidate=604800" }] },
       { source: "/couriers/:file*", headers: [{ key: "Cache-Control", value: "public, max-age=86400" }] },
+      // El panel no se puede mostrar dentro de otra página (evita clics engañosos)
+      ...["/dashboard/:path*", "/admin/:path*", "/login", "/registro", "/recuperar", "/nueva-clave", "/onboarding"].map((source) => ({
+        source,
+        headers: [
+          { key: "X-Frame-Options", value: "DENY" },
+          { key: "Content-Security-Policy", value: "frame-ancestors 'none'" },
+        ],
+      })),
+      { source: "/:path*", headers: [{ key: "X-Content-Type-Options", value: "nosniff" }, { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" }] },
     ];
   },
   experimental: {

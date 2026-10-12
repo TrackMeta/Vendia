@@ -16,7 +16,8 @@ type StoreOption = { id: string; name: string; role: "owner" | "staff"; logo: st
 function StoreAvatar({ name, logo, className }: { name: string; logo: string | null; className?: string }) {
   if (logo) {
     return (
-      <span className={cn("flex size-8 shrink-0 items-center justify-center overflow-hidden rounded-md bg-white p-0.5", className)}>
+      // El fondo blanco va al final: un bg-* del className (ej. el de la barra oscura) no debe taparlo
+      <span className={cn("flex size-8 shrink-0 items-center justify-center overflow-hidden rounded-md p-0.5", className, "bg-white")}>
         {/* eslint-disable-next-line @next/next/no-img-element -- logo pequeño subido por el vendedor */}
         <img src={logo} alt="" className="size-full object-contain" />
       </span>

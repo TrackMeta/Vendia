@@ -73,6 +73,25 @@ export function slugify(value: string): string {
     .slice(0, 60);
 }
 
+/**
+ * Filtro suave para campos de enlace mientras se escribe: igual que slugify pero deja el guion
+ * final (para poder escribir "mi-tienda"). Al salir del campo o guardar se usa slugify.
+ */
+export function slugifyTyping(value: string): string {
+  return value
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+/, "")
+    .slice(0, 80);
+}
+
+/** Enlace final (al salir del campo o guardar): como slugifyTyping, sin guion al final y con tope de largo. */
+export function finishSlug(value: string, max = 80): string {
+  return slugifyTyping(value).slice(0, max).replace(/-+$/, "");
+}
+
 /** Relación "uno a uno" de Supabase: puede llegar como objeto o como lista de un elemento. */
 export function one<T>(value: T | T[] | null | undefined): T | null {
   if (Array.isArray(value)) return value[0] ?? null;

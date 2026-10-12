@@ -552,6 +552,81 @@ async function main() {
   } catch {
     console.log("  ✓ un filtro inventado se rechaza");
   }
+
+  console.log("\n— Correcciones de la auditoría (Bloque 15) —");
+  const expect = (label: string, ok: boolean, detail = "") => {
+    if (!ok) {
+      console.error(`  ✗ ${label} ${detail}`);
+      process.exit(1);
+    }
+    console.log(`  ✓ ${label}`);
+  };
+  const o11 = (await step(
+    "pedido Lima para pagos",
+    `select public.create_cod_order('{"landing_page_id":"${landingId}","offer_id":"${offerId}","idempotency_key":"k11","first_name":"Paga","phone":"51900000011","district_code":"150101","address":"Calle 11"}'::jsonb)`,
+  )) as { order_id: string; total: number };
+  const bal = async () => Number((await db.query<{ b: string }>(`select balance_due as b from public.orders where id = '${o11.order_id}'`)).rows[0].b);
+  const balBefore = await bal();
+  await db.query(`insert into public.order_payments (store_id, order_id, kind, amount, method) values ('${storeId}', '${o11.order_id}', 'balance', 20, 'yape')`);
+  const afterPay = await bal();
+  expect("el pago del saldo baja el saldo a cobrar", afterPay === balBefore - 20, `(${balBefore} → ${afterPay})`);
+  await db.query(`delete from public.order_payments where order_id = '${o11.order_id}'`);
+  expect("al quitar el pago vuelve el saldo", (await bal()) === balBefore);
+
+  try {
+    await db.query(`select public.change_order_status('${o11.order_id}', 'collected')`);
+    expect("Lima no pasa a «Cobrado» a mano", false);
+  } catch (e) {
+    expect("Lima no pasa a «Cobrado» a mano", /Liquidación/.test((e as Error).message), (e as Error).message);
+  }
+
+  const failedSettle = (await step("liquidar un envío fallido de Lima", `select public.settle_orders('${storeId}', array['${lima.order_id}'::uuid], 'Cobro de envío fallido')`)) as {
+    gross: number;
+    shipping: number;
+  };
+  expect("el envío fallido se descuenta", Number(failedSettle.gross) === 0 && Number(failedSettle.shipping) > 0, JSON.stringify(failedSettle));
+
+  await db.query(`update public.orders set shipping_cost = 0, shipping_cost_set_at = now() where id = '${o11.order_id}'`);
+  await db.query(`select public.change_order_status('${o11.order_id}', 'confirmed')`);
+  await db.query(`select public.change_order_status('${o11.order_id}', 'shipped')`);
+  const cost = Number((await db.query<{ c: string }>(`select shipping_cost as c from public.orders where id = '${o11.order_id}'`)).rows[0].c);
+  expect("un envío en 0 puesto a mano se respeta", cost === 0, `(quedó ${cost})`);
+
+  const o12 = (await step(
+    "pedido para cancelar tras exportar",
+    `select public.create_cod_order('{"landing_page_id":"${landingId}","offer_id":"${offerId}","idempotency_key":"k12","first_name":"Can","phone":"51900000012","district_code":"150101","address":"Calle 12"}'::jsonb)`,
+  )) as { order_id: string };
+  await db.query(`update public.orders set exported_at = now() where id = '${o12.order_id}'`);
+  await db.query(`select public.change_order_status('${o12.order_id}', 'cancelled')`);
+  const exported = (await db.query<{ e: string | null }>(`select exported_at as e from public.orders where id = '${o12.order_id}'`)).rows[0].e;
+  expect("al cancelar se puede volver a exportar", exported === null);
+
+  const publicJson = (await step(
+    "landing pública",
+    `select public.get_public_landing((select slug from public.stores where id = '${storeId}'), (select slug from public.landing_pages where id = '${landingId}'))::text`,
+  )) as string;
+  expect("la landing pública no trae costos", !publicJson.includes('"cost"'));
+
+  const offer2 = (await step(
+    "oferta sin precio B",
+    `insert into public.product_offers (store_id, product_id, name, quantity, price) values ('${storeId}', '${productId}', '3 u', 3, 189) returning id`,
+  )) as string;
+  const pb2 = (await step(
+    "visitante B compra una oferta sin precio B",
+    `select public.create_cod_order('{"landing_page_id":"${landingId}","offer_id":"${offer2}","idempotency_key":"kpb2","first_name":"Ben","phone":"51900000013","district_code":"150133","address":"Calle B2","price_variant":"B"}'::jsonb)`,
+  )) as { order_id: string; total: number };
+  const variant = (await db.query<{ v: string }>(`select price_variant as v from public.order_attribution where order_id = '${pb2.order_id}'`)).rows[0].v;
+  expect("cuenta para la versión B y cobra el precio normal", variant === "B" && Number(pb2.total) >= 189, `(${variant}, ${pb2.total})`);
+
+  await step(
+    "otro pedido con el celular de un cliente existente",
+    `select public.create_cod_order('{"landing_page_id":"${landingId}","offer_id":"${offerId}","idempotency_key":"k13","first_name":"Intruso","phone":"51987654321","district_code":"150133","address":"Otra dirección"}'::jsonb) -> 'order_number'`,
+  );
+  const cust = (await db.query<{ n: string; a: string }>(`select first_name as n, address as a from public.customers where store_id = '${storeId}' and phone = '51987654321'`)).rows[0];
+  expect("no cambia el nombre ni la dirección del cliente", cust.n === "Ana" && cust.a !== "Otra dirección", JSON.stringify(cust));
+
+  const totals = (await step("gastos del periodo", `select public.get_expense_totals('${storeId}', current_date - 3, current_date + 1)`)) as Record<string, number>;
+  expect("gastos se calculan", typeof totals === "object");
   console.log("\nOK — prueba de humo completa");
 }
 

@@ -5,10 +5,14 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { slugify } from "@/lib/format";
+import { finishSlug, slugify, slugifyTyping } from "@/lib/format";
 import { COUNTRIES, UPCOMING_COUNTRIES } from "@/modules/country";
 import { createStore } from "./actions";
 import { AppSelect } from "@/components/dashboard/app-select";
+
+/** El servidor acepta hasta 40 caracteres en el enlace de la tienda. */
+const MAX_SLUG = 40;
+const cleanSlug = (value: string) => finishSlug(slugify(value), MAX_SLUG);
 
 export function OnboardingForm() {
   const [state, action, pending] = useActionState(createStore, undefined);
@@ -35,7 +39,7 @@ export function OnboardingForm() {
               value={name}
               onChange={(e) => {
                 setName(e.target.value);
-                if (!slugTouched) setSlug(slugify(e.target.value));
+                if (!slugTouched) setSlug(cleanSlug(e.target.value));
               }}
             />
           </div>
@@ -48,11 +52,14 @@ export function OnboardingForm() {
                 name="slug"
                 required
                 className="h-10 w-full bg-transparent px-1 text-foreground outline-none"
+                maxLength={MAX_SLUG}
                 value={slug}
                 onChange={(e) => {
                   setSlugTouched(true);
-                  setSlug(slugify(e.target.value));
+                  // Se deja escribir el guion final; al salir del campo se limpia
+                  setSlug(slugifyTyping(e.target.value).slice(0, MAX_SLUG));
                 }}
+                onBlur={() => setSlug((v) => cleanSlug(v))}
               />
             </div>
             <p className="text-xs text-muted-foreground">Aparece en los links de tus landings. No se puede cambiar luego.</p>

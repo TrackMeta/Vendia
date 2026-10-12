@@ -16,31 +16,38 @@ export default async function LandingsPage({ searchParams }: PageProps<"/dashboa
   const { store } = await requireOwner();
   const supabase = await createClient();
 
-  const [{ data: landings }, { data: products }, { data: orderCounts }] = await Promise.all([
+  const [{ data: landings }, { data: products }] = await Promise.all([
     supabase
       .from("landing_pages")
       .select("id, title, slug, status, updated_at, published_at, products (name)")
       .eq("store_id", store.id)
       .order("updated_at", { ascending: false }),
     supabase.from("products").select("id, name").eq("store_id", store.id).neq("status", "archived").order("name"),
-    supabase.from("orders").select("landing_page_id").eq("store_id", store.id).not("landing_page_id", "is", null),
   ]);
 
-  const counts = new Map<string, number>();
-  for (const o of orderCounts ?? []) counts.set(o.landing_page_id!, (counts.get(o.landing_page_id!) ?? 0) + 1);
+  // Pedidos por landing: un conteo por landing (son pocas). Traer las filas se corta en 1000.
+  const counts = new Map<string, number>(
+    await Promise.all(
+      (landings ?? []).map(async (l) => {
+        const { count } = await supabase.from("orders").select("id", { count: "exact", head: true }).eq("store_id", store.id).eq("landing_page_id", l.id);
+        return [l.id, count ?? 0] as const;
+      }),
+    ),
+  );
 
   const dialog = (
     <NewLandingDialog products={products ?? []} defaultProductId={typeof nuevo === "string" ? nuevo : undefined} />
   );
+  const empty = !landings?.length;
 
   return (
     <div>
       <PageHeader
         title="Landings"
         description="Imágenes + botones + botón fijo + formulario emergente. Edita, publica y pega el link en Meta Ads."
-        actions={dialog}
+        actions={empty ? null : dialog}
       />
-      {!landings?.length ? (
+      {empty ? (
         <EmptyState
           icon={LayoutTemplate}
           title="Crea tu primera landing"

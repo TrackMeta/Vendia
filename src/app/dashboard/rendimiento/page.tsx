@@ -103,7 +103,7 @@ async function AdsView({ storeId, range, level, levelHref }: { storeId: string; 
             </>
           ) : (
             <>
-              Sin cuenta de Meta: el gasto viene de Gastos.
+              Sin cuenta de Meta: el gasto por campaña viene de Gastos (con su ID de campaña).
               <Link href="/dashboard/marketing" className="inline-flex items-center gap-1 underline">
                 <BrandIcon name="meta" className="size-4" /> Conectar Meta
               </Link>

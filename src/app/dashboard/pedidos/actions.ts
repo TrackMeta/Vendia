@@ -67,7 +67,7 @@ function schedulePurchase(orderIds: string[]) {
 }
 
 export async function changeOrdersStatus(orderIds: string[], to: string, reason?: string): Promise<ActionResult> {
-  await requireStore();
+  const { store } = await requireStore();
   const parsed = z
     .object({ ids: z.array(z.uuid()).min(1).max(200), to: z.enum(ORDER_STATUSES), reason: z.enum(REASONS).optional() })
     .safeParse({ ids: orderIds, to, reason });
@@ -82,7 +82,9 @@ export async function changeOrdersStatus(orderIds: string[], to: string, reason?
   });
   if (error) return { ok: false, error: "No se pudieron actualizar los pedidos" };
   const result = data as { updated: number; failed: number };
-  schedulePurchase(parsed.data.ids);
+  // Purchase solo para pedidos de esta tienda
+  const { data: own } = await supabase.from("orders").select("id").eq("store_id", store.id).in("id", parsed.data.ids);
+  schedulePurchase((own ?? []).map((o) => o.id));
   revalidateOrders();
   return result.failed
     ? { ok: true, message: `${result.updated} actualizados · ${result.failed} no permitían ese cambio` }
@@ -286,14 +288,17 @@ export async function updateOrderShipping(orderId: string, input: ShippingInput)
   if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message ?? "Datos inválidos" };
   const values: Record<string, unknown> = Object.fromEntries(Object.entries(parsed.data).filter(([, v]) => v !== undefined));
   if ("courier_id" in values) values.courier_name = values.courier_id ? courierName(values.courier_id as string) : null;
+  if ("shipping_cost" in values) values.shipping_cost_set_at = new Date().toISOString();
   if (!Object.keys(values).length) return { ok: true, message: "Sin cambios" };
 
   const supabase = await createClient();
-  const { error } = await supabase.from("orders").update(values).eq("id", id.data).eq("store_id", store.id);
-  if (error) {
-    const sqlMissing = error.message.includes("delivery_location");
-    return { ok: false, error: sqlMissing ? "Para guardar la ubicación falta correr supabase/actualizacion-bloque-11.sql en Supabase" : "No se pudieron guardar los datos de envío" };
+  let { error } = await supabase.from("orders").update(values).eq("id", id.data).eq("store_id", store.id);
+  if (error?.message.includes("shipping_cost_set_at")) {
+    // Sin la actualización del Bloque 15 se guarda igual (sin recordar que el costo se puso a mano)
+    delete values.shipping_cost_set_at;
+    ({ error } = await supabase.from("orders").update(values).eq("id", id.data).eq("store_id", store.id));
   }
+  if (error) return { ok: false, error: "No se pudieron guardar los datos de envío" };
   revalidateOrders(id.data);
   return { ok: true, message: "Datos de envío guardados" };
 }

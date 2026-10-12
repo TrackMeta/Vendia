@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect, useState } from "react";
+import { type FormEvent, startTransition, useActionState, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -57,12 +57,19 @@ export function SettingsForm({ storeId, storeSlug, initial }: { storeId: string;
     else toast.error(state.error);
   }, [state]);
 
+  // Se envía a mano: con <form action> React vacía el formulario tras cada envío (un WhatsApp inválido borraba todo lo editado)
+  const submit = (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const data = new FormData(e.currentTarget, (e.nativeEvent as SubmitEvent).submitter);
+    startTransition(() => action(data));
+  };
+
   const productPrice = 79;
   const total = productPrice + example.lima;
   const provinceTotal = productPrice + example.province;
 
   return (
-    <form action={action} className="flex flex-col gap-6">
+    <form onSubmit={submit} className="flex flex-col gap-6">
       <input type="hidden" name="logo_path" value={logo} />
       <input type="hidden" name="favicon_path" value={favicon} />
 
@@ -152,7 +159,7 @@ export function SettingsForm({ storeId, storeSlug, initial }: { storeId: string;
           </div>
           <div className="sm:col-span-3">
             <Field label="Mensaje de confirmación" hint="Se muestra en la página de gracias después del pedido.">
-              <Textarea name="confirmation_message" defaultValue={initial.confirmation_message} rows={3} />
+              <Textarea name="confirmation_message" defaultValue={initial.confirmation_message} rows={3} required />
             </Field>
           </div>
         </CardContent>
@@ -214,7 +221,7 @@ export function SettingsForm({ storeId, storeSlug, initial }: { storeId: string;
             </AppSelect>
           </Field>
           <Field label="Tipo de cambio (S/ por US$)" hint="Valor sugerido al registrar gastos en dólares. Lo puedes cambiar en cada gasto.">
-            <Input name="usd_rate" type="number" step="0.0001" min="1" defaultValue={initial.usd_rate} />
+            <Input name="usd_rate" type="number" step="0.0001" min="1" max="20" defaultValue={initial.usd_rate} required />
           </Field>
           <label className="flex items-center gap-2 self-center text-sm">
             <input type="checkbox" name="apply_igv" defaultChecked={initial.apply_igv} className="size-4" />

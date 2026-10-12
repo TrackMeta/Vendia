@@ -26,3 +26,14 @@ describe("Atribución", () => {
     expect(buildFbc("AbC123", 1700000000000)).toBe("fb.1.1700000000000.AbC123");
   });
 });
+
+describe("Atribución: largos máximos", () => {
+  it("recorta cada parámetro al largo que acepta el servidor", () => {
+    const long = "9".repeat(70);
+    const result = paramsFromUrl(`?campaign_id=${long}&adset_id=${long}&ad_id=${long}&utm_source=${"s".repeat(300)}`);
+    expect(result.campaign_id).toHaveLength(64);
+    expect(result.adset_id).toHaveLength(64);
+    expect(result.ad_id).toHaveLength(64);
+    expect(result.utm_source).toHaveLength(255);
+  });
+});

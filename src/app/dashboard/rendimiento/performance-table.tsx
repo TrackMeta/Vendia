@@ -17,7 +17,7 @@ type Column = { id: string; label: string; group: "Meta" | "Vendia"; kind: Kind;
 const COLUMNS: Column[] = [
   { id: "spend", label: "Gasto", group: "Meta", kind: "money", get: (r) => r.ad_spend ?? 0 },
   { id: "impressions", label: "Impresiones", group: "Meta", kind: "number", get: (r) => r.impressions },
-  { id: "reach", label: "Alcance", group: "Meta", kind: "number", get: (r) => r.reach },
+  { id: "reach", label: "Alcance (suma diaria)", group: "Meta", kind: "number", get: (r) => r.reach },
   { id: "cpm", label: "CPM", group: "Meta", kind: "money", get: (r) => r.cpm },
   { id: "clicks", label: "Clics", group: "Meta", kind: "number", get: (r) => r.clicks },
   { id: "ctr", label: "CTR", group: "Meta", kind: "percent", get: (r) => r.ctr },
@@ -91,6 +91,8 @@ export function PerformanceTable({ rows, firstColumn, showMeta }: { rows: PerfRo
   });
   const total = (col: Column) => {
     if (col.kind !== "number" && col.id !== "spend" && col.id !== "revenue" && col.id !== "profit") return null;
+    // El alcance no se suma: la misma persona aparece en varios anuncios y días
+    if (col.id === "reach") return null;
     return rows.reduce((s, r) => s + (col.get(r) ?? 0), 0);
   };
 

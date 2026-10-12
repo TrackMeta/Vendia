@@ -11,7 +11,8 @@ import { readAttribution } from "@/modules/attribution/capture";
 import { trackPixel } from "@/modules/meta/pixel";
 import { trackTikTok } from "@/modules/tiktok/pixel";
 import { zoneOf } from "@/modules/orders/contact";
-import { splitFullName } from "@/modules/orders/order-input";
+import { ORDER_FIELD_LIMITS, splitFullName } from "@/modules/orders/order-input";
+import { cleanPhoneInput } from "@/modules/orders/phone-input";
 import type { FormBlock } from "../schema";
 import { type LandingRenderData, shippingFor } from "../types";
 import { UbigeoPicker, type UbigeoValue } from "./ubigeo-picker";
@@ -42,7 +43,21 @@ function newIdempotencyKey() {
 
 const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 
-export function CodForm({ data, preview, preferredOfferId }: { data: LandingRenderData; preview: boolean; preferredOfferId?: string | null }) {
+export function CodForm({
+  data,
+  preview,
+  preferredOfferId,
+  priceToken,
+  onSubmittingChange,
+}: {
+  data: LandingRenderData;
+  preview: boolean;
+  preferredOfferId?: string | null;
+  /** Ficha de la prueba de precio ("A" o la B firmada por el servidor) */
+  priceToken?: string | null;
+  /** Avisa si hay un pedido enviándose (la ventana no se cierra tocando afuera) */
+  onSubmittingChange?: (submitting: boolean) => void;
+}) {
   const router = useRouter();
   const { content, offers } = data;
   const fieldsBlock = content.form_blocks.find((b) => b.type === "form_fields") as
@@ -69,6 +84,17 @@ export function CodForm({ data, preview, preferredOfferId }: { data: LandingRend
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [idempotencyKey] = useState(newIdempotencyKey);
+  const setBusy = (busy: boolean) => {
+    setSubmitting(busy);
+    onSubmittingChange?.(busy);
+  };
+
+  // Si eligen otra oferta en el bloque «Producto», se marca aquí sin borrar lo ya escrito
+  const [lastPreferred, setLastPreferred] = useState(preferredOfferId);
+  if (preferredOfferId !== lastPreferred) {
+    setLastPreferred(preferredOfferId);
+    if (preferredOfferId && offers.some((o) => o.id === preferredOfferId)) setOfferId(preferredOfferId);
+  }
 
   const offer = offers.find((o) => o.id === offerId);
   const shipping = shippingFor(ubigeo.province || null, data.shipping);
@@ -168,7 +194,7 @@ export function CodForm({ data, preview, preferredOfferId }: { data: LandingRend
       return;
     }
     setError(null);
-    setSubmitting(true);
+    setBusy(true);
     submitted.current = true;
     const names = fieldsBlock?.singleNameField ? splitFullName(fullName) : { first_name: firstName, last_name: lastName };
     try {
@@ -193,13 +219,14 @@ export function CodForm({ data, preview, preferredOfferId }: { data: LandingRend
           website: honeypot,
           attribution: readAttribution(),
           angle: data.angle ?? undefined,
-          price_variant: data.priceVariant ?? undefined,
+          // Ficha firmada de la prueba de precio (el servidor la verifica)
+          price_variant: priceToken ?? undefined,
         }),
       });
       const json = await res.json().catch(() => ({}));
       if (!res.ok) {
         setError(json.error ?? "No pudimos registrar tu pedido. Inténtalo de nuevo.");
-        setSubmitting(false);
+        setBusy(false);
         submitted.current = false;
         return;
       }
@@ -210,7 +237,7 @@ export function CodForm({ data, preview, preferredOfferId }: { data: LandingRend
       router.push(`/p/${data.storeSlug}/${data.landingSlug}/gracias?pedido=${json.orderNumber}&o=${json.orderId}`);
     } catch {
       setError("Revisa tu conexión a internet e inténtalo de nuevo.");
-      setSubmitting(false);
+      setBusy(false);
       submitted.current = false;
     }
   }
@@ -317,15 +344,15 @@ export function CodForm({ data, preview, preferredOfferId }: { data: LandingRend
               <div key={block.id} className="flex flex-col gap-3">
                 {block.singleNameField ? (
                   <Field label="Nombre completo" required>
-                    <input className={inputClass} autoComplete="name" value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder="Nombre y apellido" />
+                    <input className={inputClass} autoComplete="name" maxLength={ORDER_FIELD_LIMITS.fullName} value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder="Nombre y apellido" />
                   </Field>
                 ) : (
                   <div className="grid grid-cols-2 gap-3">
                     <Field label="Nombre" required>
-                      <input className={inputClass} autoComplete="given-name" value={firstName} onChange={(e) => setFirstName(e.target.value)} />
+                      <input className={inputClass} autoComplete="given-name" maxLength={ORDER_FIELD_LIMITS.name} value={firstName} onChange={(e) => setFirstName(e.target.value)} />
                     </Field>
                     <Field label="Apellido">
-                      <input className={inputClass} autoComplete="family-name" value={lastName} onChange={(e) => setLastName(e.target.value)} />
+                      <input className={inputClass} autoComplete="family-name" maxLength={ORDER_FIELD_LIMITS.name} value={lastName} onChange={(e) => setLastName(e.target.value)} />
                     </Field>
                   </div>
                 )}
@@ -336,13 +363,13 @@ export function CodForm({ data, preview, preferredOfferId }: { data: LandingRend
                     inputMode="numeric"
                     autoComplete="tel-national"
                     value={phone}
-                    onChange={(e) => setPhone(e.target.value.replace(/[^\d ]/g, "").slice(0, 11))}
+                    onChange={(e) => setPhone(cleanPhoneInput(e.target.value))}
                     placeholder="987 654 321"
                   />
                 </Field>
                 {block.askWhatsapp ? (
                   <Field label="WhatsApp (si es otro número)">
-                    <input className={inputClass} type="tel" inputMode="numeric" value={whatsapp} onChange={(e) => setWhatsapp(e.target.value)} />
+                    <input className={inputClass} type="tel" inputMode="numeric" maxLength={ORDER_FIELD_LIMITS.whatsapp} value={whatsapp} onChange={(e) => setWhatsapp(e.target.value)} />
                   </Field>
                 ) : null}
                 {showDni ? (
@@ -354,11 +381,11 @@ export function CodForm({ data, preview, preferredOfferId }: { data: LandingRend
                   <UbigeoPicker value={ubigeo} onChange={setUbigeo} search={fieldsBlock?.districtSearch ?? true} />
                 </Field>
                 <Field label="Dirección completa" required>
-                  <input className={inputClass} autoComplete="street-address" value={address} onChange={(e) => setAddress(e.target.value)} placeholder="Av. Los Héroes 123, Dpto 402" />
+                  <input className={inputClass} autoComplete="street-address" maxLength={ORDER_FIELD_LIMITS.address} value={address} onChange={(e) => setAddress(e.target.value)} placeholder="Av. Los Héroes 123, Dpto 402" />
                 </Field>
                 {block.askReference !== false ? (
                   <Field label="Referencia" required={block.requireReference}>
-                    <input className={inputClass} value={reference} onChange={(e) => setReference(e.target.value)} placeholder="Frente al parque, casa verde" />
+                    <input className={inputClass} maxLength={ORDER_FIELD_LIMITS.reference} value={reference} onChange={(e) => setReference(e.target.value)} placeholder="Frente al parque, casa verde" />
                   </Field>
                 ) : null}
                 {block.askEmail ? (
@@ -368,6 +395,7 @@ export function CodForm({ data, preview, preferredOfferId }: { data: LandingRend
                       type="email"
                       inputMode="email"
                       autoComplete="email"
+                      maxLength={ORDER_FIELD_LIMITS.email}
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       placeholder="tucorreo@gmail.com"
@@ -376,7 +404,7 @@ export function CodForm({ data, preview, preferredOfferId }: { data: LandingRend
                 ) : null}
                 {block.askNotes ? (
                   <Field label="Observaciones">
-                    <textarea className={`${inputClass} h-20 py-2`} value={notes} onChange={(e) => setNotes(e.target.value)} />
+                    <textarea className={`${inputClass} h-20 py-2`} maxLength={ORDER_FIELD_LIMITS.notes} value={notes} onChange={(e) => setNotes(e.target.value)} />
                   </Field>
                 ) : null}
                 {(block.privacyNotice ?? DEFAULT_PRIVACY_NOTICE).trim() ? (

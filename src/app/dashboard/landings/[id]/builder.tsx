@@ -16,7 +16,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { publicAssetUrl } from "@/lib/env";
-import { slugify } from "@/lib/format";
+import { finishSlug, slugifyTyping } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { createFormBlock, createPageBlock, newBlockId } from "@/modules/landing/defaults";
 import { LandingRenderer } from "@/modules/landing/render/landing-renderer";
@@ -219,6 +219,8 @@ const ADDABLE_PAGE_BLOCKS: PageBlockType[] = [
 ];
 const ADDABLE_FORM_BLOCKS: FormBlockType[] = ["form_image", "form_text", "form_summary", "form_bumps"];
 
+const LEAVE_MESSAGE = "Tienes cambios sin guardar. ¿Salir sin guardar?";
+
 export function LandingBuilder({
   landing,
   storeId,
@@ -275,12 +277,21 @@ export function LandingBuilder({
   const [angleKey, setAngleKey] = useState<string | null>(null);
   const [saving, startSaving] = useTransition();
   const [publishing, startPublishing] = useTransition();
-
-  const update = useCallback((updater: (c: LandingContent) => LandingContent) => {
-    setContent((c) => updater(c));
+  // Cuenta cada cambio: al terminar de guardar solo se limpia «Sin guardar» si no hubo cambios mientras tanto
+  const revision = useRef(0);
+  const markDirty = useCallback(() => {
+    revision.current += 1;
     setDirty(true);
-    setPendingChanges(true);
   }, []);
+
+  const update = useCallback(
+    (updater: (c: LandingContent) => LandingContent) => {
+      setContent((c) => updater(c));
+      markDirty();
+      setPendingChanges(true);
+    },
+    [markDirty],
+  );
 
   // Lo que se ve en la vista previa: la versión principal o el ángulo elegido
   const view = useMemo(() => applyAngle(content, angleKey), [content, angleKey]);
@@ -318,19 +329,28 @@ export function LandingBuilder({
   const save = useCallback(
     (then?: () => void) =>
       startSaving(async () => {
-        const result = await saveLanding(landing.id, { title, slug, product_id: productId, content, settings });
+        const rev = revision.current;
+        const cleanSlug = finishSlug(slug);
+        if (cleanSlug !== slug) setSlug(cleanSlug);
+        const result = await saveLanding(landing.id, { title, slug: cleanSlug, product_id: productId, content, settings });
         if (!result.ok) {
           toast.error(result.error);
           return;
         }
-        setDirty(false);
+        // El servidor fija el inicio de la prueba de precio: se guarda aquí para no reiniciarla en el próximo guardado
+        const priceTestStartedAt = result.priceTestStartedAt;
+        if (priceTestStartedAt) {
+          setSettings((s) => (s.price_test.enabled && !s.price_test.started_at ? { ...s, price_test: { ...s.price_test, started_at: priceTestStartedAt } } : s));
+        }
+        if (revision.current === rev) setDirty(false);
         if (then) then();
         else toast.success(result.message ?? "Guardado");
       }),
     [content, landing.id, productId, slug, title, settings],
   );
 
-  const publish = () =>
+  const publish = () => {
+    const rev = revision.current;
     save(() =>
       startPublishing(async () => {
         const result = await publishLanding(landing.id);
@@ -339,11 +359,19 @@ export function LandingBuilder({
           return;
         }
         setStatus("published");
-        setPendingChanges(false);
+        if (revision.current === rev) setPendingChanges(false);
         toast.success(result.message ?? "Publicada");
         router.refresh();
       }),
     );
+  };
+
+  const duplicate = async () => {
+    if (dirty && !confirm("Tienes cambios sin guardar: la copia usará lo último guardado. ¿Duplicar igual?")) return;
+    const r = await duplicateLanding(landing.id);
+    // Si sale bien, el servidor redirige a la copia
+    if (r && !r.ok) toast.error(r.error);
+  };
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -355,11 +383,25 @@ export function LandingBuilder({
     const onUnload = (e: BeforeUnloadEvent) => {
       if (dirty) e.preventDefault();
     };
+    // Enlaces internos (Volver, menú lateral…): beforeunload no avisa al navegar dentro de la app
+    const onLinkClick = (e: MouseEvent) => {
+      if (!dirty || e.defaultPrevented || e.button !== 0 || e.ctrlKey || e.metaKey || e.shiftKey || e.altKey) return;
+      const link = e.target instanceof Element ? e.target.closest<HTMLAnchorElement>("a[href]") : null;
+      if (!link || (link.target && link.target !== "_self")) return;
+      const url = new URL(link.href, window.location.href);
+      if (url.origin !== window.location.origin || url.pathname === window.location.pathname) return;
+      if (!confirm(LEAVE_MESSAGE)) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+    };
     window.addEventListener("keydown", onKey);
     window.addEventListener("beforeunload", onUnload);
+    document.addEventListener("click", onLinkClick, true);
     return () => {
       window.removeEventListener("keydown", onKey);
       window.removeEventListener("beforeunload", onUnload);
+      document.removeEventListener("click", onLinkClick, true);
     };
   }, [dirty, save]);
 
@@ -480,7 +522,7 @@ export function LandingBuilder({
           value={title}
           onChange={(e) => {
             setTitle(e.target.value);
-            setDirty(true);
+            markDirty();
           }}
           className="h-8 w-48 font-medium sm:w-64"
           aria-label="Título"
@@ -513,7 +555,7 @@ export function LandingBuilder({
               >
                 <Link2 /> Copiar link
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => void duplicateLanding(landing.id)}>
+              <DropdownMenuItem onClick={() => void duplicate()}>
                 <Copy /> Duplicar landing
               </DropdownMenuItem>
               {status === "published" ? (
@@ -705,7 +747,7 @@ export function LandingBuilder({
                 settings={settings}
                 onSettings={(s) => {
                   setSettings(s);
-                  setDirty(true);
+                  markDirty();
                 }}
                 landingId={landing.id}
                 otherLandings={otherLandings}
@@ -723,7 +765,7 @@ export function LandingBuilder({
                   value={productId}
                   onChange={(e) => {
                     setProductId(e.target.value);
-                    setDirty(true);
+                    markDirty();
                   }}
                   className="h-8 rounded-lg border border-input bg-transparent px-2 text-sm"
                 >
@@ -741,9 +783,11 @@ export function LandingBuilder({
                   <Input
                     value={slug}
                     onChange={(e) => {
-                      setSlug(slugify(e.target.value));
-                      setDirty(true);
+                      // Mientras se escribe se permite el guion final; al salir del campo se limpia
+                      setSlug(slugifyTyping(e.target.value));
+                      markDirty();
                     }}
+                    onBlur={() => setSlug((v) => finishSlug(v))}
                     className="h-8"
                   />
                 </div>

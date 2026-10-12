@@ -1,5 +1,5 @@
 import type { FormBlock, FormBlockType, LandingContent, PageBlock, PageBlockType, ThankYouUpsell, WhatsappButton } from "./schema";
-import { DEFAULT_PRIVACY_NOTICE } from "./schema";
+import { DEFAULT_PRIVACY_NOTICE, formBlock, formFieldsBlock } from "./schema";
 
 export function newBlockId(): string {
   return Math.random().toString(36).slice(2, 10) + Date.now().toString(36).slice(-4);
@@ -123,10 +123,25 @@ export const DEFAULT_THANK_YOU_UPSELL: ThankYouUpsell = {
   cost: 0,
 };
 
+/**
+ * Bloque del formulario con los valores por defecto del esquema (ej. «Referencia obligatoria»
+ * en landings guardadas antes de que existiera la opción). Si no pasa el esquema, se
+ * completan solo los campos que faltan del bloque de datos.
+ */
+function normalizeFormBlock(block: FormBlock): FormBlock {
+  const parsed = formBlock.safeParse(block);
+  if (parsed.success) return parsed.data;
+  if (block.type !== "form_fields") return block;
+  const defaults = formFieldsBlock.parse({ id: block.id || "form_fields", type: "form_fields" });
+  const present = Object.fromEntries(Object.entries(block).filter(([, v]) => v !== undefined && v !== null));
+  return { ...defaults, ...present } as FormBlock;
+}
+
 /** Completa con valores por defecto el contenido guardado antes de que existieran las opciones nuevas. */
 export function normalizeContent(content: LandingContent): LandingContent {
   return {
     ...content,
+    form_blocks: (content.form_blocks ?? []).map(normalizeFormBlock),
     whatsapp_button: { ...DEFAULT_WHATSAPP_BUTTON, ...(content.whatsapp_button ?? {}) },
     thank_you_upsell: { ...DEFAULT_THANK_YOU_UPSELL, ...(content.thank_you_upsell ?? {}) },
     angles: content.angles ?? [],

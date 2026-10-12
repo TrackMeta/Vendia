@@ -4,6 +4,8 @@
  * por 7 días, para no perderlos si el cliente navega o vuelve más tarde.
  */
 
+import { ATTRIBUTION_LIMITS } from "./limits";
+
 export type Attribution = {
   utm_source?: string;
   utm_medium?: string;
@@ -54,7 +56,8 @@ export function paramsFromUrl(search: string): Partial<Attribution> {
   const result: Partial<Attribution> = {};
   for (const key of TRACKED_PARAMS) {
     const value = params.get(key);
-    if (value) result[key] = value.slice(0, 500);
+    // Se recorta al largo que acepta el servidor (un ID de 70 caracteres no debe bloquear el pedido)
+    if (value) result[key] = value.slice(0, ATTRIBUTION_LIMITS[key]);
   }
   return result;
 }
@@ -74,6 +77,7 @@ export function captureAttribution(): void {
     if (hasNewParams || !stored) {
       const data: Attribution = {
         ...fromUrl,
+        // Más corto que el límite del servidor: la cookie no debe pasar de ~4 KB
         referrer: document.referrer ? document.referrer.slice(0, 500) : undefined,
         landing_url: location.href.slice(0, 1000),
       };

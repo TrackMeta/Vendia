@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { normalizePeruPhone } from "@/lib/format";
+import { allowRequest, requestIp } from "@/lib/rate-limit";
 
 const schema = z.object({
   landing_page_id: z.uuid(),
@@ -21,6 +22,8 @@ const schema = z.object({
  * pero no terminó el pedido. Solo se guarda para landings publicadas y si ese celular no pidió hace poco.
  */
 export async function POST(request: NextRequest) {
+  // Una persona real deja pocos carritos por minuto: corta el relleno con celulares falsos
+  if (!allowRequest(`abandoned:${requestIp(request)}`, 10)) return new NextResponse(null, { status: 429 });
   const raw = await request.text();
   if (raw.length > 4000) return new NextResponse(null, { status: 413 });
   let body: unknown;

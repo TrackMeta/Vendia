@@ -1,3 +1,4 @@
+import { limaToday } from "@/modules/metrics/date-range";
 import { toCsv } from "@/modules/expenses/csv";
 
 export type ExportableOrder = {
@@ -43,7 +44,7 @@ export function buildCourierCsv(orders: ExportableOrder[]): string {
     const local = o.customer_phone.startsWith("51") ? o.customer_phone.slice(2) : o.customer_phone;
     return [
       o.order_number,
-      o.created_at.slice(0, 10),
+      limaToday(new Date(o.created_at)),
       o.customer_name,
       local,
       o.dni,

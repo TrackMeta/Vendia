@@ -25,6 +25,9 @@ const IN_TRANSIT_FILTER = "status.in.(shipped,out_for_delivery,at_agency),and(st
 type ViewKey = keyof typeof VIEWS;
 const ZONES = { todas: "Todas", lima: "Lima", provincia: "Provincia" } as const;
 
+/** Pedidos por bandeja (los más antiguos primero: son los que urgen). */
+const LIST_LIMIT = 1000;
+
 export default async function LogisticsPage({ searchParams }: PageProps<"/dashboard/logistica">) {
   const sp = await searchParams;
   const view: ViewKey = typeof sp.vista === "string" && sp.vista in VIEWS ? (sp.vista as ViewKey) : "confirmar";
@@ -36,11 +39,11 @@ export default async function LogisticsPage({ searchParams }: PageProps<"/dashbo
   let query = supabase
     .from("orders")
     .select(
-      "id, order_number, created_at, status, zone, customer_name, customer_phone, dni, total, balance_due, address, reference, district_name, province_name, department_name, is_possible_duplicate, risk_reasons, courier_name, tracking_code, agency_destination, exported_at, assigned_to, contact_attempts, last_contact_result, last_contact_at, next_contact_at, contact_sequence_done, source, source_channel, order_items (product_name, offer_name, quantity, variant_breakdown)",
+      "id, order_number, created_at, status, zone, customer_name, customer_phone, dni, total, balance_due, address, reference, district_name, province_name, department_name, is_possible_duplicate, risk_reasons, courier_name, courier_id, tracking_code, agency_destination, exported_at, assigned_to, contact_attempts, last_contact_result, last_contact_at, next_contact_at, contact_sequence_done, source, source_channel, order_items (product_name, offer_name, quantity, variant_breakdown)",
     )
     .eq("store_id", store.id)
     .order("created_at", { ascending: true })
-    .limit(300);
+    .limit(LIST_LIMIT);
   query = view === "en-camino" ? query.or(IN_TRANSIT_FILTER) : query.in("status", VIEWS[view].statuses);
   if (zone !== "todas") query = query.eq("zone", zone);
   if (mine) query = query.eq("assigned_to", user.id);

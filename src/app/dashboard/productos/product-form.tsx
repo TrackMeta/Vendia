@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect } from "react";
+import { type FormEvent, startTransition, useActionState, useEffect } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -60,13 +60,20 @@ export function ProductForm({
     else toast.error(state.error);
   }, [state]);
 
+  // Se envía a mano: con <form action> React vacía el formulario tras cada envío y se pierden los datos si hay un error
+  const submit = (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const data = new FormData(e.currentTarget, (e.nativeEvent as SubmitEvent).submitter);
+    startTransition(() => formAction(data));
+  };
+
   return (
     <Card>
       <CardHeader>
         <CardTitle>Datos del producto</CardTitle>
       </CardHeader>
       <CardContent>
-        <form action={formAction} className="grid gap-4 sm:grid-cols-2">
+        <form onSubmit={submit} className="grid gap-4 sm:grid-cols-2">
           <div className="flex flex-col gap-2 sm:col-span-2">
             <Label htmlFor="name">Nombre</Label>
             <Input id="name" name="name" required defaultValue={initial.name} placeholder="Faja reductora térmica" />

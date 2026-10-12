@@ -4,6 +4,7 @@ import { notFound, redirect } from "next/navigation";
 import { publicAssetUrl } from "@/lib/env";
 import { abCookieName, pickVariant, variantUrl } from "@/modules/landing/ab";
 import { ANGLE_PARAM, angleName, applyAngle, findAngle } from "@/modules/landing/angles";
+import { savedPriceVariant, signPriceVariantB } from "@/modules/landing/price-test";
 import { getPublicLanding, toRenderData } from "@/modules/landing/public-data";
 import { AbRemember } from "@/modules/landing/render/ab-remember";
 import { googleFontHref } from "@/modules/landing/fonts";
@@ -73,9 +74,12 @@ export default async function PublicLandingPage({ params, searchParams }: PagePr
   const priceCookie = `vd_pt_${landing.landing.id.slice(0, 8)}`;
   let priceVariant: "A" | "B" | null = null;
   if (testing) {
-    const saved = (await cookies()).get(priceCookie)?.value;
-    priceVariant = saved === "A" || saved === "B" ? saved : pickPriceVariant();
+    // Una «B» vieja sin firma no vale: se vuelve a sortear
+    const saved = savedPriceVariant(landing.landing.id, (await cookies()).get(priceCookie)?.value);
+    priceVariant = saved ?? pickPriceVariant();
   }
+  // Lo que guarda la cookie y se manda con el pedido: "A" o la ficha B firmada (el visitante no puede inventarla)
+  const priceToken = priceVariant === "B" ? signPriceVariantB(landing.landing.id) : priceVariant;
   const offers =
     priceVariant === "B"
       ? base.offers.map((o) => {
@@ -106,9 +110,9 @@ export default async function PublicLandingPage({ params, searchParams }: PagePr
       ) : null}
       {heroImage ? <link rel="preload" as="image" href={heroImage} fetchPriority="high" /> : null}
       <div className="flex-1" style={{ backgroundColor: data.content.theme.pageBg }}>
-        <LandingRenderer data={data} mode="live" />
+        <LandingRenderer data={data} mode="live" priceToken={priceToken} />
         {remember ? <AbRemember cookie={remember.cookie} slug={remember.slug} /> : null}
-        {priceVariant ? <AbRemember cookie={priceCookie} slug={priceVariant} /> : null}
+        {priceToken ? <AbRemember cookie={priceCookie} slug={priceToken} /> : null}
       </div>
     </>
   );

@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
+import { allowRequest, requestIp } from "@/lib/rate-limit";
 import { reportError } from "@/lib/report-error";
 
 const schema = z.object({
@@ -11,6 +12,7 @@ const schema = z.object({
 
 /** Errores del navegador (landing y panel). Se agrupan por huella en public.app_errors. */
 export async function POST(request: NextRequest) {
+  if (!allowRequest(`errors:${requestIp(request)}`, 20)) return new NextResponse(null, { status: 429 });
   const raw = await request.text();
   if (raw.length > 8000) return new NextResponse(null, { status: 413 });
   let body: unknown;

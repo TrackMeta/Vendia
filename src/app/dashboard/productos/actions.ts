@@ -5,6 +5,8 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { requireOwner } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
+import { revalidateProductLandings } from "@/modules/landing/cache";
+import { contentUsesPath } from "@/modules/landing/cache-paths";
 import { offersInput, productInput } from "@/modules/products/schema";
 
 export type ActionResult = { ok: true; message?: string } | { ok: false; error: string };
@@ -58,12 +60,15 @@ export async function updateProduct(productId: string, _prev: ActionResult | und
   }
   revalidatePath("/dashboard/productos");
   revalidatePath(`/dashboard/productos/${productId}`);
+  await revalidateProductLandings(store.id, store.slug, productId);
   return { ok: true, message: "Producto guardado" };
 }
 
 export async function deleteProduct(productId: string): Promise<ActionResult> {
   const { store } = await requireOwner();
   const supabase = await createClient();
+  // Por si acaso: las landings del producto impiden borrarlo, pero se refresca su caché igual
+  await revalidateProductLandings(store.id, store.slug, productId);
   const { error } = await supabase.from("products").delete().eq("id", productId).eq("store_id", store.id);
   if (error) {
     if (error.code === "23503") {
@@ -82,8 +87,9 @@ export async function saveOffers(productId: string, offers: unknown): Promise<Ac
 
   const supabase = await createClient();
   const { data: existing } = await supabase.from("product_offers").select("id").eq("product_id", productId).eq("store_id", store.id);
-  const keepIds = new Set(parsed.data.filter((o) => o.id).map((o) => o.id));
-  const toDelete = (existing ?? []).map((o) => o.id).filter((id) => !keepIds.has(id));
+  const existingIds = new Set((existing ?? []).map((o) => o.id));
+  const keepIds = new Set(parsed.data.filter((o) => o.id && existingIds.has(o.id)).map((o) => o.id));
+  const toDelete = [...existingIds].filter((id) => !keepIds.has(id));
 
   if (toDelete.length) {
     // Las ofertas usadas en pedidos se desactivan (el pedido guarda una copia del nombre y precio).
@@ -92,25 +98,34 @@ export async function saveOffers(productId: string, offers: unknown): Promise<Ac
   }
 
   const rows = parsed.data.map((o, position) => ({
-    ...(o.id ? { id: o.id } : {}),
-    store_id: store.id,
-    product_id: productId,
-    name: o.name,
-    quantity: o.quantity,
-    price: o.price,
-    compare_at_price: o.compare_at_price,
-    badge: o.badge,
-    image_path: o.image_path ?? null,
-    is_default: o.is_default,
-    is_active: o.is_active,
-    position,
+    id: o.id && keepIds.has(o.id) ? o.id : null,
+    row: {
+      name: o.name,
+      quantity: o.quantity,
+      price: o.price,
+      compare_at_price: o.compare_at_price,
+      badge: o.badge,
+      image_path: o.image_path ?? null,
+      is_default: o.is_default,
+      is_active: o.is_active,
+      position,
+    },
   }));
 
-  if (rows.length) {
-    const { error } = await supabase.from("product_offers").upsert(rows);
+  // Las existentes se actualizan y las nuevas se insertan aparte: un upsert mezclado manda id nulo en las nuevas.
+  // Primero se quita la predeterminada de las que dejan de serlo, por si algún día hay un índice único.
+  for (const { id, row } of [...rows].sort((a, b) => Number(a.row.is_default) - Number(b.row.is_default))) {
+    if (!id) continue;
+    const { error } = await supabase.from("product_offers").update(row).eq("id", id).eq("store_id", store.id).eq("product_id", productId);
+    if (error) return { ok: false, error: "No se pudieron guardar las ofertas" };
+  }
+  const inserts = rows.filter((r) => !r.id).map(({ row }) => ({ ...row, store_id: store.id, product_id: productId }));
+  if (inserts.length) {
+    const { error } = await supabase.from("product_offers").insert(inserts);
     if (error) return { ok: false, error: "No se pudieron guardar las ofertas" };
   }
   revalidatePath(`/dashboard/productos/${productId}`);
+  await revalidateProductLandings(store.id, store.slug, productId);
   return { ok: true, message: "Ofertas guardadas" };
 }
 
@@ -144,6 +159,7 @@ export async function addProductImages(productId: string, images: unknown): Prom
   );
   if (error) return { ok: false, error: "No se pudieron guardar las imágenes" };
   revalidatePath(`/dashboard/productos/${productId}`);
+  await revalidateProductLandings(store.id, store.slug, productId);
   return { ok: true };
 }
 
@@ -158,8 +174,12 @@ export async function deleteProductImage(productId: string, imageId: string): Pr
     .single();
   if (!image) return { ok: false, error: "Imagen no encontrada" };
 
-  await supabase.from("product_images").delete().eq("id", imageId).eq("store_id", store.id);
-  await supabase.storage.from("store-assets").remove([image.storage_path]);
+  const { error } = await supabase.from("product_images").delete().eq("id", imageId).eq("store_id", store.id);
+  if (error) return { ok: false, error: "No se pudo eliminar la imagen" };
+  // El archivo solo se borra si ninguna landing lo usa en sus bloques (borrador o publicada)
+  const { data: landings, error: landingsError } = await supabase.from("landing_pages").select("content, published_content").eq("store_id", store.id);
+  const inUse = Boolean(landingsError) || (landings ?? []).some((l) => contentUsesPath(l.content, image.storage_path) || contentUsesPath(l.published_content, image.storage_path));
+  if (!inUse) await supabase.storage.from("store-assets").remove([image.storage_path]);
 
   if (image.is_primary) {
     const { data: next } = await supabase
@@ -172,6 +192,7 @@ export async function deleteProductImage(productId: string, imageId: string): Pr
     if (next) await supabase.from("product_images").update({ is_primary: true }).eq("id", next.id);
   }
   revalidatePath(`/dashboard/productos/${productId}`);
+  await revalidateProductLandings(store.id, store.slug, productId);
   return { ok: true };
 }
 
@@ -192,6 +213,7 @@ export async function reorderProductImages(productId: string, orderedIds: string
       .eq("store_id", store.id);
   }
   revalidatePath(`/dashboard/productos/${productId}`);
+  await revalidateProductLandings(store.id, store.slug, productId);
   return { ok: true };
 }
 
@@ -225,20 +247,25 @@ export type VariantsInput = z.input<typeof variantsInput>;
  * Guarda las variantes del producto. Si hay variantes, el stock vive en cada una
  * (el stock general del producto deja de usarse). Las quitadas se borran: los pedidos guardan su nombre.
  */
-export async function saveVariants(productId: string, input: VariantsInput): Promise<ActionResult> {
+export type SaveVariantsResult = { ok: true; message?: string; ids: { name: string; id: string }[] } | { ok: false; error: string };
+
+export async function saveVariants(productId: string, input: VariantsInput): Promise<SaveVariantsResult> {
   const { store } = await requireOwner();
   if (!z.uuid().safeParse(productId).success) return { ok: false, error: "Producto inválido" };
   const parsed = variantsInput.safeParse(input);
   if (!parsed.success) return { ok: false, error: parsed.error.issues[0].message };
-  const { label, variants } = parsed.data;
-  const names = variants.map((v) => v.name.toLowerCase());
+  const { label } = parsed.data;
+  const names = parsed.data.variants.map((v) => v.name.toLowerCase());
   if (new Set(names).size !== names.length) return { ok: false, error: "Hay variantes con el mismo nombre" };
-  if (variants.length && !label) return { ok: false, error: "Escribe qué es la variante (ej: Talla, Color)" };
+  if (parsed.data.variants.length && !label) return { ok: false, error: "Escribe qué es la variante (ej: Talla, Color)" };
 
   const supabase = await createClient();
   const { data: existing } = await supabase.from("product_variants").select("id").eq("product_id", productId).eq("store_id", store.id);
+  const existingIds = new Set((existing ?? []).map((v) => v.id));
+  // Un id que ya no existe (borrado en otra pestaña) se guarda como variante nueva
+  const variants = parsed.data.variants.map((v) => (v.id && existingIds.has(v.id) ? v : { ...v, id: undefined }));
   const keep = new Set(variants.filter((v) => v.id).map((v) => v.id));
-  const toDelete = (existing ?? []).map((v) => v.id).filter((id) => !keep.has(id));
+  const toDelete = [...existingIds].filter((id) => !keep.has(id));
   if (toDelete.length) {
     const { error } = await supabase.from("product_variants").delete().in("id", toDelete).eq("store_id", store.id);
     if (error) return { ok: false, error: "No se pudieron quitar variantes" };
@@ -248,12 +275,15 @@ export async function saveVariants(productId: string, input: VariantsInput): Pro
     if (!v.id) continue;
     await supabase.from("product_variants").update({ name: `~${position}~${v.id.slice(0, 8)}` }).eq("id", v.id).eq("store_id", store.id);
   }
+  // Se devuelven los ids (también de las nuevas) para que un segundo guardado no las borre y recree
+  const ids: { name: string; id: string }[] = [];
   for (const [position, v] of variants.entries()) {
     const row = { name: v.name, sku: v.sku, stock: v.stock, is_active: v.is_active, position };
-    const { error } = v.id
-      ? await supabase.from("product_variants").update(row).eq("id", v.id).eq("store_id", store.id)
-      : await supabase.from("product_variants").insert({ ...row, store_id: store.id, product_id: productId });
-    if (error) return { ok: false, error: `No se pudo guardar la variante «${v.name}»` };
+    const { data: saved, error } = v.id
+      ? await supabase.from("product_variants").update(row).eq("id", v.id).eq("store_id", store.id).select("id").single()
+      : await supabase.from("product_variants").insert({ ...row, store_id: store.id, product_id: productId }).select("id").single();
+    if (error || !saved) return { ok: false, error: `No se pudo guardar la variante «${v.name}»` };
+    ids.push({ name: v.name, id: saved.id });
   }
   const { error } = await supabase
     .from("products")
@@ -262,5 +292,6 @@ export async function saveVariants(productId: string, input: VariantsInput): Pro
     .eq("store_id", store.id);
   if (error) return { ok: false, error: "No se pudo guardar" };
   revalidatePath(`/dashboard/productos/${productId}`);
-  return { ok: true, message: variants.length ? `${variants.length} variante(s) guardadas` : "Variantes quitadas" };
+  await revalidateProductLandings(store.id, store.slug, productId);
+  return { ok: true, message: variants.length ? `${variants.length} variante(s) guardadas` : "Variantes quitadas", ids };
 }

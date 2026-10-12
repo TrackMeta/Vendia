@@ -44,6 +44,8 @@ export default async function ExpensesPage({ searchParams }: PageProps<"/dashboa
     applyIgv: Boolean(settings?.apply_igv),
   };
 
+  // Días que ya trae la sincronización de Meta: el gasto de Meta escrito a mano esos días no se suma (sería doble)
+  const syncedDays = new Set((expenses ?? []).filter((e) => e.source === "meta_sync").map((e) => e.expense_date));
   const t = (totals ?? {}) as { ad_spend?: number; meta_spend?: number; igv?: number; other_expenses?: number; reference_only?: number };
 
   return (
@@ -113,6 +115,9 @@ export default async function ExpensesPage({ searchParams }: PageProps<"/dashboa
                         {EXPENSE_CATEGORIES[e.category as ExpenseCategory]}
                         {REFERENCE_ONLY_CATEGORIES.includes(e.category as ExpenseCategory) ? <SimpleBadge>Referencia</SimpleBadge> : null}
                         {e.source === "import" ? <SimpleBadge tone="info">Importado</SimpleBadge> : null}
+                        {e.category === "meta_ads" && e.source !== "meta_sync" && syncedDays.has(e.expense_date) ? (
+                          <SimpleBadge tone="attention">No se suma: Meta ya trae este día</SimpleBadge>
+                        ) : null}
                       </div>
                     </TableCell>
                     <TableCell className="hidden max-w-72 md:table-cell">

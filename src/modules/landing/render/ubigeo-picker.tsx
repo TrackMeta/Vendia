@@ -60,14 +60,16 @@ export type UbigeoValue = { department: string; province: string; district: stri
 const selectClass =
   "h-12 w-full appearance-none rounded-lg border border-zinc-300 bg-white px-3 text-base text-zinc-900 outline-none focus:border-zinc-900 disabled:bg-zinc-100 disabled:text-zinc-400";
 
-export function UbigeoPicker({ value, onChange }: { value: UbigeoValue; onChange: (value: UbigeoValue) => void }) {
+export function UbigeoPicker({ value, onChange, search = true }: { value: UbigeoValue; onChange: (value: UbigeoValue) => void; search?: boolean }) {
   const [index, setIndex] = useState<Index | null>(null);
   const [failed, setFailed] = useState(false);
   const [query, setQuery] = useState("");
   const [focused, setFocused] = useState(false);
 
   useEffect(() => {
-    loadUbigeo().then(setIndex).catch(() => setFailed(true));
+    loadUbigeo()
+      .then(setIndex)
+      .catch(() => setFailed(true));
   }, []);
 
   const results = useMemo(() => {
@@ -85,37 +87,39 @@ export function UbigeoPicker({ value, onChange }: { value: UbigeoValue; onChange
 
   return (
     <div className="flex flex-col gap-2">
-      <div className="relative">
-        <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-zinc-400" />
-        <input
-          type="search"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          onFocus={() => setFocused(true)}
-          onBlur={() => setTimeout(() => setFocused(false), 150)}
-          placeholder="Busca tu distrito (ej: San Juan de Lurigancho)"
-          className="h-12 w-full rounded-lg border border-zinc-300 bg-white pr-3 pl-9 text-base text-zinc-900 outline-none focus:border-zinc-900"
-          autoComplete="off"
-          disabled={!index}
-        />
-        {focused && results.length > 0 ? (
-          <ul className="absolute z-20 mt-1 max-h-64 w-full overflow-auto rounded-lg border border-zinc-200 bg-white py-1 shadow-lg">
-            {results.map((r) => (
-              <li key={r.code}>
-                <button
-                  type="button"
-                  onMouseDown={(e) => e.preventDefault()}
-                  onClick={() => pick(r.code)}
-                  className="flex w-full items-start gap-2 px-3 py-2.5 text-left text-sm text-zinc-800 hover:bg-zinc-100"
-                >
-                  <MapPin className="mt-0.5 size-4 shrink-0 text-zinc-400" />
-                  {r.label}
-                </button>
-              </li>
-            ))}
-          </ul>
-        ) : null}
-      </div>
+      {search ? (
+        <div className="relative">
+          <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-zinc-400" />
+          <input
+            type="search"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            onFocus={() => setFocused(true)}
+            onBlur={() => setTimeout(() => setFocused(false), 150)}
+            placeholder="Busca tu distrito (ej: San Juan de Lurigancho)"
+            className="h-12 w-full rounded-lg border border-zinc-300 bg-white pr-3 pl-9 text-base text-zinc-900 outline-none focus:border-zinc-900"
+            autoComplete="off"
+            disabled={!index}
+          />
+          {focused && results.length > 0 ? (
+            <ul className="absolute z-20 mt-1 max-h-64 w-full overflow-auto rounded-lg border border-zinc-200 bg-white py-1 shadow-lg">
+              {results.map((r) => (
+                <li key={r.code}>
+                  <button
+                    type="button"
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={() => pick(r.code)}
+                    className="flex w-full items-start gap-2 px-3 py-2.5 text-left text-sm text-zinc-800 hover:bg-zinc-100"
+                  >
+                    <MapPin className="mt-0.5 size-4 shrink-0 text-zinc-400" />
+                    {r.label}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          ) : null}
+        </div>
+      ) : null}
 
       <select
         aria-label="Departamento"

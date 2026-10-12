@@ -14,7 +14,7 @@ export function createPageBlock(type: PageBlockType): PageBlock {
     case "image":
       return { id, type, src: "", alt: "", opensForm: false };
     case "button":
-      return { id, type, text: "REALIZA TU PEDIDO", subtext: "Pagas al recibir · Envío a todo el Perú", bg: GREEN, color: WHITE, pulse: true };
+      return { id, type, text: "REALIZA TU PEDIDO", subtext: "Pagas al recibir · Envío a todo el Perú", bg: GREEN, color: WHITE, pulse: true, size: "normal", spacing: "normal", outerBg: "", rounded: true, icon: true };
     case "carousel":
       return { id, type, images: [], autoplay: true };
     case "marquee":
@@ -79,7 +79,7 @@ export function createFormBlock(type: FormBlockType): FormBlock {
     case "form_offers":
       return { id, type, title: "Selecciona tu oferta" };
     case "form_fields":
-      return { id, type, singleNameField: true, askDni: false, askWhatsapp: false, requireReference: true, askNotes: false, askEmail: false };
+      return { id, type, singleNameField: true, askDni: false, askWhatsapp: false, requireReference: true, askNotes: false, askEmail: false, districtSearch: true };
     case "form_summary":
       return { id, type };
     case "form_submit":

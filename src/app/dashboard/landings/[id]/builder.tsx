@@ -699,6 +699,7 @@ export function LandingBuilder({
                 otherLandings={otherLandings}
                 storeWhatsapp={storeWhatsapp}
                 ctx={ctx}
+                offers={offersByProduct[productId] ?? []}
               />
             </TabsContent>
 

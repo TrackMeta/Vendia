@@ -462,6 +462,31 @@ async function main() {
     "Rendimiento separa el ángulo del pedido",
     `select (select string_agg(x ->> 'key', ',') from jsonb_array_elements(public.get_performance(${range}, current_date - 3, current_date + 1, 'angle')) x)`,
   );
+
+  console.log("\n— Embudo del formulario y prueba de precio —");
+  for (const ev of ["initiate_checkout", "form_name", "form_phone", "form_location"]) {
+    await db.query(`select public.track_landing_event('${landingId}', '${ev}', 'sesionformulario1', null, null, null, null, 'B')`);
+  }
+  await step("embudo del formulario", `select public.get_form_funnel(${range}) - 'orders'`);
+  await step(
+    "activar prueba de precio (B = 59)",
+    `update public.landing_pages set settings = coalesce(settings, '{}'::jsonb) || jsonb_build_object('price_test', jsonb_build_object('enabled', true, 'started_at', now(), 'offers', jsonb_build_object('${offerId}', 59))) where id = '${landingId}' returning settings -> 'price_test' ->> 'enabled'`,
+  );
+  const pb = (await step(
+    "pedido en la versión B cobra el precio B",
+    `select public.create_cod_order('{"landing_page_id":"${landingId}","offer_id":"${offerId}","idempotency_key":"kpb","first_name":"Pia","phone":"51933333333","district_code":"150133","address":"Calle B","price_variant":"B"}'::jsonb)`,
+  )) as { order_id: string; total: number };
+  await step("versión guardada en la atribución", `select price_variant from public.order_attribution where order_id = '${pb.order_id}'`);
+  const pa = (await step(
+    "sin versión = precio normal (A)",
+    `select public.create_cod_order('{"landing_page_id":"${landingId}","offer_id":"${offerId}","idempotency_key":"kpa","first_name":"Rui","phone":"51944444444","district_code":"150133","address":"Calle A"}'::jsonb)`,
+  )) as { order_id: string; total: number };
+  if (!(Number(pb.total) < Number(pa.total))) {
+    console.error("  ✗ el precio B debería ser menor que el A");
+    process.exit(1);
+  }
+  await step("la landing pública expone la prueba", `select public.get_public_landing((select slug from public.stores where id = '${storeId}'), (select slug from public.landing_pages where id = '${landingId}')) -> 'landing' -> 'settings' -> 'price_test' ->> 'enabled'`);
+  await step("resultados A/B", `select jsonb_array_length(public.get_price_test('${landingId}', now() - interval '1 day'))`);
   console.log("\nOK — prueba de humo completa");
 }
 

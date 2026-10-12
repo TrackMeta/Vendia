@@ -7,7 +7,7 @@ export type PublicLanding = {
     slug: string;
     title: string;
     content: LandingContent;
-    settings: { angle?: string | null };
+    settings: { angle?: string | null; price_test?: { enabled: boolean; offers: Record<string, number>; started_at?: string | null } | null };
     published_at: string | null;
     /** Variantes de la prueba A/B (solo si está activa) */
     ab_variants?: { slug: string; weight: number }[] | null;
@@ -83,6 +83,8 @@ export type LandingRenderData = {
   advanceAmount: number;
   /** Nombre del ángulo que ve el cliente (link ?angulo= o el de la landing): va a las visitas y al pedido. */
   angle?: string | null;
+  /** Versión de la prueba de precio que ve el cliente (null si no hay prueba). */
+  priceVariant?: "A" | "B" | null;
 };
 
 /** Provincias con tarifa de envío "Lima": Lima Metropolitana y Callao. */

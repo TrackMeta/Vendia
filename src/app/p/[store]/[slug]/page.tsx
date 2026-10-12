@@ -9,6 +9,11 @@ import { AbRemember } from "@/modules/landing/render/ab-remember";
 import { googleFontHref } from "@/modules/landing/fonts";
 import { LandingRenderer } from "@/modules/landing/render/landing-renderer";
 
+/** Prueba de precio: mitad y mitad (fuera del componente: es azar, no parte del render). */
+function pickPriceVariant(): "A" | "B" {
+  return Math.random() < 0.5 ? "A" : "B";
+}
+
 function firstImage(landing: NonNullable<Awaited<ReturnType<typeof getPublicLanding>>>): string | null {
   const block = landing.landing.content.page_blocks.find((b) => b.type === "image" && b.src);
   const path = block && block.type === "image" ? block.src : landing.product.images[0]?.path;
@@ -62,8 +67,27 @@ export default async function PublicLandingPage({ params, searchParams }: PagePr
   const base = toRenderData(landing);
   const rawAngle = query[ANGLE_PARAM];
   const angle = findAngle(base.content, typeof rawAngle === "string" ? rawAngle.toLowerCase() : null);
+  // Prueba A/B de precio: cada visitante ve siempre la misma versión (cookie 30 días)
+  const priceTest = landing.landing.settings?.price_test;
+  const testing = Boolean(priceTest?.enabled && Object.keys(priceTest.offers ?? {}).length);
+  const priceCookie = `vd_pt_${landing.landing.id.slice(0, 8)}`;
+  let priceVariant: "A" | "B" | null = null;
+  if (testing) {
+    const saved = (await cookies()).get(priceCookie)?.value;
+    priceVariant = saved === "A" || saved === "B" ? saved : pickPriceVariant();
+  }
+  const offers =
+    priceVariant === "B"
+      ? base.offers.map((o) => {
+          const b = Number(priceTest?.offers?.[o.id]);
+          return b > 0 ? { ...o, price: b } : o;
+        })
+      : base.offers;
+
   const data = {
     ...base,
+    offers,
+    priceVariant,
     // Solo la versión que ve el cliente: los demás ángulos no viajan a la página
     content: { ...applyAngle(base.content, angle?.key), angles: [] },
     angle: angleName(base.content, angle?.key, landing.landing.settings?.angle),
@@ -84,6 +108,7 @@ export default async function PublicLandingPage({ params, searchParams }: PagePr
       <div className="flex-1" style={{ backgroundColor: data.content.theme.pageBg }}>
         <LandingRenderer data={data} mode="live" />
         {remember ? <AbRemember cookie={remember.cookie} slug={remember.slug} /> : null}
+        {priceVariant ? <AbRemember cookie={priceCookie} slug={priceVariant} /> : null}
       </div>
     </>
   );

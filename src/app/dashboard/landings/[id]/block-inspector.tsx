@@ -77,6 +77,33 @@ export function PageBlockInspector({ block, onChange, ctx }: { block: PageBlock;
           <TextField label="Texto del botón" value={block.text} onChange={(text) => set({ text })} />
           <TextField label="Subtítulo" value={block.subtext} onChange={(subtext) => set({ subtext })} />
           <Colors block={block} set={set} />
+          <SelectField
+            label="Grosor"
+            value={block.size ?? "normal"}
+            onChange={(size) => set({ size })}
+            options={[
+              { value: "slim", label: "Delgado" },
+              { value: "normal", label: "Normal" },
+              { value: "large", label: "Grueso" },
+            ]}
+          />
+          <SelectField
+            label="Espacio alrededor"
+            value={block.spacing ?? "normal"}
+            onChange={(spacing) => set({ spacing })}
+            options={[
+              { value: "none", label: "Ninguno: pegado a las imágenes, de borde a borde" },
+              { value: "small", label: "Poco" },
+              { value: "normal", label: "Normal" },
+            ]}
+          />
+          {(block.spacing ?? "normal") !== "none" ? (
+            <>
+              <ColorField label="Color del espacio alrededor" value={block.outerBg || "#ffffff"} onChange={(outerBg) => set({ outerBg })} />
+              <ToggleField label="Esquinas redondeadas" checked={block.rounded ?? true} onChange={(rounded) => set({ rounded })} />
+            </>
+          ) : null}
+          <ToggleField label="Ícono del carrito" checked={block.icon ?? true} onChange={(icon) => set({ icon })} />
           <ToggleField label="Animación de latido" checked={block.pulse} onChange={(pulse) => set({ pulse })} />
         </div>
       );
@@ -320,6 +347,12 @@ export function FormBlockInspector({ block, onChange, ctx }: { block: FormBlock;
           <ToggleField label="Pedir otro número de WhatsApp" checked={block.askWhatsapp} onChange={(askWhatsapp) => set({ askWhatsapp })} />
           <ToggleField label="Campo de observaciones" checked={block.askNotes} onChange={(askNotes) => set({ askNotes })} />
           <ToggleField label="Pedir correo (opcional para el cliente)" checked={block.askEmail ?? false} onChange={(askEmail) => set({ askEmail })} />
+          <ToggleField
+            label="Buscador de distrito"
+            hint="Apagado: solo las 3 listas Departamento → Provincia → Distrito, como Releasit o EasySell."
+            checked={block.districtSearch ?? true}
+            onChange={(districtSearch) => set({ districtSearch })}
+          />
           <p className="mt-2 text-xs text-muted-foreground">
             En provincia el DNI se pide siempre (lo exige la agencia). Debajo de los campos se muestra un aviso de privacidad.
           </p>

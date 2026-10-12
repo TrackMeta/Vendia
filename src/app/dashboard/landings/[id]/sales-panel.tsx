@@ -4,7 +4,9 @@ import Link from "next/link";
 import { ImageField, NumberField, TextField, ToggleField } from "@/components/dashboard/fields";
 import type { LandingContent } from "@/modules/landing/schema";
 import type { LandingSettings } from "../actions";
+import type { PublicOffer } from "@/modules/landing/types";
 import { ProductLink } from "./block-inspector";
+import { PriceTestSection } from "./price-test";
 
 type OtherLanding = { id: string; title: string; slug: string; status: string };
 type Ctx = { storeId: string; folder: string; products?: { id: string; name: string; price: number }[] };
@@ -33,6 +35,7 @@ export function SalesPanel({
   otherLandings,
   storeWhatsapp,
   ctx,
+  offers,
 }: {
   content: LandingContent;
   update: (updater: (c: LandingContent) => LandingContent) => void;
@@ -40,6 +43,8 @@ export function SalesPanel({
   onSettings: (s: LandingSettings) => void;
   landingId: string;
   otherLandings: OtherLanding[];
+  /** Ofertas del producto de la landing (para la prueba de precio). */
+  offers: PublicOffer[];
   storeWhatsapp: string | null;
   ctx: Ctx;
 }) {
@@ -124,6 +129,13 @@ export function SalesPanel({
 
       <Section title="Ángulo creativo" hint="Nombre del ángulo de la versión principal (ej: «Manchas»). Para más ángulos en esta misma landing usa «Nuevo ángulo» arriba. En Rendimiento → Ángulos ves cuál vende más con su CPA real.">
         <TextField label="Ángulo de la versión principal" value={settings.angle} onChange={(angle) => onSettings({ ...settings, angle: angle.slice(0, 60) })} placeholder="Dolor de espalda" />
+      </Section>
+
+      <Section
+        title="Prueba de precio"
+        hint="¿Vende más o deja más utilidad otro precio? Compara dos precios en esta misma landing, con números reales."
+      >
+        <PriceTestSection landingId={landingId} offers={offers} value={settings.price_test} onChange={(price_test) => onSettings({ ...settings, price_test })} />
       </Section>
 
       <Section

@@ -75,6 +75,7 @@ export async function POST(request: NextRequest) {
       delivery_method: input.delivery_method,
       notes: input.notes,
       attribution: input.attribution,
+      price_variant: input.price_variant,
       client_ip: ip,
       user_agent: request.headers.get("user-agent")?.slice(0, 1000) ?? null,
     },

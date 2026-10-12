@@ -79,7 +79,7 @@ function collectProductIds(content: LandingContent): string[] {
   return [...new Set(ids.filter(Boolean))];
 }
 
-/** Ángulo creativo y prueba A/B (se guardan en landing_pages.settings). */
+/** Ángulo creativo, prueba A/B de landings y prueba de precio (se guardan en landing_pages.settings: valen sin publicar). */
 const settingsSchema = z.object({
   angle: z.string().trim().max(60).default(""),
   ab: z
@@ -88,6 +88,14 @@ const settingsSchema = z.object({
       variants: z.array(z.object({ landing_id: z.uuid(), weight: z.number().int().min(0).max(100) })).max(5),
     })
     .default({ enabled: false, variants: [] }),
+  /** Prueba A/B de precio: precio B por oferta; la mitad de las visitas lo ve y se le cobra ese precio */
+  price_test: z
+    .object({
+      enabled: z.boolean(),
+      offers: z.record(z.uuid(), z.number().positive("El precio B debe ser mayor a 0").max(100_000)),
+      started_at: z.string().max(40).nullable().default(null),
+    })
+    .default({ enabled: false, offers: {}, started_at: null }),
 });
 export type LandingSettings = z.infer<typeof settingsSchema>;
 
@@ -118,6 +126,15 @@ export async function saveLanding(
     const { data: own } = await supabase.from("products").select("id").eq("store_id", store.id).in("id", productIds);
     if ((own ?? []).length !== productIds.length) return { ok: false, error: "Hay productos adicionales que no son de tu tienda" };
   }
+  // Prueba de precio: solo ofertas del producto de esta landing, y al menos un precio B
+  const priceTest = settings.data.price_test;
+  if (priceTest.enabled) {
+    const offerIds = Object.keys(priceTest.offers);
+    if (!offerIds.length) return { ok: false, error: "Pon el precio B de al menos una oferta para la prueba de precio" };
+    const { data: own } = await supabase.from("product_offers").select("id").eq("store_id", store.id).eq("product_id", meta.data.product_id).in("id", offerIds);
+    if ((own ?? []).length !== offerIds.length) return { ok: false, error: "La prueba de precio tiene ofertas de otro producto" };
+    if (!priceTest.started_at) priceTest.started_at = new Date().toISOString();
+  }
   const variantIds = ab.variants.map((v) => v.landing_id);
   if (variantIds.length) {
     const { data: own } = await supabase.from("landing_pages").select("id").eq("store_id", store.id).in("id", variantIds);
@@ -133,6 +150,8 @@ export async function saveLanding(
     return { ok: false, error: "No se pudo guardar" };
   }
   revalidatePath("/dashboard/landings");
+  // Los ajustes (A/B, precio) valen al instante en la landing publicada
+  revalidateTag(landingCacheTag(store.slug, meta.data.slug), { expire: 0 });
   return { ok: true, message: "Borrador guardado" };
 }
 
@@ -206,4 +225,72 @@ export async function getLandingBlocks(landingId: string): Promise<{ ok: true; b
   const parsed = landingContent.safeParse(data?.content);
   if (!parsed.success) return { ok: false, error: "No se pudo leer esa landing" };
   return { ok: true, blocks: parsed.data.page_blocks };
+}
+
+
+export type PriceTestRow = {
+  variant: "A" | "B";
+  visits: number;
+  form_opens: number;
+  orders: number;
+  orders_value: number;
+  confirmed: number;
+  delivered: number;
+  revenue: number;
+  product_cost: number;
+  shipping_cost: number;
+};
+
+/** Resultados de la prueba de precio desde que empezó. */
+export async function getPriceTestResults(landingId: string): Promise<{ ok: true; rows: PriceTestRow[]; since: string | null } | { ok: false; error: string }> {
+  await requireOwner();
+  if (!z.uuid().safeParse(landingId).success) return { ok: false, error: "Landing inválida" };
+  const supabase = await createClient();
+  const { data: landing } = await supabase.from("landing_pages").select("settings").eq("id", landingId).maybeSingle();
+  const since = ((landing?.settings as { price_test?: { started_at?: string | null } } | null)?.price_test?.started_at ?? null) as string | null;
+  const { data, error } = await supabase.rpc("get_price_test", { p_landing_id: landingId, p_since: since ?? new Date(0).toISOString() });
+  if (error) return { ok: false, error: "No se pudieron leer los resultados (¿corriste el SQL del Bloque 13?)" };
+  const rows = ((data ?? []) as Record<string, unknown>[]).map((r) => ({
+    variant: r.variant as "A" | "B",
+    visits: Number(r.visits),
+    form_opens: Number(r.form_opens),
+    orders: Number(r.orders),
+    orders_value: Number(r.orders_value),
+    confirmed: Number(r.confirmed),
+    delivered: Number(r.delivered),
+    revenue: Number(r.revenue),
+    product_cost: Number(r.product_cost),
+    shipping_cost: Number(r.shipping_cost),
+  }));
+  return { ok: true, rows, since };
+}
+
+/**
+ * Termina la prueba de precio. «B» pasa los precios B a las ofertas del producto (valen para todas
+ * sus landings); «A» deja los precios como estaban.
+ */
+export async function finishPriceTest(landingId: string, keep: "A" | "B"): Promise<ActionResult> {
+  const { store } = await requireOwner();
+  if (!z.uuid().safeParse(landingId).success) return { ok: false, error: "Landing inválida" };
+  const supabase = await createClient();
+  const { data: landing } = await supabase.from("landing_pages").select("slug, product_id, settings").eq("id", landingId).eq("store_id", store.id).maybeSingle();
+  if (!landing) return { ok: false, error: "Landing no encontrada" };
+  const settings = (landing.settings ?? {}) as Record<string, unknown> & { price_test?: { offers?: Record<string, number> } };
+  if (keep === "B") {
+    for (const [offerId, price] of Object.entries(settings.price_test?.offers ?? {})) {
+      if (!(Number(price) > 0)) continue;
+      const { error } = await supabase.from("product_offers").update({ price: Number(price) }).eq("id", offerId).eq("store_id", store.id).eq("product_id", landing.product_id);
+      if (error) return { ok: false, error: "No se pudieron actualizar los precios de las ofertas" };
+    }
+  }
+  const { error } = await supabase
+    .from("landing_pages")
+    .update({ settings: { ...settings, price_test: { enabled: false, offers: {}, started_at: null } } })
+    .eq("id", landingId)
+    .eq("store_id", store.id);
+  if (error) return { ok: false, error: "No se pudo terminar la prueba" };
+  revalidateTag(landingCacheTag(store.slug, landing.slug), { expire: 0 });
+  revalidatePath(`/dashboard/landings/${landingId}`);
+  revalidatePath("/dashboard/productos");
+  return { ok: true, message: keep === "B" ? "Listo: tus ofertas ya tienen el precio B" : "Prueba terminada: se quedan los precios de siempre" };
 }

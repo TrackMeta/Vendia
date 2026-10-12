@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { publicAssetUrl } from "@/lib/env";
 import { formatMoney } from "@/lib/format";
-import { sessionId } from "@/modules/analytics/track";
+import { sessionId, trackEvent } from "@/modules/analytics/track";
 import { readAttribution } from "@/modules/attribution/capture";
 import { trackPixel } from "@/modules/meta/pixel";
 import { trackTikTok } from "@/modules/tiktok/pixel";
@@ -142,8 +142,24 @@ export function CodForm({ data, preview, preferredOfferId }: { data: LandingRend
     };
   }, [abandonPayload, data.landingId, phoneDigits.length, preview]);
 
+  // Embudo del formulario: hasta qué campo llega cada cliente (una vez por paso y sesión; no en la vista previa)
+  const stepName = (fieldsBlock?.singleNameField ? fullName : firstName).trim().length >= 3;
+  const stepPhone = phone.replace(/\D/g, "").length >= 9;
+  const stepLocation = Boolean(ubigeo.district);
+  const stepAddress = address.trim().length >= 5;
+  useEffect(() => {
+    if (preview || !data.landingId) return;
+    const extra = { angle: data.angle, priceVariant: data.priceVariant };
+    if (stepName) trackEvent(data.landingId, "form_name", extra);
+    if (stepPhone) trackEvent(data.landingId, "form_phone", extra);
+    if (stepLocation) trackEvent(data.landingId, "form_location", extra);
+    if (stepAddress) trackEvent(data.landingId, "form_address", extra);
+  }, [stepName, stepPhone, stepLocation, stepAddress, preview, data.landingId, data.angle, data.priceVariant]);
+
   async function submit(e: React.FormEvent) {
     e.preventDefault();
+    // «Tocó comprar» cuenta aunque al formulario le falte algo (así se ve quién lo intentó)
+    if (!preview && data.landingId) trackEvent(data.landingId, "form_submit", { angle: data.angle, priceVariant: data.priceVariant });
     if (validationError) {
       setError(validationError);
       return;
@@ -178,6 +194,7 @@ export function CodForm({ data, preview, preferredOfferId }: { data: LandingRend
           website: honeypot,
           attribution: readAttribution(),
           angle: data.angle ?? undefined,
+          price_variant: data.priceVariant ?? undefined,
         }),
       });
       const json = await res.json().catch(() => ({}));
@@ -335,7 +352,7 @@ export function CodForm({ data, preview, preferredOfferId }: { data: LandingRend
                   </Field>
                 ) : null}
                 <Field label="Ubicación" required>
-                  <UbigeoPicker value={ubigeo} onChange={setUbigeo} />
+                  <UbigeoPicker value={ubigeo} onChange={setUbigeo} search={fieldsBlock?.districtSearch ?? true} />
                 </Field>
                 <Field label="Dirección completa" required>
                   <input className={inputClass} autoComplete="street-address" value={address} onChange={(e) => setAddress(e.target.value)} placeholder="Av. Los Héroes 123, Dpto 402" />

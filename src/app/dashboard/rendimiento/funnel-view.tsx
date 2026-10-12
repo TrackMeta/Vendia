@@ -2,6 +2,7 @@ import { ArrowDown, TriangleAlert } from "lucide-react";
 import { formatNumber, formatPercent } from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
 import { cn } from "@/lib/utils";
+import { Help } from "@/components/dashboard/metric";
 import { buildFunnel, type FunnelStep } from "@/modules/metrics";
 import type { DateRange } from "@/modules/metrics/date-range";
 
@@ -100,11 +101,35 @@ function StepRow({
   );
 }
 
+/** Pasos dentro del formulario (page_events) y los pedidos creados. */
+const FORM_STEPS: [string, string][] = [
+  ["initiate_checkout", "Abrieron el formulario"],
+  ["form_name", "Escribieron su nombre"],
+  ["form_phone", "Escribieron su celular"],
+  ["form_location", "Eligieron su distrito"],
+  ["form_address", "Escribieron su dirección"],
+  ["form_submit", "Tocaron «Comprar»"],
+  ["orders", "Pedidos creados"],
+];
+
 /** Embudo: de la visita al pedido cobrado, en dos tramos (en la landing / después del pedido). */
 export async function FunnelView({ storeId, range }: { storeId: string; range: DateRange }) {
   const supabase = await createClient();
-  const { data } = await supabase.rpc("get_funnel", { p_store_id: storeId, p_from: range.from, p_to: range.to });
+  const [{ data }, { data: formData, error: formError }] = await Promise.all([
+    supabase.rpc("get_funnel", { p_store_id: storeId, p_from: range.from, p_to: range.to }),
+    supabase.rpc("get_form_funnel", { p_store_id: storeId, p_from: range.from, p_to: range.to }),
+  ]);
   const steps = buildFunnel((data ?? {}) as Record<string, unknown>);
+  // Dentro del formulario: en qué campo se quedan (si falta el SQL del Bloque 13, no se muestra)
+  const formSteps: FunnelStep[] = formError
+    ? []
+    : FORM_STEPS.map(([key, label], i, all) => {
+        const raw = (formData ?? {}) as Record<string, unknown>;
+        const v = Number(raw[key] ?? 0);
+        const prev = i > 0 ? Number(raw[all[i - 1][0]] ?? 0) : null;
+        return { key, label, value: v, rateFromPrevious: prev === null ? null : prev > 0 ? v / prev : null };
+      });
+  const formWorst = worstDrop(formSteps);
   const value = (key: string) => steps.find((s) => s.key === key)?.value ?? 0;
   const visits = value("visits");
   const orders = value("orders");
@@ -113,26 +138,31 @@ export async function FunnelView({ storeId, range }: { storeId: string; range: D
   const ordersIndex = steps.findIndex((s) => s.key === "orders");
 
   // Cada tramo con su propia escala y su referencia (visitas en la landing, pedidos después)
-  const stage = (title: string, subtitle: string, from: number, to: number, tone: "landing" | "after") => {
-    const slice = steps.slice(from, to);
+  const stage = (
+    title: string,
+    subtitle: string,
+    slice: FunnelStep[],
+    tone: "landing" | "after",
+    opts: { offset?: number; worstKey?: string | null; baseLabel?: string; help?: React.ReactNode } = {},
+  ) => {
     const max = Math.max(...slice.map((s) => s.value), 1);
-    const base = slice[0].value;
-    const baseLabel = tone === "landing" ? "de las visitas" : "de los pedidos";
+    const base = slice[0]?.value ?? 0;
+    const baseLabel = opts.baseLabel ?? (tone === "landing" ? "de las visitas" : "de los pedidos");
     return (
       <section className="flex flex-col gap-1 rounded-xl bg-card p-4 ring-1 ring-foreground/10">
         <div className="mb-2 flex flex-wrap items-baseline justify-between gap-2">
-          <h2 className="text-sm font-medium">{title}</h2>
+          <h2 className="flex items-center gap-1.5 text-sm font-medium">
+            {title}
+            {opts.help ? <Help label={title.toLowerCase()}>{opts.help}</Help> : null}
+          </h2>
           <span className="text-xs text-muted-foreground">{subtitle}</span>
         </div>
-        {slice.map((s, j) => {
-          const i = from + j;
-          return (
-            <div key={s.key}>
-              {j > 0 ? <Connector from={steps[i - 1]} to={s} isWorst={worst === s.key} /> : null}
-              <StepRow step={s} index={i} max={max} base={base} baseLabel={baseLabel} tone={tone} />
-            </div>
-          );
-        })}
+        {slice.map((s, j) => (
+          <div key={s.key}>
+            {j > 0 ? <Connector from={slice[j - 1]} to={s} isWorst={(opts.worstKey ?? worst) === s.key} /> : null}
+            <StepRow step={s} index={(opts.offset ?? 0) + j} max={max} base={base} baseLabel={baseLabel} tone={tone} />
+          </div>
+        ))}
       </section>
     );
   };
@@ -162,10 +192,40 @@ export async function FunnelView({ storeId, range }: { storeId: string; range: D
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
-        {stage("En tu landing", "Visitantes únicos por día", 0, ordersIndex + 1, "landing")}
+        {stage("En tu landing", "Visitantes únicos por día", steps.slice(0, ordersIndex + 1), "landing", {
+          help: (
+            <span className="flex flex-col gap-1.5">
+              <span>
+                <b>Visitas:</b> personas que abrieron tu landing.
+              </span>
+              <span>
+                <b>Vieron el producto:</b> las que se quedaron 4 segundos o bajaron un poco en la página (no se fueron al toque).
+              </span>
+              <span>
+                <b>Abrieron el formulario:</b> tocaron un botón de pedido.
+              </span>
+              <span>
+                <b>Pedidos:</b> enviaron el formulario.
+              </span>
+              <span className="text-muted-foreground">Cada persona cuenta una vez por día.</span>
+            </span>
+          ),
+        })}
         {/* «Pedidos» abre el segundo tramo: así se ve el paso pedidos → confirmados */}
-        {stage("Después del pedido", "Pedidos del periodo y lo que lograron después", ordersIndex, steps.length, "after")}
+        {stage("Después del pedido", "Pedidos del periodo y lo que lograron después", steps.slice(ordersIndex), "after", { offset: ordersIndex })}
       </div>
+
+      {formSteps.length && formSteps[0].value > 0 ? (
+        stage("Dentro del formulario", "En qué campo se quedan", formSteps, "landing", {
+          worstKey: formWorst,
+          baseLabel: "de los que lo abrieron",
+          help: "Cuántas personas completaron cada campo del formulario. Si muchos se van en un paso (por ejemplo, el distrito), ese campo está estorbando.",
+        })
+      ) : formSteps.length ? (
+        <p className="rounded-xl border border-dashed px-6 py-6 text-center text-sm text-muted-foreground">
+          Dentro del formulario: aún sin datos en este periodo. Se empieza a medir con las visitas nuevas.
+        </p>
+      ) : null}
 
       {worst ? (
         <p className="flex items-start gap-2 rounded-lg bg-amber-50 p-3 text-sm text-amber-900 dark:bg-amber-950 dark:text-amber-100">

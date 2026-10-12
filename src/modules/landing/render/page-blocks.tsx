@@ -44,6 +44,12 @@ export function ImageBlockView({ block, onOrder, priority }: BlockProps<"image">
   );
 }
 
+const BUTTON_SIZE = {
+  slim: { box: "px-4 py-2", text: "text-base", icon: "size-4", sub: "text-[11px]" },
+  normal: { box: "px-4 py-3", text: "text-lg", icon: "size-5", sub: "text-xs" },
+  large: { box: "px-5 py-4", text: "text-xl", icon: "size-6", sub: "text-sm" },
+} as const;
+
 export function OrderButton({
   text,
   subtext,
@@ -52,6 +58,9 @@ export function OrderButton({
   pulse,
   onClick,
   className = "",
+  size = "normal",
+  rounded = true,
+  icon = true,
 }: {
   text: string;
   subtext?: string;
@@ -60,27 +69,41 @@ export function OrderButton({
   pulse?: boolean;
   onClick: () => void;
   className?: string;
+  size?: keyof typeof BUTTON_SIZE;
+  rounded?: boolean;
+  icon?: boolean;
 }) {
+  const s = BUTTON_SIZE[size];
   return (
     <button
       type="button"
       onClick={onClick}
       style={{ backgroundColor: bg, color }}
-      className={`flex w-full flex-col items-center justify-center gap-0.5 rounded-xl px-4 py-3 text-center shadow-lg transition-transform active:scale-[0.98] ${pulse ? "vd-pulse" : ""} ${className}`}
+      className={`flex w-full flex-col items-center justify-center gap-0.5 text-center shadow-lg transition-transform active:scale-[0.98] ${s.box} ${rounded ? "rounded-xl" : "rounded-none"} ${pulse ? "vd-pulse" : ""} ${className}`}
     >
-      <span className="flex items-center gap-2 text-lg font-extrabold leading-tight tracking-tight">
-        <ShoppingCart className="size-5 shrink-0" />
+      <span className={`flex items-center gap-2 font-extrabold leading-tight tracking-tight ${s.text}`}>
+        {icon ? <ShoppingCart className={`${s.icon} shrink-0`} /> : null}
         {text}
       </span>
-      {subtext ? <span className="text-xs font-medium opacity-90">{subtext}</span> : null}
+      {subtext ? <span className={`font-medium opacity-90 ${s.sub}`}>{subtext}</span> : null}
     </button>
   );
 }
 
+const BUTTON_SPACING = { none: "", small: "px-2 py-1.5", normal: "px-4 py-3" } as const;
+
 export function ButtonBlockView({ block, onOrder }: BlockProps<"button">) {
+  const spacing = block.spacing ?? "normal";
   return (
-    <div className="px-4 py-3">
-      <OrderButton {...block} onClick={onOrder} />
+    <div className={BUTTON_SPACING[spacing]} style={block.outerBg ? { backgroundColor: block.outerBg } : undefined}>
+      <OrderButton
+        {...block}
+        size={block.size}
+        // De borde a borde: sin esquinas redondeadas ni sombra, para que se una con las imágenes
+        rounded={spacing === "none" ? false : block.rounded}
+        className={spacing === "none" ? "shadow-none" : ""}
+        onClick={onOrder}
+      />
     </div>
   );
 }

@@ -11,8 +11,16 @@ export const metadata: Metadata = { title: "Editor de landing" };
 
 /** Ajustes guardados (ángulo y prueba A/B) con valores por defecto. */
 function landingSettings(raw: unknown) {
-  const s = (raw ?? {}) as { angle?: string; ab?: { enabled?: boolean; variants?: { landing_id: string; weight: number }[] } };
-  return { angle: s.angle ?? "", ab: { enabled: Boolean(s.ab?.enabled), variants: s.ab?.variants ?? [] } };
+  const s = (raw ?? {}) as {
+    angle?: string;
+    ab?: { enabled?: boolean; variants?: { landing_id: string; weight: number }[] };
+    price_test?: { enabled?: boolean; offers?: Record<string, number>; started_at?: string | null };
+  };
+  return {
+    angle: s.angle ?? "",
+    ab: { enabled: Boolean(s.ab?.enabled), variants: s.ab?.variants ?? [] },
+    price_test: { enabled: Boolean(s.price_test?.enabled), offers: s.price_test?.offers ?? {}, started_at: s.price_test?.started_at ?? null },
+  };
 }
 
 export default async function LandingEditorPage({ params }: PageProps<"/dashboard/landings/[id]">) {

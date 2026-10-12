@@ -4,12 +4,13 @@ import { createAdminClient } from "@/lib/supabase/admin";
 
 const schema = z.object({
   landing_id: z.uuid(),
-  event: z.enum(["page_view", "view_content", "initiate_checkout"]),
+  event: z.enum(["page_view", "view_content", "initiate_checkout", "form_name", "form_phone", "form_location", "form_address", "form_submit"]),
   session_id: z.string().regex(/^[A-Za-z0-9]{8,64}$/),
   utm_source: z.string().max(255).optional(),
   utm_campaign: z.string().max(255).optional(),
   campaign_id: z.string().max(64).optional(),
   angle: z.string().trim().max(60).optional(),
+  price_variant: z.enum(["A", "B"]).optional(),
 });
 
 /** Registra visitas de la landing para el funnel. Idempotente por sesión/día (en la BD). */
@@ -32,9 +33,13 @@ export async function POST(request: NextRequest) {
     p_utm_campaign: parsed.data.utm_campaign ?? null,
     p_campaign_id: parsed.data.campaign_id ?? null,
   };
-  // Con ángulo (link ?angulo=); si la base aún no tiene esa columna, la visita se guarda sin él
-  let { error } = await admin.rpc("track_landing_event", parsed.data.angle ? { ...base, p_angle: parsed.data.angle } : base);
-  if (error && parsed.data.angle) ({ error } = await admin.rpc("track_landing_event", base));
+  // Con ángulo y versión de precio; si la base aún no los conoce, la visita se guarda sin ellos
+  const extra = {
+    ...(parsed.data.angle ? { p_angle: parsed.data.angle } : {}),
+    ...(parsed.data.price_variant ? { p_price_variant: parsed.data.price_variant } : {}),
+  };
+  let { error } = await admin.rpc("track_landing_event", { ...base, ...extra });
+  if (error && Object.keys(extra).length) ({ error } = await admin.rpc("track_landing_event", base));
   if (error) console.error("track_landing_event", error.message);
   return new NextResponse(null, { status: 204 });
 }

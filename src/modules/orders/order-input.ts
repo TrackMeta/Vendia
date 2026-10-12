@@ -53,6 +53,8 @@ export const orderInput = z.object({
   variants: z.array(z.uuid()).max(100).optional(),
   /** Ángulo de la landing que vio el cliente (para Rendimiento → Ángulos). */
   angle: z.string().trim().max(60).optional(),
+  /** Versión de la prueba de precio (el precio B lo valida la base de datos). */
+  price_variant: z.enum(["A", "B"]).optional(),
   /** IDs de los productos adicionales marcados (el precio lo pone el servidor). */
   bumps: z.array(z.string().min(1).max(40)).max(10).optional(),
   /** Campo trampa anti-bots: debe llegar vacío. */

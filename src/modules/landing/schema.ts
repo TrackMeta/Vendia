@@ -36,6 +36,14 @@ export const buttonBlock = z.object({
   bg: color,
   color,
   pulse: z.boolean().default(true),
+  /** Grosor del botón */
+  size: z.enum(["slim", "normal", "large"]).default("normal"),
+  /** Espacio alrededor: «none» = pegado a las imágenes, de borde a borde */
+  spacing: z.enum(["none", "small", "normal"]).default("normal"),
+  /** Color del espacio alrededor (vacío = el fondo de la página) */
+  outerBg: color.or(z.literal("")).default(""),
+  rounded: z.boolean().default(true),
+  icon: z.boolean().default(true),
 });
 
 export const carouselBlock = z.object({
@@ -201,6 +209,8 @@ export const formFieldsBlock = z.object({
   requireReference: z.boolean().default(true),
   askNotes: z.boolean().default(false),
   askEmail: z.boolean().default(false),
+  /** Buscador «Busca tu distrito» sobre las 3 listas. Apagado = solo Departamento → Provincia → Distrito (como Releasit/EasySell). */
+  districtSearch: z.boolean().default(true),
 });
 export const formSummaryBlock = z.object({ id, type: z.literal("form_summary") });
 

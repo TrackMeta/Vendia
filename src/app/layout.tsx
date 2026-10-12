@@ -20,8 +20,8 @@ export const metadata: Metadata = {
   // App instalable en el celular (ver app/manifest.ts)
   appleWebApp: { capable: true, title: "Vendia", statusBarStyle: "default" },
   icons: {
-    icon: [{ url: "/icons/32", sizes: "32x32", type: "image/png" }],
-    apple: [{ url: "/icons/180", sizes: "180x180", type: "image/png" }],
+    icon: [{ url: "/icons/icon-32.png", sizes: "32x32", type: "image/png" }],
+    apple: [{ url: "/icons/icon-180.png", sizes: "180x180", type: "image/png" }],
   },
 };
 

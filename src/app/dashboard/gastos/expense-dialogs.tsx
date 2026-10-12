@@ -12,6 +12,7 @@ import { AD_CATEGORIES, type AdCurrency, EXPENSE_CATEGORIES, type ExpenseCategor
 import { type ImportResult, parseMetaAdsCsv } from "@/modules/expenses/import-meta";
 import { limaToday } from "@/modules/metrics/date-range";
 import { deleteExpense, importMetaExpenses, saveExpense } from "./actions";
+import { AppSelect } from "@/components/dashboard/app-select";
 
 type Product = { id: string; name: string };
 type ExpenseValues = {
@@ -76,22 +77,22 @@ export function ExpenseDialog({ products, expense, defaults }: { products: Produ
             </div>
             <div className="flex flex-col gap-2">
               <Label htmlFor="category">Categoría</Label>
-              <select id="category" name="category" required value={category} onChange={(e) => setCategory(e.target.value)} className={select}>
+              <AppSelect id="category" name="category" required value={category} onChange={(e) => setCategory(e.target.value)} className={select}>
                 {Object.entries(EXPENSE_CATEGORIES).map(([value, label]) => (
                   <option key={value} value={value}>
                     {label}
                   </option>
                 ))}
-              </select>
+              </AppSelect>
             </div>
             <div className="flex flex-col gap-2">
               <Label htmlFor="amount">Monto ({usd ? "US$" : "S/"})</Label>
               <div className="flex gap-1.5">
                 {isAd ? (
-                  <select name="currency" value={currency} onChange={(e) => setCurrency(e.target.value as AdCurrency)} className="h-9 rounded-lg border border-input bg-transparent px-2 text-sm" aria-label="Moneda">
+                  <AppSelect name="currency" value={currency} onChange={(e) => setCurrency(e.target.value as AdCurrency)} className="h-9 rounded-lg border border-input bg-transparent px-2 text-sm" aria-label="Moneda">
                     <option value="PEN">S/</option>
                     <option value="USD">US$</option>
-                  </select>
+                  </AppSelect>
                 ) : (
                   <input type="hidden" name="currency" value="PEN" />
                 )}
@@ -133,14 +134,14 @@ export function ExpenseDialog({ products, expense, defaults }: { products: Produ
             </div>
             <div className="flex flex-col gap-2 sm:col-span-2">
               <Label htmlFor="product_id">Producto (opcional)</Label>
-              <select id="product_id" name="product_id" defaultValue={expense?.product_id ?? ""} className={select}>
+              <AppSelect id="product_id" name="product_id" defaultValue={expense?.product_id ?? ""} className={select}>
                 <option value="">—</option>
                 {products.map((p) => (
                   <option key={p.id} value={p.id}>
                     {p.name}
                   </option>
                 ))}
-              </select>
+              </AppSelect>
               <p className="text-xs text-muted-foreground">
                 Con el ID de campaña y el producto, Vendia calcula el CPA y la utilidad por campaña y por producto.
               </p>
@@ -262,14 +263,14 @@ export function ImportMetaDialog({ products, defaults }: { products: Product[]; 
                     </div>
                     <div className="flex flex-col gap-1.5">
                       <Label>Asignar a un producto (opcional)</Label>
-                      <select value={productId} onChange={(e) => setProductId(e.target.value)} className={select}>
+                      <AppSelect value={productId} onChange={(e) => setProductId(e.target.value)} className={select}>
                         <option value="">—</option>
                         {products.map((p) => (
                           <option key={p.id} value={p.id}>
                             {p.name}
                           </option>
                         ))}
-                      </select>
+                      </AppSelect>
                     </div>
                     <Button
                       disabled={pending}

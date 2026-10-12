@@ -14,6 +14,7 @@ import { cn } from "@/lib/utils";
 import type { AdAccount, Pixel } from "@/modules/meta/marketing-api";
 import { SYNC_INTERVALS } from "@/modules/meta/schedule";
 import { checkMetaToken, connectMeta, disconnectMeta, getMetaPixels, setMetaSyncInterval, syncMetaNow, updateMetaAccounts } from "./actions";
+import { AppSelect } from "@/components/dashboard/app-select";
 
 export type ConnectedAccount = { id: string; name: string | null; currency: string | null; lastSyncAt: string | null; lastSyncError: string | null };
 
@@ -240,7 +241,7 @@ export function MetaConnect({
             </div>
             <div className="flex flex-wrap items-center gap-2 text-sm">
               <Label htmlFor="meta-sync-every">Leer mis cuentas</Label>
-              <select
+              <AppSelect
                 id="meta-sync-every"
                 defaultValue={connection.syncEvery}
                 disabled={pending}
@@ -255,7 +256,7 @@ export function MetaConnect({
                     {label}
                   </option>
                 ))}
-              </select>
+              </AppSelect>
               <span className="text-xs text-muted-foreground">Además, cada mañana se revisan los últimos 3 días (Meta ajusta cifras de días anteriores).</span>
             </div>
             <p className="text-xs text-muted-foreground">

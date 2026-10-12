@@ -6,7 +6,7 @@ import { CSS } from "@dnd-kit/utilities";
 import { ArrowLeft, Copy, CopyPlus, ExternalLink, Eye, GripVertical, Link2, Lock, MoreHorizontal, Plus, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useMemo, useState, useTransition } from "react";
+import { type ReactNode, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useTransition } from "react";
 import { toast } from "sonner";
 import { SimpleBadge } from "@/components/dashboard/status-badge";
 import { Button } from "@/components/ui/button";
@@ -39,6 +39,7 @@ import { AngleBar, AngleBlockList } from "./angle-bar";
 import { FormBlockInspector, PageBlockInspector } from "./block-inspector";
 import { SalesPanel } from "./sales-panel";
 import { ColorField, SelectField, TextField, ToggleField } from "@/components/dashboard/fields";
+import { AppSelect } from "@/components/dashboard/app-select";
 
 type AnyBlock = PageBlock | FormBlock;
 
@@ -78,6 +79,7 @@ function SortableRow({
   label,
   selected,
   locked,
+  inspector,
   onSelect,
   onDuplicate,
   onDelete,
@@ -86,6 +88,7 @@ function SortableRow({
   label: string;
   selected: boolean;
   locked: boolean;
+  inspector?: ReactNode;
   onSelect: () => void;
   onDuplicate: () => void;
   onDelete: () => void;
@@ -95,40 +98,49 @@ function SortableRow({
   return (
     <div
       ref={setNodeRef}
+      data-block-row={block.id}
       style={{ transform: CSS.Transform.toString(transform), transition }}
-      className={cn(
-        "group flex items-center gap-2 rounded-lg border bg-background px-2 py-1.5",
-        selected && "border-primary ring-2 ring-primary/20",
-        isDragging && "z-10 shadow-lg",
-      )}
+      className={cn("rounded-lg border bg-background", selected && "border-primary ring-2 ring-primary/20", isDragging && "z-10 shadow-lg")}
     >
-      <button type="button" {...attributes} {...listeners} aria-label="Arrastrar" className="cursor-grab touch-none p-1 text-muted-foreground">
-        <GripVertical className="size-4" />
-      </button>
-      <button type="button" onClick={onSelect} className="flex min-w-0 flex-1 items-center gap-2 text-left">
-        {thumb ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={thumb} alt="" className="size-8 shrink-0 rounded object-cover" />
-        ) : null}
-        <span className="flex min-w-0 flex-col">
-          <span className="text-sm font-medium">{label}</span>
-          <span className="truncate text-xs text-muted-foreground">{blockSummary(block)}</span>
-        </span>
-      </button>
-      {locked ? (
-        <Lock className="mr-1 size-3.5 text-muted-foreground" aria-label="Bloque obligatorio" />
-      ) : (
-        <div className="flex opacity-60 group-hover:opacity-100">
-          <Button type="button" size="icon-xs" variant="ghost" onClick={onDuplicate} aria-label="Duplicar">
-            <Copy />
-          </Button>
-          <Button type="button" size="icon-xs" variant="ghost" onClick={onDelete} aria-label="Eliminar">
-            <Trash2 />
-          </Button>
-        </div>
-      )}
+      <div className="group flex items-center gap-2 px-2 py-1.5">
+        <button type="button" {...attributes} {...listeners} aria-label="Arrastrar" className="cursor-grab touch-none p-1 text-muted-foreground">
+          <GripVertical className="size-4" />
+        </button>
+        <button type="button" onClick={onSelect} className="flex min-w-0 flex-1 items-center gap-2 text-left">
+          {thumb ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={thumb} alt="" className="size-8 shrink-0 rounded object-cover" />
+          ) : null}
+          <span className="flex min-w-0 flex-col">
+            <span className="text-sm font-medium">{label}</span>
+            <span className="truncate text-xs text-muted-foreground">{blockSummary(block)}</span>
+          </span>
+        </button>
+        {locked ? (
+          <Lock className="mr-1 size-3.5 text-muted-foreground" aria-label="Bloque obligatorio" />
+        ) : (
+          <div className="flex opacity-60 group-hover:opacity-100">
+            <Button type="button" size="icon-xs" variant="ghost" onClick={onDuplicate} aria-label="Duplicar">
+              <Copy />
+            </Button>
+            <Button type="button" size="icon-xs" variant="ghost" onClick={onDelete} aria-label="Eliminar">
+              <Trash2 />
+            </Button>
+          </div>
+        )}
+      </div>
+      {selected && inspector ? <div className="border-t bg-muted/30 p-3">{inspector}</div> : null}
     </div>
   );
+}
+
+/** El contenedor con scroll más cercano (o la página). */
+function scrollParent(el: HTMLElement): Element {
+  for (let p = el.parentElement; p; p = p.parentElement) {
+    const o = getComputedStyle(p).overflowY;
+    if ((o === "auto" || o === "scroll") && p.scrollHeight > p.clientHeight) return p;
+  }
+  return document.scrollingElement ?? document.documentElement;
 }
 
 function BlockList<T extends AnyBlock>({
@@ -136,6 +148,7 @@ function BlockList<T extends AnyBlock>({
   labels,
   selectedId,
   locked = [],
+  inspector,
   onSelect,
   onChange,
 }: {
@@ -143,13 +156,11 @@ function BlockList<T extends AnyBlock>({
   labels: Record<string, string>;
   selectedId: string | null;
   locked?: string[];
-  onSelect: (id: string) => void;
+  inspector?: ReactNode;
+  onSelect: (id: string | null) => void;
   onChange: (blocks: T[]) => void;
 }) {
-  const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
-    useSensor(TouchSensor, { activationConstraint: { delay: 150, tolerance: 5 } }),
-  );
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }), useSensor(TouchSensor, { activationConstraint: { delay: 150, tolerance: 5 } }));
   const onDragEnd = (e: DragEndEvent) => {
     if (!e.over || e.active.id === e.over.id) return;
     onChange(
@@ -171,7 +182,8 @@ function BlockList<T extends AnyBlock>({
               label={labels[block.type]}
               selected={selectedId === block.id}
               locked={locked.includes(block.type)}
-              onSelect={() => onSelect(block.id)}
+              inspector={inspector}
+              onSelect={() => onSelect(selectedId === block.id ? null : block.id)}
               onDuplicate={() => {
                 const copy = { ...structuredClone(block), id: newBlockId() };
                 const next = [...blocks];
@@ -351,10 +363,61 @@ export function LandingBuilder({
     };
   }, [dirty, save]);
 
+  // Al abrir o cerrar un bloque, la fila tocada se queda en el mismo lugar de la pantalla (sin saltos).
+  // Desde la vista previa, la lista se desplaza suave hasta el bloque.
+  const anchor = useRef<{ id: string; top: number } | null>(null);
+  const reveal = useRef<string | null>(null);
+  const selectBlock = (id: string | null) => {
+    const target = id ?? selectedId;
+    const row = target ? document.querySelector<HTMLElement>(`[data-block-row="${target}"]`) : null;
+    anchor.current = row && target ? { id: target, top: row.getBoundingClientRect().top } : null;
+    setSelectedId(id);
+  };
+  useLayoutEffect(() => {
+    const a = anchor.current;
+    anchor.current = null;
+    if (a) {
+      const row = document.querySelector<HTMLElement>(`[data-block-row="${a.id}"]`);
+      const delta = row ? row.getBoundingClientRect().top - a.top : 0;
+      if (row && Math.abs(delta) > 1) scrollParent(row).scrollBy({ top: delta, behavior: "instant" });
+    }
+    if (reveal.current && reveal.current === selectedId) {
+      reveal.current = null;
+      document.querySelector<HTMLElement>(`[data-block-row="${selectedId}"]`)?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+    }
+  }, [selectedId, tab]);
+
   const selectFromPreview = (id: string) => {
+    reveal.current = id;
     setSelectedId(id);
     setTab("page");
   };
+
+  // Editores: se muestran debajo del bloque elegido
+  const doneButton = (
+    <Button size="xs" variant="outline" className="self-end" onClick={() => selectBlock(null)}>
+      Listo
+    </Button>
+  );
+  const pageInspector = selectedPage ? (
+    <div className="flex flex-col gap-3">
+      {angleKey ? <p className="text-xs text-primary">Solo cambia en este ángulo.</p> : null}
+      <PageBlockInspector
+        block={selectedPage}
+        ctx={ctx}
+        onChange={(block) =>
+          angleKey ? update((c) => setBlockOverride(c, angleKey, block)) : update((c) => ({ ...c, page_blocks: c.page_blocks.map((b) => (b.id === block.id ? block : b)) }))
+        }
+      />
+      {doneButton}
+    </div>
+  ) : null;
+  const formInspector = selectedForm ? (
+    <div className="flex flex-col gap-3">
+      <FormBlockInspector block={selectedForm} ctx={ctx} onChange={(block) => update((c) => ({ ...c, form_blocks: c.form_blocks.map((b) => (b.id === block.id ? block : b)) }))} />
+      {doneButton}
+    </div>
+  ) : null;
 
   const addPageBlock = (type: PageBlockType) => {
     const block = createPageBlock(type);
@@ -427,12 +490,7 @@ export function LandingBuilder({
         {dirty ? <span className="text-xs text-muted-foreground">Sin guardar</span> : null}
         <div className="ml-auto flex items-center gap-2">
           {status === "published" ? (
-            <a
-              href={publicPath}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="hidden items-center gap-1 text-sm text-muted-foreground hover:underline sm:flex"
-            >
+            <a href={publicPath} target="_blank" rel="noopener noreferrer" className="hidden items-center gap-1 text-sm text-muted-foreground hover:underline sm:flex">
               Ver <ExternalLink className="size-3.5" />
             </a>
           ) : null}
@@ -522,26 +580,6 @@ export function LandingBuilder({
             </div>
 
             <TabsContent value="page" className="flex flex-col gap-4 p-4">
-              {selectedPage ? (
-                <div className="flex flex-col gap-3 rounded-lg border bg-muted/30 p-3">
-                  <div className="flex items-center justify-between">
-                    <p className="text-sm font-semibold">{PAGE_BLOCK_LABELS[selectedPage.type]}</p>
-                    <Button size="xs" variant="ghost" onClick={() => setSelectedId(null)}>
-                      Listo
-                    </Button>
-                  </div>
-                  {angleKey ? <p className="text-xs text-primary">Solo cambia en este ángulo.</p> : null}
-                  <PageBlockInspector
-                    block={selectedPage}
-                    ctx={ctx}
-                    onChange={(block) =>
-                      angleKey
-                        ? update((c) => setBlockOverride(c, angleKey, block))
-                        : update((c) => ({ ...c, page_blocks: c.page_blocks.map((b) => (b.id === block.id ? block : b)) }))
-                    }
-                  />
-                </div>
-              ) : null}
               {angleKey ? (
                 <>
                   <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">Bloques de este ángulo</p>
@@ -549,12 +587,11 @@ export function LandingBuilder({
                     blocks={view.page_blocks}
                     changed={changed}
                     selectedId={selectedId}
-                    onSelect={setSelectedId}
+                    inspector={pageInspector}
+                    onSelect={selectBlock}
                     onReset={(id) => update((c) => clearBlockOverride(c, angleKey, id))}
                   />
-                  <p className="text-xs text-muted-foreground">
-                    Para agregar, quitar o mover bloques vuelve a la versión Principal: valen para todos los ángulos.
-                  </p>
+                  <p className="text-xs text-muted-foreground">Para agregar, quitar o mover bloques vuelve a la versión Principal: valen para todos los ángulos.</p>
                 </>
               ) : (
                 <>
@@ -568,7 +605,8 @@ export function LandingBuilder({
                     blocks={content.page_blocks}
                     labels={PAGE_BLOCK_LABELS}
                     selectedId={selectedId}
-                    onSelect={setSelectedId}
+                    inspector={pageInspector}
+                    onSelect={selectBlock}
                     onChange={(page_blocks) => update((c) => ({ ...c, page_blocks }))}
                   />
                   <ImageDropzone
@@ -581,7 +619,7 @@ export function LandingBuilder({
                   {otherLandings.length ? (
                     <div className="flex items-center gap-2">
                       <CopyPlus className="size-4 text-muted-foreground" />
-                      <select
+                      <AppSelect
                         value=""
                         onChange={(e) => e.target.value && void openCopy(e.target.value)}
                         className="h-8 flex-1 rounded-lg border border-input bg-transparent px-2 text-sm"
@@ -593,7 +631,7 @@ export function LandingBuilder({
                             {l.title}
                           </option>
                         ))}
-                      </select>
+                      </AppSelect>
                     </div>
                   ) : null}
                   <div className="flex flex-col gap-3 rounded-lg border p-3">
@@ -605,22 +643,14 @@ export function LandingBuilder({
                     />
                     {content.sticky_button.enabled ? (
                       <>
-                        <TextField
-                          label="Texto"
-                          value={content.sticky_button.text}
-                          onChange={(text) => update((c) => ({ ...c, sticky_button: { ...c.sticky_button, text } }))}
-                        />
+                        <TextField label="Texto" value={content.sticky_button.text} onChange={(text) => update((c) => ({ ...c, sticky_button: { ...c.sticky_button, text } }))} />
                         <TextField
                           label="Subtítulo"
                           value={content.sticky_button.subtext}
                           onChange={(subtext) => update((c) => ({ ...c, sticky_button: { ...c.sticky_button, subtext } }))}
                         />
                         <div className="grid grid-cols-2 gap-3">
-                          <ColorField
-                            label="Fondo"
-                            value={content.sticky_button.bg}
-                            onChange={(bg) => update((c) => ({ ...c, sticky_button: { ...c.sticky_button, bg } }))}
-                          />
+                          <ColorField label="Fondo" value={content.sticky_button.bg} onChange={(bg) => update((c) => ({ ...c, sticky_button: { ...c.sticky_button, bg } }))} />
                           <ColorField
                             label="Texto"
                             value={content.sticky_button.color}
@@ -635,24 +665,7 @@ export function LandingBuilder({
             </TabsContent>
 
             <TabsContent value="form" className="flex flex-col gap-4 p-4">
-              {angleKey ? (
-                <p className="rounded-md bg-muted p-2 text-xs text-muted-foreground">Esta pestaña es común a todas las versiones de la landing.</p>
-              ) : null}
-              {selectedForm ? (
-                <div className="flex flex-col gap-3 rounded-lg border bg-muted/30 p-3">
-                  <div className="flex items-center justify-between">
-                    <p className="text-sm font-semibold">{FORM_BLOCK_LABELS[selectedForm.type]}</p>
-                    <Button size="xs" variant="ghost" onClick={() => setSelectedId(null)}>
-                      Listo
-                    </Button>
-                  </div>
-                  <FormBlockInspector
-                    block={selectedForm}
-                    ctx={ctx}
-                    onChange={(block) => update((c) => ({ ...c, form_blocks: c.form_blocks.map((b) => (b.id === block.id ? block : b)) }))}
-                  />
-                </div>
-              ) : null}
+              {angleKey ? <p className="rounded-md bg-muted p-2 text-xs text-muted-foreground">Esta pestaña es común a todas las versiones de la landing.</p> : null}
               <div className="flex items-center justify-between">
                 <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">Bloques del formulario</p>
                 <Button size="xs" variant="outline" onClick={() => setAdding("form")}>
@@ -664,7 +677,8 @@ export function LandingBuilder({
                 labels={FORM_BLOCK_LABELS}
                 selectedId={selectedId}
                 locked={LOCKED_FORM_BLOCKS}
-                onSelect={setSelectedId}
+                inspector={formInspector}
+                onSelect={selectBlock}
                 onChange={(form_blocks) => update((c) => ({ ...c, form_blocks }))}
               />
               <SelectField
@@ -684,9 +698,7 @@ export function LandingBuilder({
             </TabsContent>
 
             <TabsContent value="sales" className="flex flex-col gap-4 p-4">
-              {angleKey ? (
-                <p className="rounded-md bg-muted p-2 text-xs text-muted-foreground">Esta pestaña es común a todas las versiones de la landing.</p>
-              ) : null}
+              {angleKey ? <p className="rounded-md bg-muted p-2 text-xs text-muted-foreground">Esta pestaña es común a todas las versiones de la landing.</p> : null}
               <SalesPanel
                 content={content}
                 update={update}
@@ -704,12 +716,10 @@ export function LandingBuilder({
             </TabsContent>
 
             <TabsContent value="style" className="flex flex-col gap-4 p-4">
-              {angleKey ? (
-                <p className="rounded-md bg-muted p-2 text-xs text-muted-foreground">Esta pestaña es común a todas las versiones de la landing.</p>
-              ) : null}
+              {angleKey ? <p className="rounded-md bg-muted p-2 text-xs text-muted-foreground">Esta pestaña es común a todas las versiones de la landing.</p> : null}
               <div className="flex flex-col gap-1.5">
                 <Label className="text-xs">Producto</Label>
-                <select
+                <AppSelect
                   value={productId}
                   onChange={(e) => {
                     setProductId(e.target.value);
@@ -722,7 +732,7 @@ export function LandingBuilder({
                       {p.name}
                     </option>
                   ))}
-                </select>
+                </AppSelect>
               </div>
               <div className="flex flex-col gap-1.5">
                 <Label className="text-xs">Enlace</Label>
@@ -737,9 +747,7 @@ export function LandingBuilder({
                     className="h-8"
                   />
                 </div>
-                {status === "published" ? (
-                  <p className="text-xs text-amber-600">Si cambias el enlace, el anterior dejará de funcionar en tus anuncios.</p>
-                ) : null}
+                {status === "published" ? <p className="text-xs text-amber-600">Si cambias el enlace, el anterior dejará de funcionar en tus anuncios.</p> : null}
               </div>
               <SelectField
                 label="Tipografía"
@@ -748,16 +756,8 @@ export function LandingBuilder({
                 options={FONTS.map((f) => ({ value: f, label: f === "system" ? "Del sistema (más rápida)" : f }))}
               />
               <div className="grid grid-cols-2 gap-3">
-                <ColorField
-                  label="Fondo de la página"
-                  value={content.theme.pageBg}
-                  onChange={(pageBg) => update((c) => ({ ...c, theme: { ...c.theme, pageBg } }))}
-                />
-                <ColorField
-                  label="Color de texto"
-                  value={content.theme.textColor}
-                  onChange={(textColor) => update((c) => ({ ...c, theme: { ...c.theme, textColor } }))}
-                />
+                <ColorField label="Fondo de la página" value={content.theme.pageBg} onChange={(pageBg) => update((c) => ({ ...c, theme: { ...c.theme, pageBg } }))} />
+                <ColorField label="Color de texto" value={content.theme.textColor} onChange={(textColor) => update((c) => ({ ...c, theme: { ...c.theme, textColor } }))} />
               </div>
             </TabsContent>
           </Tabs>
@@ -766,8 +766,7 @@ export function LandingBuilder({
         {/* Vista previa */}
         <div className="flex flex-1 flex-col items-center gap-3 bg-muted/40 p-4 lg:p-8">
           <div className="flex items-center gap-2 text-xs text-muted-foreground">
-            Vista previa en celular · {angleKey ? `ángulo «${content.angles.find((a) => a.key === angleKey)?.name ?? ""}»` : "versión principal"} · toca un
-            bloque para editarlo
+            Vista previa en celular · {angleKey ? `ángulo «${content.angles.find((a) => a.key === angleKey)?.name ?? ""}»` : "versión principal"} · toca un bloque para editarlo
           </div>
           {/* translateZ(0): los elementos "fixed" de la vista previa (formulario emergente) quedan dentro del marco */}
           <div className="relative h-[760px] w-[390px] max-w-full [transform:translateZ(0)] overflow-hidden rounded-[2.5rem] border-[10px] border-zinc-900 bg-white shadow-xl">
@@ -793,12 +792,7 @@ export function LandingBuilder({
             {adding === "page" ? (
               <>
                 {ADDABLE_PAGE_BLOCKS.map((type) => (
-                  <button
-                    key={type}
-                    type="button"
-                    onClick={() => addPageBlock(type)}
-                    className="rounded-lg border p-3 text-left text-sm font-medium hover:bg-muted"
-                  >
+                  <button key={type} type="button" onClick={() => addPageBlock(type)} className="rounded-lg border p-3 text-left text-sm font-medium hover:bg-muted">
                     {PAGE_BLOCK_LABELS[type]}
                   </button>
                 ))}
@@ -808,12 +802,7 @@ export function LandingBuilder({
               </>
             ) : (
               ADDABLE_FORM_BLOCKS.filter((type) => type !== "form_bumps" || !content.form_blocks.some((b) => b.type === "form_bumps")).map((type) => (
-                <button
-                  key={type}
-                  type="button"
-                  onClick={() => addFormBlock(type)}
-                  className="rounded-lg border p-3 text-left text-sm font-medium hover:bg-muted"
-                >
+                <button key={type} type="button" onClick={() => addFormBlock(type)} className="rounded-lg border p-3 text-left text-sm font-medium hover:bg-muted">
                   {FORM_BLOCK_LABELS[type]}
                 </button>
               ))

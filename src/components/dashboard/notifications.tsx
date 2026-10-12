@@ -1,6 +1,6 @@
 "use client";
 
-import { Bell, BellRing, Check, ShoppingBag } from "lucide-react";
+import { Bell, BellRing, Check, ShoppingBag, Trash2, X } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -21,6 +21,23 @@ type Notification = {
 };
 
 export const ORDERS_CHANGED_EVENT = "vendia:orders-changed";
+
+/**
+ * Borra notificaciones (una, varias o todas con `ids = null`). Solo se ocultan para quien las
+ * borra: el resto del equipo las sigue viendo. Devuelve false si no se pudo.
+ */
+export async function dismissNotifications(storeId: string, ids: string[] | null) {
+  const { error } = await createClient().rpc("dismiss_notifications", { p_store_id: storeId, p_ids: ids });
+  if (error) {
+    toast.error(
+      /dismiss_notifications/.test(error.message)
+        ? "Falta correr la actualización de la base de datos (Bloque 13) para poder borrar notificaciones."
+        : "No se pudo borrar. Intenta de nuevo.",
+    );
+    return false;
+  }
+  return true;
+}
 
 /** Sonido corto generado (sin archivos): dos tonos. Los navegadores lo permiten tras la primera interacción. */
 function playChime() {
@@ -161,6 +178,19 @@ export function NotificationBell({ storeId, initialUnread }: { storeId: string; 
     setItems((list) => list?.map((n) => ({ ...n, read: true })) ?? list);
   };
 
+  const dismissOne = async (n: Notification) => {
+    if (!(await dismissNotifications(storeId, [n.id]))) return;
+    setItems((list) => list?.filter((x) => x.id !== n.id) ?? list);
+    if (!n.read) setUnread((u) => Math.max(0, u - 1));
+  };
+
+  const dismissAll = async () => {
+    if (!(await dismissNotifications(storeId, null))) return;
+    setItems([]);
+    setUnread(0);
+    router.refresh();
+  };
+
   const enableBrowser = async () => {
     if (typeof Notification === "undefined") return;
     const result = await Notification.requestPermission();
@@ -190,11 +220,18 @@ export function NotificationBell({ storeId, initialUnread }: { storeId: string; 
       <PopoverContent align="end" className="w-80 p-0">
         <div className="flex items-center justify-between border-b px-3 py-2">
           <p className="text-sm font-semibold">Notificaciones</p>
-          {unread ? (
-            <button type="button" onClick={markAllRead} className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground">
-              <Check className="size-3.5" /> Marcar leídas
-            </button>
-          ) : null}
+          <span className="flex items-center gap-3">
+            {unread ? (
+              <button type="button" onClick={markAllRead} className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground">
+                <Check className="size-3.5" /> Marcar leídas
+              </button>
+            ) : null}
+            {items?.length ? (
+              <button type="button" onClick={dismissAll} className="flex items-center gap-1 text-xs text-muted-foreground hover:text-destructive">
+                <Trash2 className="size-3.5" /> Borrar todas
+              </button>
+            ) : null}
+          </span>
         </div>
         {permission === "default" ? (
           <button type="button" onClick={enableBrowser} className="w-full border-b bg-amber-50 px-3 py-2 text-left text-xs text-amber-900 dark:bg-amber-950 dark:text-amber-100">
@@ -208,19 +245,29 @@ export function NotificationBell({ storeId, initialUnread }: { storeId: string; 
             <p className="p-4 text-center text-sm text-muted-foreground">Sin notificaciones.</p>
           ) : (
             items.map((n) => (
-              <Link
-                key={n.id}
-                href={n.link ?? "/dashboard/notificaciones"}
-                onClick={() => setOpen(false)}
-                className={cn("flex flex-col gap-0.5 border-b px-3 py-2 text-sm hover:bg-muted/50", !n.read && "bg-sky-50/60 dark:bg-sky-950/30")}
-              >
-                <span className="flex items-center gap-1.5 font-medium">
-                  {!n.read ? <span className="size-1.5 shrink-0 rounded-full bg-sky-500" /> : null}
-                  {n.title}
-                </span>
-                {n.body ? <span className="line-clamp-2 text-xs text-muted-foreground">{n.body}</span> : null}
-                <span className="text-[11px] text-muted-foreground">{formatDateTime(n.created_at)}</span>
-              </Link>
+              <div key={n.id} className="group relative border-b">
+                <Link
+                  href={n.link ?? "/dashboard/notificaciones"}
+                  onClick={() => setOpen(false)}
+                  className={cn("flex flex-col gap-0.5 py-2 pr-9 pl-3 text-sm hover:bg-muted/50", !n.read && "bg-sky-50/60 dark:bg-sky-950/30")}
+                >
+                  <span className="flex items-center gap-1.5 font-medium">
+                    {!n.read ? <span className="size-1.5 shrink-0 rounded-full bg-sky-500" /> : null}
+                    {n.title}
+                  </span>
+                  {n.body ? <span className="line-clamp-2 text-xs text-muted-foreground">{n.body}</span> : null}
+                  <span className="text-[11px] text-muted-foreground">{formatDateTime(n.created_at)}</span>
+                </Link>
+                <button
+                  type="button"
+                  onClick={() => void dismissOne(n)}
+                  aria-label="Borrar notificación"
+                  title="Borrar"
+                  className="absolute top-1.5 right-1.5 rounded-md p-1 text-muted-foreground opacity-60 hover:bg-muted hover:text-foreground hover:opacity-100 focus-visible:opacity-100 sm:opacity-0 sm:group-hover:opacity-100"
+                >
+                  <X className="size-3.5" />
+                </button>
+              </div>
             ))
           )}
         </div>

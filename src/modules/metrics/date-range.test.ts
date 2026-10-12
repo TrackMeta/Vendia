@@ -32,8 +32,10 @@ describe("Rangos de fecha (hora de Lima)", () => {
 
   it("personalizado válido e inválido", () => {
     expect(resolveRange("personalizado", "2026-01-01", "2026-01-31", now).to).toBe("2026-02-01T05:00:00.000Z");
-    expect(resolveRange("personalizado", "2026-02-10", "2026-01-01", now).preset).toBe("30d");
-    expect(resolveRange("cualquier-cosa", undefined, undefined, now).preset).toBe("30d");
+    expect(resolveRange("personalizado", "2026-02-10", "2026-01-01", now).preset).toBe("hoy");
+    expect(resolveRange("cualquier-cosa", undefined, undefined, now).preset).toBe("hoy");
+    expect(resolveRange(undefined, undefined, undefined, now).preset).toBe("hoy");
+    expect(resolveRange("30d", undefined, undefined, now).preset).toBe("30d");
   });
 });
 

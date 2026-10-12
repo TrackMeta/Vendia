@@ -1,8 +1,9 @@
 "use client";
 
-import { BadgeCheck, FileText, Paperclip, Plus, Trash2 } from "lucide-react";
+import { BadgeCheck, Plus, Trash2 } from "lucide-react";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
+import { ReceiptPreview } from "@/components/dashboard/receipt-preview";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -12,6 +13,7 @@ import { createClient } from "@/lib/supabase/client";
 import { compressImage } from "@/lib/upload";
 import { PAYMENT_KINDS, PAYMENT_METHODS, type PaymentKind, type PaymentMethod, paymentSummary, RECEIPTS_BUCKET } from "@/modules/orders/payments";
 import { addOrderPayment, deleteOrderPayment, verifyOrderPayment } from "../actions";
+import { AppSelect } from "@/components/dashboard/app-select";
 
 export type PaymentRow = {
   id: string;
@@ -140,13 +142,13 @@ export function PaymentsCard({
           <div className="grid gap-3 rounded-lg border p-3 sm:grid-cols-2">
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="pay-kind">Tipo</Label>
-              <select id="pay-kind" value={kind} onChange={(e) => setKind(e.target.value as PaymentKind)} className={selectClass}>
+              <AppSelect id="pay-kind" value={kind} onChange={(e) => setKind(e.target.value as PaymentKind)} className={selectClass}>
                 {Object.entries(PAYMENT_KINDS).map(([v, l]) => (
                   <option key={v} value={v}>
                     {l}
                   </option>
                 ))}
-              </select>
+              </AppSelect>
             </div>
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="pay-amount">Monto (S/)</Label>
@@ -154,13 +156,13 @@ export function PaymentsCard({
             </div>
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="pay-method">Método</Label>
-              <select id="pay-method" value={method} onChange={(e) => setMethod(e.target.value as PaymentMethod)} className={selectClass}>
+              <AppSelect id="pay-method" value={method} onChange={(e) => setMethod(e.target.value as PaymentMethod)} className={selectClass}>
                 {Object.entries(PAYMENT_METHODS).map(([v, l]) => (
                   <option key={v} value={v}>
                     {l}
                   </option>
                 ))}
-              </select>
+              </AppSelect>
             </div>
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="pay-date">Fecha</Label>
@@ -195,9 +197,7 @@ export function PaymentsCard({
                   {PAYMENT_METHODS[p.method]} · {formatDate(p.paid_on)} · {p.created_by_name}
                 </span>
                 {p.receipt_url ? (
-                  <a href={p.receipt_url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-primary hover:underline">
-                    {p.receipt_is_pdf ? <FileText className="size-3.5" /> : <Paperclip className="size-3.5" />} Comprobante
-                  </a>
+                  <ReceiptPreview url={p.receipt_url} isPdf={p.receipt_is_pdf} />
                 ) : (
                   <span className="text-xs text-amber-600">Sin comprobante</span>
                 )}

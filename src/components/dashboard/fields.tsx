@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { publicAssetUrl } from "@/lib/env";
+import { AppSelect } from "@/components/dashboard/app-select";
 
 export function TextField({
   label,
@@ -119,7 +120,7 @@ export function SelectField<T extends string>({
   return (
     <div className="flex flex-col gap-1.5">
       <Label className="text-xs">{label}</Label>
-      <select
+      <AppSelect
         value={value}
         onChange={(e) => onChange(e.target.value as T)}
         className="h-8 rounded-lg border border-input bg-transparent px-2 text-sm"
@@ -129,7 +130,7 @@ export function SelectField<T extends string>({
             {o.label}
           </option>
         ))}
-      </select>
+      </AppSelect>
     </div>
   );
 }

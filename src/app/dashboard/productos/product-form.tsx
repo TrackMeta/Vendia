@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { PACKAGE_SIZES } from "@/modules/couriers";
 import type { ActionResult } from "./actions";
+import { AppSelect } from "@/components/dashboard/app-select";
 
 export type ProductFormValues = {
   name: string;
@@ -102,13 +103,13 @@ export function ProductForm({
             </p>
             <div className="flex flex-col gap-1.5 sm:col-span-2">
               <Label htmlFor="package_size">Medida</Label>
-              <select id="package_size" name="package_size" defaultValue={initial.package_size ?? "PAQUETE S"} className={nativeSelect}>
+              <AppSelect id="package_size" name="package_size" defaultValue={initial.package_size ?? "PAQUETE S"} className={nativeSelect}>
                 {PACKAGE_SIZES.map((s) => (
                   <option key={s} value={s}>
                     {s}
                   </option>
                 ))}
-              </select>
+              </AppSelect>
             </div>
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="package_weight">Peso (kg)</Label>
@@ -136,11 +137,11 @@ export function ProductForm({
           </div>
           <div className="flex flex-col gap-2">
             <Label htmlFor="status">Estado</Label>
-            <select id="status" name="status" defaultValue={initial.status} className={nativeSelect}>
+            <AppSelect id="status" name="status" defaultValue={initial.status} className={nativeSelect}>
               <option value="active">Activo</option>
               <option value="draft">Borrador</option>
               <option value="archived">Archivado</option>
-            </select>
+            </AppSelect>
           </div>
           <div className="flex items-end justify-end sm:col-span-2">
             <Button type="submit" disabled={pending}>

@@ -12,6 +12,7 @@ import { formatMoney } from "@/lib/format";
 import { COURIERS, PACKAGE_SIZES } from "@/modules/couriers";
 import { mapsLink } from "@/modules/orders/location";
 import { updateOrderShipping } from "../actions";
+import { AppSelect } from "@/components/dashboard/app-select";
 
 export type ShippingData = {
   zone: "lima" | "provincia";
@@ -105,14 +106,14 @@ export function ShippingCard({
       </CardHeader>
       <CardContent className="grid gap-4 sm:grid-cols-2">
         <Field label="Courier" htmlFor="courier_id">
-          <select id="courier_id" value={d.courier_id ?? ""} onChange={(e) => set("courier_id", e.target.value || null)} className={selectClass}>
+          <AppSelect id="courier_id" value={d.courier_id ?? ""} onChange={(e) => set("courier_id", e.target.value || null)} className={selectClass}>
             <option value="">Sin asignar</option>
             {options.map((c) => (
               <option key={c.courier_id} value={c.courier_id}>
                 {COURIERS[c.courier_id]?.name ?? c.courier_id} · {c.zone === "lima" ? "Lima" : "Provincia"}
               </option>
             ))}
-          </select>
+          </AppSelect>
         </Field>
         <Field label="Costo de envío pagado (S/)" htmlFor="shipping_cost" hint="Lo que te cobra el courier por este pedido. Se descuenta de tu utilidad.">
           <Input id="shipping_cost" type="number" step="0.01" min={0} value={d.shipping_cost} onChange={(e) => set("shipping_cost", Number(e.target.value) || 0)} />
@@ -197,14 +198,14 @@ export function ShippingCard({
         )}
 
         <Field label="Medida del paquete" htmlFor="package_size" hint={`Por defecto la del producto: ${defaultSize}.`}>
-          <select id="package_size" value={d.package_size ?? ""} onChange={(e) => set("package_size", e.target.value || null)} className={selectClass}>
+          <AppSelect id="package_size" value={d.package_size ?? ""} onChange={(e) => set("package_size", e.target.value || null)} className={selectClass}>
             <option value="">La del producto ({defaultSize})</option>
             {PACKAGE_SIZES.map((s) => (
               <option key={s} value={s}>
                 {s}
               </option>
             ))}
-          </select>
+          </AppSelect>
         </Field>
         <Field label="Peso (kg)" htmlFor="package_weight">
           <Input

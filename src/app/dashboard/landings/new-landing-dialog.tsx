@@ -11,6 +11,7 @@ import { slugify } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { TEMPLATES, type TemplateKey } from "@/modules/landing/defaults";
 import { createLanding } from "./actions";
+import { AppSelect } from "@/components/dashboard/app-select";
 
 export function NewLandingDialog({
   products,
@@ -62,7 +63,7 @@ export function NewLandingDialog({
             </div>
             <div className="flex flex-col gap-2">
               <Label htmlFor="product_id">Producto</Label>
-              <select
+              <AppSelect
                 id="product_id"
                 name="product_id"
                 value={productId}
@@ -79,7 +80,7 @@ export function NewLandingDialog({
                     {p.name}
                   </option>
                 ))}
-              </select>
+              </AppSelect>
             </div>
             <div className="flex flex-col gap-2">
               <Label htmlFor="title">Título (aparece al compartir el link)</Label>

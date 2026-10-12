@@ -1,5 +1,6 @@
 "use client";
 
+import type { ReactNode } from "react";
 import { Link2, Plus, RotateCcw, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -111,7 +112,9 @@ export function AngleBar({
             </Button>
           </div>
           <div className="flex items-center gap-2">
-            <code className="min-w-0 flex-1 truncate rounded bg-muted px-2 py-1 text-[11px]">?{ANGLE_PARAM}={current.key}</code>
+            <code className="min-w-0 flex-1 truncate rounded bg-muted px-2 py-1 text-[11px]">
+              ?{ANGLE_PARAM}={current.key}
+            </code>
             <Button size="xs" variant="outline" onClick={() => copy(current.key)}>
               <Link2 /> Copiar link
             </Button>
@@ -136,32 +139,34 @@ export function AngleBlockList({
   blocks,
   changed,
   selectedId,
+  inspector,
   onSelect,
   onReset,
 }: {
   blocks: PageBlock[];
   changed: Set<string>;
   selectedId: string | null;
-  onSelect: (id: string) => void;
+  inspector?: ReactNode;
+  onSelect: (id: string | null) => void;
   onReset: (id: string) => void;
 }) {
   return (
     <div className="flex flex-col gap-1">
       {blocks.map((b) => (
-        <div
-          key={b.id}
-          className={cn("flex items-center gap-2 rounded-lg border px-2.5 py-1.5 text-sm", selectedId === b.id && "border-primary/60 bg-primary/5")}
-        >
-          <button type="button" onClick={() => onSelect(b.id)} className="flex min-w-0 flex-1 items-center gap-2 text-left">
-            <span className={cn("size-2 shrink-0 rounded-full", changed.has(b.id) ? "bg-primary" : "bg-muted-foreground/25")} aria-hidden />
-            <span className="truncate">{PAGE_BLOCK_LABELS[b.type]}</span>
-            {changed.has(b.id) ? <span className="text-xs text-primary">cambiado</span> : null}
-          </button>
-          {changed.has(b.id) ? (
-            <Button size="icon-xs" variant="ghost" aria-label="Volver a la versión principal" title="Volver a la versión principal" onClick={() => onReset(b.id)}>
-              <RotateCcw />
-            </Button>
-          ) : null}
+        <div key={b.id} data-block-row={b.id} className={cn("rounded-lg border", selectedId === b.id && "border-primary/60")}>
+          <div className={cn("flex items-center gap-2 px-2.5 py-1.5 text-sm", selectedId === b.id && "bg-primary/5")}>
+            <button type="button" onClick={() => onSelect(selectedId === b.id ? null : b.id)} className="flex min-w-0 flex-1 items-center gap-2 text-left">
+              <span className={cn("size-2 shrink-0 rounded-full", changed.has(b.id) ? "bg-primary" : "bg-muted-foreground/25")} aria-hidden />
+              <span className="truncate">{PAGE_BLOCK_LABELS[b.type]}</span>
+              {changed.has(b.id) ? <span className="text-xs text-primary">cambiado</span> : null}
+            </button>
+            {changed.has(b.id) ? (
+              <Button size="icon-xs" variant="ghost" aria-label="Volver a la versión principal" title="Volver a la versión principal" onClick={() => onReset(b.id)}>
+                <RotateCcw />
+              </Button>
+            ) : null}
+          </div>
+          {selectedId === b.id && inspector ? <div className="border-t bg-muted/30 p-3">{inspector}</div> : null}
         </div>
       ))}
     </div>

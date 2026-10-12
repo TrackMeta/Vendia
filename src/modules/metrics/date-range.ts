@@ -48,7 +48,8 @@ export function resolveRange(preset: string | undefined, desde?: string, hasta?:
   const today = limaToday(now);
   let start: string;
   let end: string; // inclusivo
-  let p: RangePreset = (preset && preset in RANGE_PRESETS ? preset : "30d") as RangePreset;
+  // Sin rango elegido (o uno inválido) = Hoy: todos los selectores de fecha arrancan en el día
+  let p: RangePreset = (preset && preset in RANGE_PRESETS ? preset : "hoy") as RangePreset;
 
   switch (p) {
     case "hoy":
@@ -91,11 +92,10 @@ export function resolveRange(preset: string | undefined, desde?: string, hasta?:
         end = hasta;
         break;
       }
-      p = "30d";
-      start = addDays(today, -29);
-      end = today;
+      p = "hoy";
+      start = end = today;
       break;
-    default:
+    default: // "30d"
       start = addDays(today, -29);
       end = today;
   }

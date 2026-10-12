@@ -6,7 +6,7 @@ import { requireStore } from "@/lib/auth";
 import { formatDateTime } from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
 import { cn } from "@/lib/utils";
-import { MarkAllReadButton } from "./mark-all-read";
+import { DismissAllButton, DismissButton, MarkAllReadButton } from "./mark-all-read";
 
 export const metadata: Metadata = { title: "Notificaciones" };
 
@@ -35,8 +35,15 @@ export default async function NotificationsPage() {
     <div className="flex max-w-3xl flex-col gap-4">
       <PageHeader
         title="Notificaciones"
-        description="Pedidos nuevos, clientes riesgosos y secuencias de contacto terminadas."
-        actions={unread ? <MarkAllReadButton storeId={store.id} /> : null}
+        description="Pedidos nuevos, clientes riesgosos y secuencias de contacto terminadas. Al borrarlas se quitan solo para ti."
+        actions={
+          list?.length ? (
+            <div className="flex flex-wrap gap-2">
+              {unread ? <MarkAllReadButton storeId={store.id} /> : null}
+              <DismissAllButton storeId={store.id} />
+            </div>
+          ) : null
+        }
       />
       {!list?.length ? (
         <EmptyState icon={Bell} title="Sin notificaciones" description="Aquí verás cada pedido nuevo y los avisos importantes de tu tienda." />
@@ -55,12 +62,19 @@ export default async function NotificationsPage() {
                 {n.body ? <span className="text-muted-foreground">{n.body}</span> : null}
               </div>
             );
-            return n.link ? (
-              <Link key={n.id} href={n.link} className="hover:bg-muted/40">
-                {content}
-              </Link>
-            ) : (
-              <div key={n.id}>{content}</div>
+            return (
+              <div key={n.id} className="flex items-start">
+                {n.link ? (
+                  <Link href={n.link} className="min-w-0 flex-1 hover:bg-muted/40">
+                    {content}
+                  </Link>
+                ) : (
+                  <div className="min-w-0 flex-1">{content}</div>
+                )}
+                <div className={cn("self-stretch py-2 pr-2", isUnread && "bg-sky-50/60 dark:bg-sky-950/30")}>
+                  <DismissButton storeId={store.id} id={n.id} />
+                </div>
+              </div>
             );
           })}
         </div>

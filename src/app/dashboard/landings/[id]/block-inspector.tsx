@@ -5,6 +5,7 @@ import { publicAssetUrl } from "@/lib/env";
 import { newBlockId } from "@/modules/landing/defaults";
 import type { BumpItem, FormBlock, PageBlock } from "@/modules/landing/schema";
 import { ColorField, ImageField, ListEditor, NumberField, SelectField, TextField, ToggleField } from "@/components/dashboard/fields";
+import { AppSelect } from "@/components/dashboard/app-select";
 
 const ALIGN_OPTIONS = [
   { value: "left" as const, label: "Izquierda" },
@@ -38,14 +39,14 @@ export function ProductLink({ value, onChange, products }: { value: string; onCh
   return (
     <div className="flex flex-col gap-1.5">
       <span className="text-xs font-medium">Producto de tu catálogo (opcional)</span>
-      <select value={value} onChange={(e) => onChange(e.target.value)} className="h-8 rounded-lg border border-input bg-transparent px-2 text-sm">
+      <AppSelect value={value} onChange={(e) => onChange(e.target.value)} className="h-8 rounded-lg border border-input bg-transparent px-2 text-sm">
         <option value="">Adicional libre (sin stock)</option>
         {products.map((p) => (
           <option key={p.id} value={p.id}>
             {p.name}
           </option>
         ))}
-      </select>
+      </AppSelect>
     </div>
   );
 }

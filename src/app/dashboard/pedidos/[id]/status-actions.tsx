@@ -10,6 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { CANCEL_REASONS, FAILURE_REASONS } from "@/modules/orders/contact";
 import { allowedTransitions, nextStatus, ORDER_STATUS_LABELS, type OrderStatus, type Zone } from "@/modules/orders/state-machine";
 import { changeOrderStatus } from "../actions";
+import { AppSelect } from "@/components/dashboard/app-select";
 
 const NEGATIVE: OrderStatus[] = ["cancelled", "failed_delivery", "returned"];
 
@@ -76,13 +77,13 @@ export function StatusActions({ orderId, status, zone }: { orderId: string; stat
             <DialogDescription>{reasons ? "Elige el motivo: sirve para analizar por qué se caen tus pedidos." : "Puedes dejar una nota."}</DialogDescription>
           </DialogHeader>
           {reasons ? (
-            <select value={reason} onChange={(e) => setReason(e.target.value)} className="h-9 rounded-md border bg-background px-2 text-sm" aria-label="Motivo">
+            <AppSelect value={reason} onChange={(e) => setReason(e.target.value)} className="h-9 rounded-md border bg-background px-2 text-sm" aria-label="Motivo">
               {Object.entries(reasons).map(([value, label]) => (
                 <option key={value} value={value}>
                   {label}
                 </option>
               ))}
-            </select>
+            </AppSelect>
           ) : null}
           <Textarea value={note} onChange={(e) => setNote(e.target.value)} placeholder="Nota opcional" maxLength={500} />
           <DialogFooter>

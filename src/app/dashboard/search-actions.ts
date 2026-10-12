@@ -2,6 +2,7 @@
 
 import { requireStore } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
+import { orderSearchFilters } from "@/modules/orders/search";
 import type { OrderStatus } from "@/modules/orders/state-machine";
 
 export type SearchOrder = { id: string; order_number: number; customer_name: string; customer_phone: string; status: OrderStatus; total: number };
@@ -14,7 +15,7 @@ function clean(term: string) {
 }
 
 /**
- * Buscador rápido (Ctrl+K): pedidos por número, teléfono o nombre y clientes por teléfono o nombre.
+ * Buscador rápido (Ctrl+K): pedidos por número, teléfono, nombre, DNI o ubicación y clientes por teléfono, nombre o DNI.
  * Pensado para cuando un cliente llama: escribes su número y aparece su pedido.
  */
 export async function quickSearch(query: string): Promise<SearchResult> {
@@ -22,14 +23,13 @@ export async function quickSearch(query: string): Promise<SearchResult> {
   const term = clean(String(query ?? "").slice(0, 60));
   if (term.length < 2) return { orders: [], customers: [] };
   const digits = term.replace(/\D/g, "");
-  const isNumber = /^#?\s*\d+$/.test(term);
 
-  const orderFilters = [`customer_name.ilike.%${term}%`];
-  if (digits.length >= 3) orderFilters.push(`customer_phone.ilike.%${digits}%`);
-  if (isNumber && digits.length <= 9) orderFilters.push(`order_number.eq.${Number(digits)}`);
+  // Número, celular, nombre, DNI o ubicación (departamento, provincia, distrito)
+  const orderFilters = orderSearchFilters(term);
 
   const customerFilters = [`first_name.ilike.%${term}%`, `last_name.ilike.%${term}%`];
   if (digits.length >= 3) customerFilters.push(`phone.ilike.%${digits}%`);
+  if (digits.length >= 4) customerFilters.push(`dni.ilike.%${digits}%`);
 
   const supabase = await createClient();
   const [{ data: orders }, { data: customers }] = await Promise.all([

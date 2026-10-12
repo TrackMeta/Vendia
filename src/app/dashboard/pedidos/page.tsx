@@ -13,6 +13,7 @@ import { createClient } from "@/lib/supabase/server";
 import { cn } from "@/lib/utils";
 import { CONTACT_RESULTS, type ContactResult, RISK_LABELS } from "@/modules/orders/contact";
 import { ORDER_STATUS_LABELS, ORDER_STATUSES, type OrderStatus } from "@/modules/orders/state-machine";
+import { orderSearchFilters } from "@/modules/orders/search";
 import { ZoneBadge } from "../logistica/logistics-table";
 import { SourceIcon } from "@/components/brand-icons";
 
@@ -46,12 +47,9 @@ export default async function OrdersPage({ searchParams }: PageProps<"/dashboard
   if (zone) query = query.eq("zone", zone);
   if (mine) query = query.eq("assigned_to", user.id);
   if (q) {
-    const digits = q.replace(/\D/g, "");
-    const safe = q.replace(/[%,()]/g, " ");
-    const filters = [`customer_name.ilike.%${safe}%`];
-    if (digits.length >= 3) filters.push(`customer_phone.ilike.%${digits}%`);
-    if (/^\d{1,9}$/.test(q)) filters.push(`order_number.eq.${q}`);
-    query = query.or(filters.join(","));
+    // Número, celular, nombre, DNI o ubicación (departamento, provincia, distrito)
+    const filters = orderSearchFilters(q);
+    if (filters.length) query = query.or(filters.join(","));
   }
 
   // Contadores calculados en la base (bajar las filas para contarlas falla con más de 1000 pedidos).
@@ -148,7 +146,7 @@ export default async function OrdersPage({ searchParams }: PageProps<"/dashboard
           {status ? <input type="hidden" name="estado" value={status} /> : null}
           {zone ? <input type="hidden" name="zona" value={zone} /> : null}
           {mine ? <input type="hidden" name="mios" value="1" /> : null}
-          <Input name="q" defaultValue={q} placeholder="Buscar por nombre, celular o número de pedido" />
+          <Input name="q" defaultValue={q} placeholder="Buscar por nombre, celular, DNI, distrito o n.º de pedido" />
         </form>
       </div>
 

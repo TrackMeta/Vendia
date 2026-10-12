@@ -11,6 +11,7 @@ import { displayPeruPhone, formatDateTime, formatMoney } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { CANCEL_REASONS, CONTACT_RESULTS, type ContactChannel, type ContactResult, sequenceLabels } from "@/modules/orders/contact";
 import { BrandIcon } from "@/components/brand-icons";
+import { AppSelect } from "@/components/dashboard/app-select";
 
 export type ContactOrder = {
   id: string;
@@ -223,13 +224,13 @@ export function ContactPanel({ order, sequence, storeName, compact = false }: { 
       {mode === "reject" ? (
         <div className="flex flex-wrap items-center gap-2 rounded-lg bg-destructive/5 p-2">
           <label className="text-sm">Motivo:</label>
-          <select value={rejectReason} onChange={(e) => setRejectReason(e.target.value as keyof typeof CANCEL_REASONS)} className="h-8 rounded-md border bg-background px-2 text-sm">
+          <AppSelect value={rejectReason} onChange={(e) => setRejectReason(e.target.value as keyof typeof CANCEL_REASONS)} className="h-8 rounded-md border bg-background px-2 text-sm">
             {Object.entries(CANCEL_REASONS).map(([value, label]) => (
               <option key={value} value={value}>
                 {label}
               </option>
             ))}
-          </select>
+          </AppSelect>
           <Button size="sm" variant="destructive" disabled={pending} onClick={() => submit("rejected", { cancelReason: rejectReason })}>
             Cancelar pedido
           </Button>

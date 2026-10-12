@@ -11,6 +11,7 @@ import { formatMoney } from "@/lib/format";
 import { ImageField } from "@/components/dashboard/fields";
 import { REAL_SALE_MODES } from "@/modules/metrics/real-sale";
 import { saveSettings } from "./actions";
+import { AppSelect } from "@/components/dashboard/app-select";
 
 type Values = {
   name: string;
@@ -207,10 +208,10 @@ export function SettingsForm({ storeId, storeSlug, initial }: { storeId: string;
         </CardHeader>
         <CardContent className="grid gap-4 sm:grid-cols-3">
           <Field label="Moneda de la cuenta">
-            <select name="ad_currency" defaultValue={initial.ad_currency} className="h-9 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm">
+            <AppSelect name="ad_currency" defaultValue={initial.ad_currency} className="h-9 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm">
               <option value="PEN">Soles (S/)</option>
               <option value="USD">Dólares (US$)</option>
-            </select>
+            </AppSelect>
           </Field>
           <Field label="Tipo de cambio (S/ por US$)" hint="Valor sugerido al registrar gastos en dólares. Lo puedes cambiar en cada gasto.">
             <Input name="usd_rate" type="number" step="0.0001" min="1" defaultValue={initial.usd_rate} />

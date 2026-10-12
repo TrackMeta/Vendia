@@ -487,6 +487,34 @@ async function main() {
   }
   await step("la landing pública expone la prueba", `select public.get_public_landing((select slug from public.stores where id = '${storeId}'), (select slug from public.landing_pages where id = '${landingId}')) -> 'landing' -> 'settings' -> 'price_test' ->> 'enabled'`);
   await step("resultados A/B", `select jsonb_array_length(public.get_price_test('${landingId}', now() - interval '1 day'))`);
+
+  console.log("\n— Borrar notificaciones y nombres desde el link —");
+  await db.query(`insert into public.notifications (store_id, type, title) values ('${storeId}', 'team', 'Aviso de prueba')`);
+  const visible = async () => Number(((await db.query<{ n: number }>(`select count(*)::int as n from public.notifications where store_id = '${storeId}'`)).rows[0]).n);
+  await db.exec("set role authenticated");
+  const before = await visible();
+  await step("borrar una notificación", `select public.dismiss_notifications('${storeId}', array[(select id from public.notifications where title = 'Aviso de prueba' limit 1)])`);
+  const afterOne = await visible();
+  await step("borrar todas", `select public.dismiss_notifications('${storeId}')`);
+  const afterAll = await visible();
+  await db.exec("reset role");
+  if (!(before > 0 && afterOne === before - 1 && afterAll === 0)) {
+    console.error(`  ✗ notificaciones visibles: antes ${before}, tras una ${afterOne}, tras todas ${afterAll}`);
+    process.exit(1);
+  }
+  console.log(`  ✓ quedan ocultas solo para quien las borra (${before} → ${afterOne} → ${afterAll})`);
+  await step("el contador de no leídas queda en 0", `select public.unread_notifications_count('${storeId}')`);
+  await db.query(
+    `update public.order_attribution set campaign_id = '120200001', utm_campaign = 'Faja verano', utm_term = '{{adset.name}}' where order_id = '${pb.order_id}'`,
+  );
+  const named = (await step(
+    "campaña sin Meta toma el nombre del link",
+    `select x ->> 'name' from jsonb_array_elements(public.get_performance(${range}, current_date - 3, current_date + 1, 'campaign')) x where x ->> 'key' = '120200001'`,
+  )) as string;
+  if (named !== "Faja verano") {
+    console.error(`  ✗ se esperaba «Faja verano» y llegó «${named}»`);
+    process.exit(1);
+  }
   console.log("\nOK — prueba de humo completa");
 }
 

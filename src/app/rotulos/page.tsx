@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { cookies } from "next/headers";
 import { z } from "zod";
 import { requireStore } from "@/lib/auth";
 import { publicAssetUrl } from "@/lib/env";
@@ -6,6 +7,8 @@ import { displayPeruPhone, formatMoney } from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
 import { courierName } from "@/modules/couriers";
 import { itemLabel, type VariantBreakdown } from "@/modules/orders/items";
+import { ProvinceLabelOptions } from "./label-options";
+import { LABEL_COOKIE, parseLabelOptions } from "./options";
 import { PrintButton } from "./print-button";
 
 export const metadata: Metadata = { title: "Rótulos de envío", robots: { index: false } };
@@ -36,6 +39,8 @@ export default async function LabelsPage({ searchParams }: PageProps<"/rotulos">
     supabase.from("store_settings").select("whatsapp, logo_path").eq("store_id", store.id).single(),
   ]);
   const logo = publicAssetUrl(settings?.logo_path);
+  const prov = parseLabelOptions((await cookies()).get(LABEL_COOKIE)?.value);
+  const hasProvincia = (orders ?? []).some((o) => o.zone === "provincia");
   const qs = (tam: Size) => `/rotulos?ids=${ids.success ? ids.data.join(",") : ""}&tam=${tam}`;
 
   return (
@@ -50,6 +55,11 @@ export default async function LabelsPage({ searchParams }: PageProps<"/rotulos">
           Etiqueta 10×15 cm
         </a>
         <PrintButton />
+        {hasProvincia ? (
+          <div className="w-full">
+            <ProvinceLabelOptions options={prov} hasLogo={Boolean(logo)} />
+          </div>
+        ) : null}
       </div>
       {!orders?.length ? <p className="text-center text-sm text-zinc-500">Selecciona pedidos en Logística y toca «Rótulos».</p> : null}
       <div className={size === "a4" ? "mx-auto grid max-w-4xl grid-cols-2 gap-3 print:max-w-none print:gap-2" : "mx-auto flex max-w-sm flex-col gap-3 print:max-w-none print:gap-0"}>
@@ -67,7 +77,7 @@ export default async function LabelsPage({ searchParams }: PageProps<"/rotulos">
               <div className="flex items-center justify-between gap-2 border-b border-zinc-300 pb-1.5">
                 <div className="flex items-center gap-2">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                  {logo ? <img src={logo} alt="" className="h-7 w-auto" /> : null}
+                  {logo && (!provincia || prov.logo) ? <img src={logo} alt="" className="h-7 w-auto" /> : null}
                   <span className="font-bold">{store.name}</span>
                 </div>
                 <span className="text-lg font-black">#{o.order_number}</span>
@@ -107,9 +117,11 @@ export default async function LabelsPage({ searchParams }: PageProps<"/rotulos">
                   {courierName(o.courier_id)}
                 </span>
                 {provincia ? (
-                  <span className="text-right text-[12px]">
-                    Saldo: <b>{formatMoney(toCollect)}</b>
-                  </span>
+                  prov.saldo ? (
+                    <span className="text-right text-[12px]">
+                      Saldo: <b>{formatMoney(toCollect)}</b>
+                    </span>
+                  ) : null
                 ) : toCollect > 0 ? (
                   <span className="rounded bg-black px-2 py-1 text-right text-white">
                     COBRAR <b className="text-base">{formatMoney(toCollect)}</b>

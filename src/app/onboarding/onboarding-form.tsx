@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { slugify } from "@/lib/format";
 import { COUNTRIES, UPCOMING_COUNTRIES } from "@/modules/country";
 import { createStore } from "./actions";
+import { AppSelect } from "@/components/dashboard/app-select";
 
 export function OnboardingForm() {
   const [state, action, pending] = useActionState(createStore, undefined);
@@ -58,13 +59,13 @@ export function OnboardingForm() {
           </div>
           <div className="flex flex-col gap-2">
             <Label htmlFor="country">País</Label>
-            <select id="country" disabled className="h-10 rounded-lg border bg-muted/50 px-3 text-sm" defaultValue="PE">
+            <AppSelect id="country" disabled className="h-10 rounded-lg border bg-muted/50 px-3 text-sm" defaultValue="PE">
               {Object.values(COUNTRIES).map((c) => (
                 <option key={c.code} value={c.code}>
                   {c.name} · {c.currency}
                 </option>
               ))}
-            </select>
+            </AppSelect>
             <p className="text-xs text-muted-foreground">Próximamente: {UPCOMING_COUNTRIES.join(", ")}.</p>
           </div>
           {state?.error ? (

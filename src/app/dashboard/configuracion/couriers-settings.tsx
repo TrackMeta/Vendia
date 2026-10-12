@@ -11,6 +11,8 @@ import { Label } from "@/components/ui/label";
 import { COURIERS } from "@/modules/couriers";
 import { saveCourierSettings } from "./actions";
 import { CourierIcon } from "@/components/brand-icons";
+import { ZoneBadge } from "../logistica/logistics-table";
+import { AppSelect } from "@/components/dashboard/app-select";
 
 export type CourierSettingsRow = {
   courier_id: string;
@@ -42,7 +44,7 @@ function CourierRow({ initial }: { initial: CourierSettingsRow }) {
           <span className="size-3 rounded-full" style={{ backgroundColor: def.color }} />
         )}
         <span className="font-medium">{def.name}</span>
-        <SimpleBadge tone={def.zone === "lima" ? "info" : "progress"}>{def.zone === "lima" ? "Lima" : "Provincia"}</SimpleBadge>
+        <ZoneBadge zone={def.zone} />
         {soon ? <SimpleBadge>Próximamente</SimpleBadge> : null}
         {!soon ? (
           <label className="ml-auto flex items-center gap-2 text-sm">
@@ -66,7 +68,7 @@ function CourierRow({ initial }: { initial: CourierSettingsRow }) {
           </div>
           <div className="flex flex-col gap-1.5">
             <Label htmlFor={`ret-${def.id}`}>Si no se entrega, cobra</Label>
-            <select
+            <AppSelect
               id={`ret-${def.id}`}
               value={d.return_shipments}
               onChange={(e) => setD({ ...d, return_shipments: Number(e.target.value) })}
@@ -75,7 +77,7 @@ function CourierRow({ initial }: { initial: CourierSettingsRow }) {
               <option value={0}>Nada</option>
               <option value={1}>1 envío</option>
               <option value={2}>2 envíos (ida y vuelta)</option>
-            </select>
+            </AppSelect>
           </div>
           <label className="flex items-center gap-2 self-end pb-2 text-sm">
             <input type="checkbox" checked={d.is_default} onChange={(e) => setD({ ...d, is_default: e.target.checked })} className="size-4" />

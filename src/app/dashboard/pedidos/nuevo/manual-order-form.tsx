@@ -13,6 +13,7 @@ import { UbigeoPicker, type UbigeoValue } from "@/modules/landing/render/ubigeo-
 import { zoneOf } from "@/modules/orders/contact";
 import { splitFullName } from "@/modules/orders/order-input";
 import { createManualOrder, type ManualOrderInput } from "../actions";
+import { AppSelect } from "@/components/dashboard/app-select";
 
 type Product = { id: string; name: string; price: number; variantLabel: string | null; variants: { id: string; name: string; stock: number | null }[] };
 type Offer = { id: string; productId: string; name: string; quantity: number; price: number };
@@ -129,7 +130,7 @@ export function ManualOrderForm({
         </CardHeader>
         <CardContent className="grid gap-4 sm:grid-cols-2">
           <Field label="Producto">
-            <select
+            <AppSelect
               value={productId}
               onChange={(e) => {
                 setProductId(e.target.value);
@@ -144,10 +145,10 @@ export function ManualOrderForm({
                   {p.name}
                 </option>
               ))}
-            </select>
+            </AppSelect>
           </Field>
           <Field label="Oferta">
-            <select
+            <AppSelect
               value={offerId}
               onChange={(e) => {
                 setOfferId(e.target.value);
@@ -161,7 +162,7 @@ export function ManualOrderForm({
                 </option>
               ))}
               <option value="">Cantidad libre</option>
-            </select>
+            </AppSelect>
           </Field>
           {!offer ? (
             <Field label="Cantidad">
@@ -200,13 +201,13 @@ export function ManualOrderForm({
             <Input type="number" step="0.01" min={0} value={price} placeholder={basePrice.toFixed(2)} onChange={(e) => setPrice(e.target.value)} />
           </Field>
           <Field label="¿Por dónde llegó?">
-            <select value={channel} onChange={(e) => setChannel(e.target.value as keyof typeof CHANNELS)} className={selectClass}>
+            <AppSelect value={channel} onChange={(e) => setChannel(e.target.value as keyof typeof CHANNELS)} className={selectClass}>
               {Object.entries(CHANNELS).map(([value, label]) => (
                 <option key={value} value={value}>
                   {label}
                 </option>
               ))}
-            </select>
+            </AppSelect>
           </Field>
         </CardContent>
       </Card>

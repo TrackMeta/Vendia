@@ -4,6 +4,7 @@ import { UserCheck } from "lucide-react";
 import { useTransition } from "react";
 import { toast } from "sonner";
 import { assignOrders } from "../actions";
+import { AppSelect } from "@/components/dashboard/app-select";
 
 export function AssignSelect({
   orderId,
@@ -20,7 +21,7 @@ export function AssignSelect({
   return (
     <label className="flex items-center gap-1.5 text-sm text-muted-foreground">
       <UserCheck className="size-4" />
-      <select
+      <AppSelect
         value={assignedTo ?? ""}
         disabled={pending}
         onChange={(e) =>
@@ -39,7 +40,7 @@ export function AssignSelect({
             {m.id === currentUserId ? `Yo (${m.name})` : m.name}
           </option>
         ))}
-      </select>
+      </AppSelect>
     </label>
   );
 }

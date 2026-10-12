@@ -160,7 +160,7 @@ export function DashboardShell({
         <StoreSwitcher current={storeId} currentName={storeName} currentLogo={storeLogo} slug={storeSlug} isOwner={isOwner} stores={stores} />
         <SearchButton onOpen={openSearch} />
       </div>
-      <div className="flex-1 overflow-y-auto px-3 pb-3">
+      <div className="vd-sidebar-scroll flex-1 overflow-y-auto pr-1.5 pb-3 pl-3">
         <Nav onNavigate={() => setOpen(false)} isOwner={isOwner} />
       </div>
       <div className="flex flex-col gap-0.5 border-t border-sidebar-border p-3">

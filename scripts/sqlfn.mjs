@@ -1,7 +1,7 @@
-// Uso: node scripts/sqlfn.cjs nombre_funcion [...] — imprime la última definición de cada función SQL
-const fs = require("fs");
-const path = require("path");
-const dir = path.join(__dirname, "../supabase/migrations");
+// Uso: node scripts/sqlfn.mjs nombre_funcion [...] — imprime la última definición de cada función SQL
+import fs from "node:fs";
+import path from "node:path";
+const dir = path.join(import.meta.dirname, "../supabase/migrations");
 const files = fs.readdirSync(dir).filter((f) => f.endsWith(".sql")).sort();
 for (const name of process.argv.slice(2)) {
   let found = null;

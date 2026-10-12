@@ -97,6 +97,11 @@ export async function POST(request: NextRequest) {
       const { error: variantError } = await supabase.rpc("set_order_variants", { p_order_id: result.order_id, p_variant_ids: input.variants });
       if (variantError) console.error("set_order_variants", variantError.message);
     }
+    // Ángulo con el que llegó (link ?angulo=): Rendimiento → Ángulos lo separa
+    if (input.angle) {
+      const { error: angleError } = await supabase.from("order_attribution").update({ angle: input.angle }).eq("order_id", result.order_id);
+      if (angleError) console.error("order_attribution.angle", angleError.message);
+    }
     // Clic de TikTok: se guarda en la atribución del pedido
     if (input.attribution.ttclid || input.attribution.ttp) {
       await supabase

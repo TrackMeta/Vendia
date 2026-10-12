@@ -3,6 +3,7 @@ import { cookies } from "next/headers";
 import { notFound, redirect } from "next/navigation";
 import { publicAssetUrl } from "@/lib/env";
 import { abCookieName, pickVariant, variantUrl } from "@/modules/landing/ab";
+import { ANGLE_PARAM, angleName, applyAngle, findAngle } from "@/modules/landing/angles";
 import { getPublicLanding, toRenderData } from "@/modules/landing/public-data";
 import { AbRemember } from "@/modules/landing/render/ab-remember";
 import { googleFontHref } from "@/modules/landing/fonts";
@@ -57,7 +58,16 @@ export default async function PublicLandingPage({ params, searchParams }: PagePr
     remember = { cookie, slug: landing.landing.slug };
   }
 
-  const data = toRenderData(landing);
+  // Ángulo: ?angulo=acne muestra esa versión (textos e imágenes); sin él, la versión principal
+  const base = toRenderData(landing);
+  const rawAngle = query[ANGLE_PARAM];
+  const angle = findAngle(base.content, typeof rawAngle === "string" ? rawAngle.toLowerCase() : null);
+  const data = {
+    ...base,
+    // Solo la versión que ve el cliente: los demás ángulos no viajan a la página
+    content: { ...applyAngle(base.content, angle?.key), angles: [] },
+    angle: angleName(base.content, angle?.key, landing.landing.settings?.angle),
+  };
   const fontHref = googleFontHref(data.content.theme.font);
   const heroImage = firstImage(landing);
 

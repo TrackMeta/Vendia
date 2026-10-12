@@ -294,6 +294,21 @@ export const thankYouUpsell = z.object({
 
 const REQUIRED_FORM_BLOCKS = ["form_offers", "form_fields", "form_submit"] as const;
 
+/** Etiqueta del ángulo en el link: `?angulo=acne` (minúsculas, números y guiones). */
+export const ANGLE_KEY = /^[a-z0-9](?:[a-z0-9-]{0,38}[a-z0-9])?$/;
+
+/**
+ * Un ángulo de la landing: la misma página con otros textos e imágenes en sus bloques.
+ * `overrides` guarda SOLO lo que cambia: { [id del bloque]: { campo: valor } }. Lo demás
+ * (ofertas, formulario, estilo) es común a todos los ángulos.
+ */
+export const landingAngle = z.object({
+  key: z.string().regex(ANGLE_KEY, "La etiqueta del ángulo solo puede tener minúsculas, números y guiones"),
+  name: z.string().trim().min(1, "Ponle nombre al ángulo").max(60),
+  overrides: z.record(z.string().max(40), z.record(z.string().max(40), z.unknown())).default({}),
+});
+export const MAX_ANGLES = 10;
+
 export const landingContent = z
   .object({
     version: z.literal(1),
@@ -313,8 +328,25 @@ export const landingContent = z
       productId: "",
       cost: 0,
     }),
+    angles: z.array(landingAngle).max(MAX_ANGLES, `Máximo ${MAX_ANGLES} ángulos por landing`).default([]),
   })
   .superRefine((content, ctx) => {
+    // Ángulos: etiquetas únicas y cambios que dejen bloques válidos
+    const keys = content.angles.map((a) => a.key);
+    if (new Set(keys).size !== keys.length) ctx.addIssue({ code: "custom", path: ["angles"], message: "Hay dos ángulos con la misma etiqueta" });
+    for (const angle of content.angles) {
+      for (const [blockId, fields] of Object.entries(angle.overrides)) {
+        const base = content.page_blocks.find((b) => b.id === blockId);
+        if (!base) continue; // el bloque se borró: su cambio se ignora
+        if ("id" in fields || "type" in fields) {
+          ctx.addIssue({ code: "custom", path: ["angles"], message: `El ángulo «${angle.name}» intenta cambiar el tipo de un bloque` });
+          continue;
+        }
+        if (!pageBlock.safeParse({ ...base, ...fields }).success) {
+          ctx.addIssue({ code: "custom", path: ["angles"], message: `El ángulo «${angle.name}» tiene un bloque con datos inválidos` });
+        }
+      }
+    }
     for (const type of REQUIRED_FORM_BLOCKS) {
       const count = content.form_blocks.filter((b) => b.type === type).length;
       if (count !== 1) {
@@ -378,3 +410,4 @@ export const FORM_BLOCK_LABELS: Record<FormBlockType, string> = {
 
 /** Bloques del formulario que no se pueden eliminar ni duplicar. */
 export const LOCKED_FORM_BLOCKS: FormBlockType[] = [...REQUIRED_FORM_BLOCKS];
+export type LandingAngle = z.infer<typeof landingAngle>;

@@ -122,8 +122,8 @@ export function SalesPanel({
         ) : null}
       </Section>
 
-      <Section title="Ángulo creativo" hint="Ej: «dolor de espalda», «postparto», «regalo». En Rendimiento → Ángulos ves cuál vende más con su CPA real.">
-        <TextField label="Ángulo de esta landing" value={settings.angle} onChange={(angle) => onSettings({ ...settings, angle: angle.slice(0, 60) })} placeholder="Dolor de espalda" />
+      <Section title="Ángulo creativo" hint="Nombre del ángulo de la versión principal (ej: «Manchas»). Para más ángulos en esta misma landing usa «Nuevo ángulo» arriba. En Rendimiento → Ángulos ves cuál vende más con su CPA real.">
+        <TextField label="Ángulo de la versión principal" value={settings.angle} onChange={(angle) => onSettings({ ...settings, angle: angle.slice(0, 60) })} placeholder="Dolor de espalda" />
       </Section>
 
       <Section

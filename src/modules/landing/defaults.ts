@@ -128,6 +128,7 @@ export function normalizeContent(content: LandingContent): LandingContent {
     ...content,
     whatsapp_button: { ...DEFAULT_WHATSAPP_BUTTON, ...(content.whatsapp_button ?? {}) },
     thank_you_upsell: { ...DEFAULT_THANK_YOU_UPSELL, ...(content.thank_you_upsell ?? {}) },
+    angles: content.angles ?? [],
   };
 }
 
@@ -179,6 +180,7 @@ export function createTemplate(key: TemplateKey, productImages: string[] = []): 
         sticky_button: sticky(),
         whatsapp_button: { ...DEFAULT_WHATSAPP_BUTTON },
         thank_you_upsell: { ...DEFAULT_THANK_YOU_UPSELL },
+        angles: [],
       };
     case "packs":
       return {
@@ -206,6 +208,7 @@ export function createTemplate(key: TemplateKey, productImages: string[] = []): 
         sticky_button: sticky("ELIGE TU PACK"),
         whatsapp_button: { ...DEFAULT_WHATSAPP_BUTTON },
         thank_you_upsell: { ...DEFAULT_THANK_YOU_UPSELL },
+        angles: [],
       };
     case "producto":
       return {
@@ -222,6 +225,7 @@ export function createTemplate(key: TemplateKey, productImages: string[] = []): 
         sticky_button: sticky("COMPRAR AHORA"),
         whatsapp_button: { ...DEFAULT_WHATSAPP_BUTTON, enabled: true },
         thank_you_upsell: { ...DEFAULT_THANK_YOU_UPSELL },
+        angles: [],
       };
     default:
       return createClassicTemplate(productImages);
@@ -258,5 +262,6 @@ export function createClassicTemplate(productImages: string[] = []): LandingCont
     sticky_button: sticky(),
     whatsapp_button: { ...DEFAULT_WHATSAPP_BUTTON },
     thank_you_upsell: { ...DEFAULT_THANK_YOU_UPSELL },
+    angles: [],
   };
 }

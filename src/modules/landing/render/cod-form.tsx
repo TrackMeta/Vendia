@@ -177,6 +177,7 @@ export function CodForm({ data, preview, preferredOfferId }: { data: LandingRend
           notes: notes || undefined,
           website: honeypot,
           attribution: readAttribution(),
+          angle: data.angle ?? undefined,
         }),
       });
       const json = await res.json().catch(() => ({}));

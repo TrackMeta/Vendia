@@ -68,7 +68,7 @@ export function LandingRenderer({
       trackPixel("PageView");
     }
     if (data.tiktokPixel) initTikTok(data.tiktokPixel);
-    trackEvent(data.landingId, "page_view");
+    trackEvent(data.landingId, "page_view", data.angle);
 
     // ViewContent: cuando el visitante realmente mira el producto (scroll o 4 segundos)
     let done = false;
@@ -77,7 +77,7 @@ export function LandingRenderer({
       done = true;
       trackPixel("ViewContent", contentParams);
       trackTikTok("ViewContent", { content_id: data.productId, content_type: "product", content_name: data.product.name, value: basePrice, currency: "PEN" });
-      trackEvent(data.landingId!, "view_content");
+      trackEvent(data.landingId!, "view_content", data.angle);
       window.removeEventListener("scroll", onScroll);
     };
     const onScroll = () => {
@@ -105,7 +105,7 @@ export function LandingRenderer({
     if (live) {
       trackPixel("InitiateCheckout", contentParams);
       trackTikTok("ClickButton", { content_id: data.productId, content_type: "product", value: basePrice, currency: "PEN" });
-      trackEvent(data.landingId!, "initiate_checkout");
+      trackEvent(data.landingId!, "initiate_checkout", data.angle);
     }
     if (popup) {
       setFormOpen(true);

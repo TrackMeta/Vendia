@@ -9,6 +9,7 @@ const schema = z.object({
   utm_source: z.string().max(255).optional(),
   utm_campaign: z.string().max(255).optional(),
   campaign_id: z.string().max(64).optional(),
+  angle: z.string().trim().max(60).optional(),
 });
 
 /** Registra visitas de la landing para el funnel. Idempotente por sesión/día (en la BD). */
@@ -22,14 +23,18 @@ export async function POST(request: NextRequest) {
   const parsed = schema.safeParse(body);
   if (!parsed.success) return new NextResponse(null, { status: 400 });
 
-  const { error } = await createAdminClient().rpc("track_landing_event", {
+  const admin = createAdminClient();
+  const base = {
     p_landing_id: parsed.data.landing_id,
     p_event: parsed.data.event,
     p_session: parsed.data.session_id,
     p_utm_source: parsed.data.utm_source ?? null,
     p_utm_campaign: parsed.data.utm_campaign ?? null,
     p_campaign_id: parsed.data.campaign_id ?? null,
-  });
+  };
+  // Con ángulo (link ?angulo=); si la base aún no tiene esa columna, la visita se guarda sin él
+  let { error } = await admin.rpc("track_landing_event", parsed.data.angle ? { ...base, p_angle: parsed.data.angle } : base);
+  if (error && parsed.data.angle) ({ error } = await admin.rpc("track_landing_event", base));
   if (error) console.error("track_landing_event", error.message);
   return new NextResponse(null, { status: 204 });
 }

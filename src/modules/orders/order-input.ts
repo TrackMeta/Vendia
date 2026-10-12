@@ -51,6 +51,8 @@ export const orderInput = z.object({
   notes: optionalText(500),
   /** Variante elegida por cada unidad del producto (talla, color…). */
   variants: z.array(z.uuid()).max(100).optional(),
+  /** Ángulo de la landing que vio el cliente (para Rendimiento → Ángulos). */
+  angle: z.string().trim().max(60).optional(),
   /** IDs de los productos adicionales marcados (el precio lo pone el servidor). */
   bumps: z.array(z.string().min(1).max(40)).max(10).optional(),
   /** Campo trampa anti-bots: debe llegar vacío. */

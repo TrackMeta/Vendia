@@ -81,6 +81,7 @@
 - [x] **Rendimiento y Analítica unidas** (pestañas Anuncios · Embudo · Zonas) y embudo rediseñado.
 - [x] **Varias cuentas publicitarias de Meta por tienda** (requiere `actualizacion-bloque-9.sql`) y lectura automática al abrir el panel.
 - [x] **Lectura de Meta cada hora (configurable)** con el reloj de Supabase (pg_cron), requiere `actualizacion-bloque-10.sql`.
+- [x] **Varios ángulos en una sola landing** (`?angulo=`), con visitas, pedidos y gasto por ángulo en Rendimiento (requiere `actualizacion-bloque-12.sql`).
 - [x] **Modo oscuro** del panel (Claro / Oscuro / Como el dispositivo, en el pie del menú). Las landings siempre en claro.
 
 ## Pendiente del dueño

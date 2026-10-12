@@ -23,7 +23,7 @@ export function sessionId(): string {
 
 const sent = new Set<string>();
 
-export function trackEvent(landingId: string, event: TrackEvent) {
+export function trackEvent(landingId: string, event: TrackEvent, angle?: string | null) {
   const key = `${landingId}:${event}`;
   if (sent.has(key)) return;
   sent.add(key);
@@ -35,6 +35,7 @@ export function trackEvent(landingId: string, event: TrackEvent) {
     utm_source: attribution.utm_source,
     utm_campaign: attribution.utm_campaign,
     campaign_id: attribution.campaign_id,
+    ...(angle ? { angle } : {}),
   });
   try {
     if (navigator.sendBeacon) {

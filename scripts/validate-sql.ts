@@ -450,6 +450,18 @@ async function main() {
     "guardar coordenadas en el pedido",
     `update public.orders set delivery_location = '-12.0464, -77.0428' where id = '${o10.order_id}' returning delivery_location`,
   );
+
+  console.log("\n— Varios ángulos en una landing —");
+  await step("pedido llegó por el ángulo «Acné»", `update public.order_attribution set angle = 'Acné' where order_id = '${o10.order_id}' returning angle`);
+  await step(
+    "visita con ángulo",
+    `select public.track_landing_event((select landing_page_id from public.orders where id = '${o10.order_id}'), 'page_view', 'sesionangulo1', null, null, null, 'Acné')`,
+  );
+  await step("visitas por ángulo guardadas", `select angle from public.page_events where session_id = 'sesionangulo1'`);
+  await step(
+    "Rendimiento separa el ángulo del pedido",
+    `select (select string_agg(x ->> 'key', ',') from jsonb_array_elements(public.get_performance(${range}, current_date - 3, current_date + 1, 'angle')) x)`,
+  );
   console.log("\nOK — prueba de humo completa");
 }
 

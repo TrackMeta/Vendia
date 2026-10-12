@@ -109,7 +109,7 @@ async function AdsView({ storeId, range, level, levelHref }: { storeId: string; 
           title="Sin datos en este periodo"
           description={
             level === "angulos"
-              ? "Ponle un ángulo a cada landing (Editor → Ventas → Ángulo creativo) para comparar cuál vende más."
+              ? "Ponle nombre al ángulo de tus landings (Editor → Ventas) o crea varios ángulos en una misma landing («Nuevo ángulo» en el editor) para comparar cuál vende más."
               : showMeta
                 ? "Conecta Meta en Marketing para ver tus campañas, o cambia las fechas."
                 : "Aún no hay pedidos en este periodo."

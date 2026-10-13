@@ -7,6 +7,7 @@ import type { LandingContent } from "@/modules/landing/schema";
 import type { LandingSettings } from "../actions";
 import type { PublicOffer } from "@/modules/landing/types";
 import { ProductLink } from "./block-inspector";
+import { EditorCard } from "./editor-card";
 import { PriceTestSection } from "./price-test";
 
 type OtherLanding = { id: string; title: string; slug: string; status: string };
@@ -14,13 +15,9 @@ type Ctx = { storeId: string; folder: string; products?: { id: string; name: str
 
 function Section({ title, children, hint }: { title: string; hint?: string; children: React.ReactNode }) {
   return (
-    <div className="flex flex-col gap-3 rounded-lg border p-3">
-      <div>
-        <p className="text-sm font-semibold">{title}</p>
-        {hint ? <p className="text-xs text-muted-foreground">{hint}</p> : null}
-      </div>
+    <EditorCard title={title} hint={hint}>
       {children}
-    </div>
+    </EditorCard>
   );
 }
 

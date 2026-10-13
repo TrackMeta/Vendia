@@ -37,6 +37,8 @@ import { deleteLanding, duplicateLanding, getLandingBlocks, type LandingSettings
 import { addAngle, applyAngle, changedBlockIds, clearBlockOverride, setBlockOverride } from "@/modules/landing/angles";
 import { AngleBar, AngleBlockList } from "./angle-bar";
 import { FormBlockInspector, PageBlockInspector } from "./block-inspector";
+import { EditorCard } from "./editor-card";
+import { OrderButton } from "@/modules/landing/render/page-blocks";
 import { SalesPanel } from "./sales-panel";
 import { ColorField, SelectField, TextField, ToggleField } from "@/components/dashboard/fields";
 import { AppSelect } from "@/components/dashboard/app-select";
@@ -589,7 +591,8 @@ export function LandingBuilder({
 
       <div className="flex flex-1 flex-col lg:flex-row">
         {/* Panel izquierdo */}
-        <div className="w-full shrink-0 border-b lg:w-[380px] lg:border-r lg:border-b-0">
+        {/* Fondo gris con tarjetas y campos blancos: se distingue cada sección y dónde se escribe */}
+        <div className="w-full shrink-0 border-b bg-muted/50 lg:w-[380px] lg:border-r lg:border-b-0 dark:bg-muted/20 [&_input:not([type=color]):not([type=checkbox]):not([type=radio])]:bg-background [&_textarea]:bg-background">
           <AngleBar
             content={content}
             active={angleKey}
@@ -678,7 +681,7 @@ export function LandingBuilder({
                       </AppSelect>
                     </div>
                   ) : null}
-                  <div className="flex flex-col gap-3 rounded-lg border p-3">
+                  <EditorCard>
                     <ToggleField
                       label="Botón fijo abajo"
                       hint="Sigue al cliente mientras desliza la página"
@@ -687,6 +690,16 @@ export function LandingBuilder({
                     />
                     {content.sticky_button.enabled ? (
                       <>
+                        {/* Vista previa: así lo ve el cliente */}
+                        <div className="rounded-lg border border-dashed bg-muted/40 p-2" aria-hidden>
+                          <OrderButton
+                            text={content.sticky_button.text || "REALIZA TU PEDIDO"}
+                            subtext={content.sticky_button.subtext}
+                            bg={content.sticky_button.bg}
+                            color={content.sticky_button.color}
+                            onClick={() => {}}
+                          />
+                        </div>
                         <TextField label="Texto" value={content.sticky_button.text} onChange={(text) => update((c) => ({ ...c, sticky_button: { ...c.sticky_button, text } }))} />
                         <TextField
                           label="Subtítulo"
@@ -703,7 +716,7 @@ export function LandingBuilder({
                         </div>
                       </>
                     ) : null}
-                  </div>
+                  </EditorCard>
                 </>
               )}
             </TabsContent>
@@ -725,15 +738,17 @@ export function LandingBuilder({
                 onSelect={selectBlock}
                 onChange={(form_blocks) => update((c) => ({ ...c, form_blocks }))}
               />
-              <SelectField
-                label="El formulario aparece"
-                value={content.theme.formMode}
-                onChange={(formMode) => update((c) => ({ ...c, theme: { ...c.theme, formMode } }))}
-                options={[
-                  { value: "popup", label: "En una ventana emergente (recomendado)" },
-                  { value: "embedded", label: "Dentro de la página" },
-                ]}
-              />
+              <EditorCard title="Cómo se abre el formulario">
+                <SelectField
+                  label="El formulario aparece"
+                  value={content.theme.formMode}
+                  onChange={(formMode) => update((c) => ({ ...c, theme: { ...c.theme, formMode } }))}
+                  options={[
+                    { value: "popup", label: "En una ventana emergente (recomendado)" },
+                    { value: "embedded", label: "Dentro de la página" },
+                  ]}
+                />
+              </EditorCard>
               {(offersByProduct[productId] ?? []).length === 0 ? (
                 <p className="rounded-md bg-amber-50 p-2 text-xs text-amber-800 dark:bg-amber-950 dark:text-amber-200">
                   Este producto no tiene ofertas activas. Agrégalas en el producto para poder publicar.
@@ -762,50 +777,59 @@ export function LandingBuilder({
 
             <TabsContent value="style" className="flex flex-col gap-4 p-4">
               {angleKey ? <p className="rounded-md bg-muted p-2 text-xs text-muted-foreground">Esta pestaña es común a todas las versiones de la landing.</p> : null}
-              <div className="flex flex-col gap-1.5">
-                <Label className="text-xs">Producto</Label>
-                <AppSelect
-                  value={productId}
-                  onChange={(e) => {
-                    setProductId(e.target.value);
-                    markDirty();
-                  }}
-                  className="h-8 rounded-lg border border-input bg-transparent px-2 text-sm"
-                >
-                  {products.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.name}
-                    </option>
-                  ))}
-                </AppSelect>
-              </div>
-              <div className="flex flex-col gap-1.5">
-                <Label className="text-xs">Enlace</Label>
-                <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                  /p/{storeSlug}/
-                  <Input
-                    value={slug}
+              <EditorCard title="Producto y enlace" hint="Qué producto vende esta landing y su dirección.">
+                <div className="flex flex-col gap-1.5">
+                  <Label className="text-xs">Producto</Label>
+                  <AppSelect
+                    value={productId}
                     onChange={(e) => {
-                      // Mientras se escribe se permite el guion final; al salir del campo se limpia
-                      setSlug(slugifyTyping(e.target.value));
+                      setProductId(e.target.value);
                       markDirty();
                     }}
-                    onBlur={() => setSlug((v) => finishSlug(v))}
-                    className="h-8"
-                  />
+                    className="h-8 rounded-lg border border-input bg-transparent px-2 text-sm"
+                  >
+                    {products.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.name}
+                      </option>
+                    ))}
+                  </AppSelect>
                 </div>
-                {status === "published" ? <p className="text-xs text-amber-600">Si cambias el enlace, el anterior dejará de funcionar en tus anuncios.</p> : null}
-              </div>
-              <SelectField
-                label="Tipografía"
-                value={content.theme.font}
-                onChange={(font) => update((c) => ({ ...c, theme: { ...c.theme, font } }))}
-                options={FONTS.map((f) => ({ value: f, label: f === "system" ? "Del sistema (más rápida)" : f }))}
-              />
-              <div className="grid grid-cols-2 gap-3">
+                <div className="flex flex-col gap-1.5">
+                  <Label className="text-xs">Enlace</Label>
+                  <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                    /p/{storeSlug}/
+                    <Input
+                      value={slug}
+                      onChange={(e) => {
+                        // Mientras se escribe se permite el guion final; al salir del campo se limpia
+                        setSlug(slugifyTyping(e.target.value));
+                        markDirty();
+                      }}
+                      onBlur={() => setSlug((v) => finishSlug(v))}
+                      className="h-8"
+                    />
+                  </div>
+                  {status === "published" ? <p className="text-xs text-amber-600">Si cambias el enlace, el anterior dejará de funcionar en tus anuncios.</p> : null}
+                </div>
+              </EditorCard>
+              <EditorCard title="Letra" hint="La tipografía de toda la landing.">
+                <SelectField
+                  label="Tipografía"
+                  value={content.theme.font}
+                  onChange={(font) => update((c) => ({ ...c, theme: { ...c.theme, font } }))}
+                  options={FONTS.map((f) => ({ value: f, label: f === "system" ? "Del sistema (más rápida)" : f }))}
+                />
+              </EditorCard>
+              <EditorCard title="Colores de la página" hint="El fondo y el texto general. Cada bloque puede tener sus propios colores.">
+                {/* Vista previa de la combinación */}
+                <div className="rounded-lg border p-3 text-sm" style={{ backgroundColor: content.theme.pageBg, color: content.theme.textColor }} aria-hidden>
+                  <p className="font-semibold">Así se ve el texto de tu landing</p>
+                  <p className="text-xs opacity-80">Envío a todo el Perú · Pagas al recibir</p>
+                </div>
                 <ColorField label="Fondo de la página" value={content.theme.pageBg} onChange={(pageBg) => update((c) => ({ ...c, theme: { ...c.theme, pageBg } }))} />
                 <ColorField label="Color de texto" value={content.theme.textColor} onChange={(textColor) => update((c) => ({ ...c, theme: { ...c.theme, textColor } }))} />
-              </div>
+              </EditorCard>
             </TabsContent>
           </Tabs>
         </div>

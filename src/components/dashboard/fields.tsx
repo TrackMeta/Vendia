@@ -70,7 +70,22 @@ export function NumberField({
   );
 }
 
-export function ColorField({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
+/** Colores sugeridos: se eligen con un toque (además del selector y el código). */
+export const COLOR_PRESETS = [
+  { value: "#16a34a", name: "Verde" },
+  { value: "#25d366", name: "Verde WhatsApp" },
+  { value: "#e53935", name: "Rojo" },
+  { value: "#ea580c", name: "Naranja" },
+  { value: "#f59e0b", name: "Amarillo" },
+  { value: "#2563eb", name: "Azul" },
+  { value: "#7c3aed", name: "Morado" },
+  { value: "#db2777", name: "Rosado" },
+  { value: "#111827", name: "Negro" },
+  { value: "#ffffff", name: "Blanco" },
+] as const;
+
+export function ColorField({ label, value, onChange, presets = true }: { label: string; value: string; onChange: (v: string) => void; presets?: boolean }) {
+  const current = value.toLowerCase();
   return (
     <div className="flex flex-col gap-1.5">
       <Label className="text-xs">{label}</Label>
@@ -78,8 +93,9 @@ export function ColorField({ label, value, onChange }: { label: string; value: s
         <input
           type="color"
           value={value}
+          aria-label={`${label}: elegir color`}
           onChange={(e) => onChange(e.target.value)}
-          className="h-8 w-10 cursor-pointer rounded border bg-transparent p-0.5"
+          className="size-9 shrink-0 cursor-pointer rounded-lg border bg-background p-1 shadow-sm"
         />
         <Input
           value={value}
@@ -87,9 +103,25 @@ export function ColorField({ label, value, onChange }: { label: string; value: s
             const v = e.target.value.trim();
             if (/^#[0-9a-fA-F]{0,6}$/.test(v)) onChange(v.length === 7 ? v.toLowerCase() : v);
           }}
-          className="font-mono text-xs"
+          className="h-9 min-w-0 font-mono text-xs"
         />
       </div>
+      {presets ? (
+        <div className="flex flex-wrap gap-1.5" role="group" aria-label={`Colores sugeridos para ${label.toLowerCase()}`}>
+          {COLOR_PRESETS.map((c) => (
+            <button
+              key={c.value}
+              type="button"
+              title={c.name}
+              aria-label={c.name}
+              aria-pressed={current === c.value}
+              onClick={() => onChange(c.value)}
+              className={`size-5 rounded-full border shadow-sm transition-transform hover:scale-110 ${current === c.value ? "ring-2 ring-primary ring-offset-1 ring-offset-background" : ""}`}
+              style={{ backgroundColor: c.value }}
+            />
+          ))}
+        </div>
+      ) : null}
     </div>
   );
 }

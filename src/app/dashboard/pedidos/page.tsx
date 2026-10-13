@@ -13,6 +13,8 @@ import { createClient } from "@/lib/supabase/server";
 import { cn } from "@/lib/utils";
 import { CONTACT_RESULTS, type ContactResult, RISK_LABELS } from "@/modules/orders/contact";
 import { ORDER_STATUS_LABELS, ORDER_STATUSES, type OrderStatus } from "@/modules/orders/state-machine";
+import { ORDER_STAGE_KEYS, ORDER_STAGES, parseStage, stageCounts, stageOf } from "@/modules/orders/stages";
+import { StatusMenu } from "./orders-status-menu";
 import { orderSearchFilters } from "@/modules/orders/search";
 import { ZoneBadge } from "../logistica/logistics-table";
 import { SourceIcon } from "@/components/brand-icons";
@@ -26,6 +28,8 @@ const PAGE_SIZE = 50;
 export default async function OrdersPage({ searchParams }: PageProps<"/dashboard/pedidos">) {
   const sp = await searchParams;
   const status = typeof sp.estado === "string" && (ORDER_STATUSES as readonly string[]).includes(sp.estado) ? (sp.estado as OrderStatus) : null;
+  // Etapa (agrupa estados): Por confirmar, Por despachar, En camino, Entregados, Con problema. El estado exacto manda.
+  const stage = status ? stageOf(status) : parseStage(sp.etapa);
   const q = typeof sp.q === "string" ? sp.q.trim().slice(0, 60) : "";
   const zone = sp.zona === "lima" || sp.zona === "provincia" ? sp.zona : null;
   const mine = sp.mios === "1";
@@ -46,6 +50,7 @@ export default async function OrdersPage({ searchParams }: PageProps<"/dashboard
   query = query.range((page - 1) * PAGE_SIZE, page * PAGE_SIZE - 1);
 
   if (status) query = query.eq("status", status);
+  else if (stage) query = query.in("status", [...ORDER_STAGES[stage].statuses]);
   if (zone) query = query.eq("zone", zone);
   if (mine) query = query.eq("assigned_to", user.id);
   if (q) {
@@ -76,12 +81,14 @@ export default async function OrdersPage({ searchParams }: PageProps<"/dashboard
 
   const statusCounts = new Map<string, number>(Object.entries(countsByStatus).map(([k, v]) => [k, Number(v)]));
   const total = [...statusCounts.values()].reduce((s, n) => s + n, 0);
+  const byStage = stageCounts(statusCounts);
   const totalPages = Math.max(1, Math.ceil((count ?? 0) / PAGE_SIZE));
   const members = new Map(((team ?? []) as { user_id: string; email: string; full_name: string | null }[]).map((m) => [m.user_id, m.full_name || m.email]));
 
   const href = (params: Record<string, string | number | null>) => {
     const next = new URLSearchParams();
     const merged: Record<string, string | number | null> = {
+      etapa: status ? null : stage,
       estado: status,
       q: q || null,
       zona: zone,
@@ -93,7 +100,7 @@ export default async function OrdersPage({ searchParams }: PageProps<"/dashboard
     const s = next.toString();
     return `/dashboard/pedidos${s ? `?${s}` : ""}`;
   };
-  const filtered = Boolean(status || zone || mine || q || sort === "zona");
+  const filtered = Boolean(status || stage || zone || mine || q || sort === "zona");
 
   return (
     <div>
@@ -116,10 +123,20 @@ export default async function OrdersPage({ searchParams }: PageProps<"/dashboard
       {/* Filtros en una sola barra: estados arriba; zona, míos, orden y búsqueda debajo (al lado en escritorio) */}
       <div className="mb-4 flex flex-col gap-2">
         <nav aria-label="Filtrar por estado" className={SCROLL_ROW}>
-          <CountChip href={href({ estado: null, pagina: null })} active={!status} label="Todos" count={total} />
-          {ORDER_STATUSES.map((s) => (
-            <CountChip key={s} href={href({ estado: s, pagina: null })} active={status === s} label={ORDER_STATUS_LABELS[s]} count={statusCounts.get(s) ?? 0} />
+          <CountChip href={href({ etapa: null, estado: null, pagina: null })} active={!stage} label="Todos" count={total} />
+          {ORDER_STAGE_KEYS.map((k) => (
+            <CountChip key={k} href={href({ etapa: k, estado: null, pagina: null })} active={stage === k && !status} label={ORDER_STAGES[k].label} count={byStage[k]} />
           ))}
+          <StatusMenu
+            current={status ? ORDER_STATUS_LABELS[status] : null}
+            options={ORDER_STATUSES.map((s) => ({
+              key: s,
+              label: ORDER_STATUS_LABELS[s],
+              count: statusCounts.get(s) ?? 0,
+              href: href({ etapa: null, estado: s, pagina: null }),
+              active: status === s,
+            }))}
+          />
         </nav>
         <div className="flex flex-col gap-2 md:flex-row md:items-center">
           <div className="flex flex-wrap items-center gap-1.5">
@@ -145,6 +162,7 @@ export default async function OrdersPage({ searchParams }: PageProps<"/dashboard
           </div>
           <form role="search" className="relative md:ml-auto md:w-80">
             {status ? <input type="hidden" name="estado" value={status} /> : null}
+            {!status && stage ? <input type="hidden" name="etapa" value={stage} /> : null}
             {zone ? <input type="hidden" name="zona" value={zone} /> : null}
             {mine ? <input type="hidden" name="mios" value="1" /> : null}
             {sort === "zona" ? <input type="hidden" name="orden" value="zona" /> : null}

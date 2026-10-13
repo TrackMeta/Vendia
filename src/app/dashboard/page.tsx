@@ -1,6 +1,7 @@
 import { ArrowRight, Info, ShoppingBag } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
+import { Suspense } from "react";
 import { DateRangeFilter, rangeParams } from "@/components/dashboard/date-range-filter";
 import { KpiCard, MiniStat } from "@/components/dashboard/metric";
 import { EmptyState } from "@/components/dashboard/page-header";
@@ -16,9 +17,7 @@ import { resolveRange } from "@/modules/metrics/date-range";
 import { parseSaleMode, REAL_SALE_MODES } from "@/modules/metrics/real-sale";
 import type { OrderStatus } from "@/modules/orders/state-machine";
 import { DailyChart } from "./daily-chart";
-import { agencyCutoff, buildSetupSteps, buildTodayItems, limaCourierDebt } from "./home-data";
-import { HomeSetup } from "./home-setup";
-import { HomeToday } from "./home-today";
+import { WelcomeChecklist } from "./welcome-checklist";
 
 export const metadata: Metadata = { title: "Inicio" };
 
@@ -51,23 +50,7 @@ export default async function DashboardHome({ searchParams }: PageProps<"/dashbo
   refreshMetaInBackground(store.id);
   const supabase = await createClient();
 
-  // Lo de «hoy» no depende de las fechas elegidas: es lo pendiente ahora mismo
-  const today = resolveRange("hoy");
-  const [
-    { data: stats },
-    { data: recent },
-    { data: expenseTotals },
-    { data: settings },
-    { data: daily, error: dailyError },
-    { data: meta },
-    { data: logistics },
-    { data: limaDelivered },
-    { data: limaFailed },
-    { count: agencyStale },
-    { count: abandonedToday },
-    { count: products },
-    { count: publishedLandings },
-  ] = await Promise.all([
+  const [{ data: stats }, { data: recent }, { data: expenseTotals }, { data: settings }, { data: daily, error: dailyError }, { data: meta }] = await Promise.all([
     supabase.rpc("get_order_stats", { p_store_id: store.id, p_from: range.from, p_to: range.to }),
     supabase
       .from("orders")
@@ -76,50 +59,11 @@ export default async function DashboardHome({ searchParams }: PageProps<"/dashbo
       .order("created_at", { ascending: false })
       .limit(6),
     supabase.rpc("get_expense_totals", { p_store_id: store.id, p_from: range.startDate, p_to: range.endDate }),
-    supabase.from("store_settings").select("real_sale_mode, whatsapp, onboarding_dismissed").eq("store_id", store.id).single(),
+    supabase.from("store_settings").select("real_sale_mode").eq("store_id", store.id).single(),
     supabase.rpc("get_daily_orders", { p_store_id: store.id, p_from: range.from, p_to: range.to }),
-    supabase.from("store_meta_settings").select("ad_account_id, pixel_id, enabled, last_sync_at").eq("store_id", store.id).maybeSingle(),
-    // Lo que toca hoy
-    supabase.rpc("logistics_counts", { p_store_id: store.id }),
-    supabase.from("orders").select("balance_due, shipping_cost").eq("store_id", store.id).eq("zone", "lima").eq("status", "delivered").is("settled_at", null).limit(1000),
-    supabase
-      .from("orders")
-      .select("shipping_cost, return_shipments")
-      .eq("store_id", store.id)
-      .eq("zone", "lima")
-      .in("status", ["failed_delivery", "returned"])
-      .not("shipped_at", "is", null)
-      .is("settled_at", null)
-      .limit(1000),
-    supabase
-      .from("orders")
-      .select("id", { count: "exact", head: true })
-      .eq("store_id", store.id)
-      .eq("zone", "provincia")
-      .eq("status", "at_agency")
-      .lt("at_agency_at", agencyCutoff()),
-    supabase.from("abandoned_checkouts").select("id", { count: "exact", head: true }).eq("store_id", store.id).in("status", ["open", "contacted"]).gte("created_at", today.from),
-    // Prepara tu tienda
-    supabase.from("products").select("id", { count: "exact", head: true }).eq("store_id", store.id).eq("status", "active"),
-    supabase.from("landing_pages").select("id", { count: "exact", head: true }).eq("store_id", store.id).eq("status", "published"),
+    supabase.from("store_meta_settings").select("ad_account_id, last_sync_at").eq("store_id", store.id).maybeSingle(),
   ]);
   const metaConnected = Boolean(meta?.ad_account_id);
-  const todayItems = buildTodayItems({
-    counts: logistics as Record<string, unknown> | null,
-    limaDebt: limaCourierDebt(limaDelivered ?? [], limaFailed ?? []),
-    agencyStale,
-    abandonedToday,
-  });
-  // Oculta por el dueño = misma preferencia que la guía de bienvenida (se vuelve a ver desde Ayuda)
-  const setupSteps = settings?.onboarding_dismissed
-    ? null
-    : buildSetupSteps({
-        metaConnected: Boolean(meta?.ad_account_id || (meta?.pixel_id && meta.enabled)),
-        whatsapp: settings?.whatsapp,
-        products,
-        publishedLandings,
-        hasOrders: Boolean(recent?.length),
-      });
   const saleMode = parseSaleMode(settings?.real_sale_mode);
 
   const base = fromOrderStats((stats ?? {}) as Record<string, number>);
@@ -139,37 +83,28 @@ export default async function DashboardHome({ searchParams }: PageProps<"/dashbo
 
   return (
     <div className="flex flex-col gap-5">
-      <h1 className="text-2xl font-semibold tracking-tight">Hola, {store.name}</h1>
-
-      <HomeToday items={todayItems} />
-
-      {setupSteps ? <HomeSetup steps={setupSteps} /> : null}
-
-      {/* Tus números del periodo elegido */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-        <div className="flex flex-col gap-0.5">
-          <h2 className="text-sm font-medium">Tus números</h2>
+        <div className="flex flex-col gap-1">
+          <h1 className="text-2xl font-semibold tracking-tight">Hola, {store.name}</h1>
           <p className="text-sm text-muted-foreground">Pedidos creados en: {range.label}</p>
         </div>
         <DateRangeFilter basePath="/dashboard" range={range} />
       </div>
 
-      {/* Las 3 cifras que importan (en el celular la utilidad va sola arriba) */}
-      <section className="grid grid-cols-2 gap-3 sm:grid-cols-3" aria-label="Resumen">
-        <div className="col-span-2 grid sm:col-span-1">
-          <KpiCard featured label="Utilidad real" value={formatMoney(m.profit)} sub={`Margen ${formatPercent(m.margin)}`} help={HELP.profit} />
-        </div>
+      <Suspense fallback={null}>
+        <WelcomeChecklist storeId={store.id} />
+      </Suspense>
+
+      {/* Las 4 cifras que importan */}
+      <section className="grid grid-cols-2 gap-3 lg:grid-cols-4" aria-label="Resumen">
+        <KpiCard featured label="Utilidad real" value={formatMoney(m.profit)} sub={`Margen ${formatPercent(m.margin)}`} help={HELP.profit} />
         <KpiCard
           label="Ventas reales"
           value={formatNumber(m.counts.delivered)}
-          sub={
-            <>
-              {formatPercent(m.rates.effectiveRate)} de {formatNumber(m.counts.orders)} pedidos
-              <span className="block">Ingreso {formatMoney(m.totals.revenue)}</span>
-            </>
-          }
-          help={`${HELP.effective} Cuenta como venta real: ${REAL_SALE_MODES[saleMode]}.`}
+          sub={`${formatPercent(m.rates.effectiveRate)} de ${formatNumber(m.counts.orders)} pedidos`}
+          help={HELP.effective}
         />
+        <KpiCard label="Ingreso real" value={formatMoney(m.totals.revenue)} sub={`Venta real: ${REAL_SALE_MODES[saleMode]}`} />
         <KpiCard label="ROAS real" value={formatRatio(m.roas.real)} sub={`CPA real ${formatMoney(m.cpa.perDelivered)}`} help={HELP.roas} />
       </section>
 

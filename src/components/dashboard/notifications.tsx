@@ -64,7 +64,7 @@ function playChime() {
 function browserNotify(title: string, body: string | null, link: string | null) {
   if (typeof Notification === "undefined" || Notification.permission !== "granted") return;
   try {
-    const n = new Notification(title, { body: body ?? undefined, icon: "/favicon.ico", tag: title });
+    const n = new Notification(title, { body: body ?? undefined, icon: "/icons/icon-192.png", tag: title });
     n.onclick = () => {
       window.focus();
       if (link) window.location.href = link;

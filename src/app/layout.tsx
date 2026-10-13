@@ -20,7 +20,12 @@ export const metadata: Metadata = {
   // App instalable en el celular (ver app/manifest.ts)
   appleWebApp: { capable: true, title: "Vendia", statusBarStyle: "default" },
   icons: {
-    icon: [{ url: "/icons/icon-32.png", sizes: "32x32", type: "image/png" }],
+    // Pestaña del navegador: la «V» sin fondo. En el celular (apple / app instalada) se queda con fondo: el sistema no acepta transparencia
+    icon: [
+      { url: "/icons/favicon-16.png", sizes: "16x16", type: "image/png" },
+      { url: "/icons/favicon-32.png", sizes: "32x32", type: "image/png" },
+      { url: "/icons/favicon-48.png", sizes: "48x48", type: "image/png" },
+    ],
     apple: [{ url: "/icons/icon-180.png", sizes: "180x180", type: "image/png" }],
   },
 };

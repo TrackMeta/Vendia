@@ -21,7 +21,11 @@ const nextConfig: NextConfig = {
   // Archivos que casi no cambian: el navegador y la CDN los guardan (las landings cargan más rápido)
   // Secciones que se quitaron: los enlaces viejos (avisos, favoritos) llevan a un lugar útil
   async redirects() {
-    return [{ source: "/dashboard/integraciones", destination: "/dashboard/configuracion", permanent: false }];
+    return [
+      { source: "/dashboard/integraciones", destination: "/dashboard/configuracion", permanent: false },
+      // Algunos navegadores piden /favicon.ico por su cuenta: la «V» sin fondo
+      { source: "/favicon.ico", destination: "/icons/favicon-48.png", permanent: false },
+    ];
   },
   async headers() {
     return [

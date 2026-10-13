@@ -316,6 +316,8 @@ export const thankYouUpsell = z.object({
 /** Página de gracias: título y botón de WhatsApp (el mensaje de confirmación está en Configuración). */
 export const thankYouPage = z.object({
   title: shortText.default("¡Pedido recibido!"),
+  /** Mensaje bajo el título. Vacío = el mensaje que la tienda tenía antes en Configuración */
+  message: z.string().max(1000).default(""),
   whatsappEnabled: z.boolean().default(true),
   whatsappText: shortText.default("Escríbenos por WhatsApp"),
   /** Se puede usar {tienda}, {pedido} y {producto} */
@@ -362,6 +364,7 @@ export const landingContent = z
     }),
     thank_you: thankYouPage.default({
       title: "¡Pedido recibido!",
+      message: "",
       whatsappEnabled: true,
       whatsappText: "Escríbenos por WhatsApp",
       whatsappMessage: "Hola {tienda}, acabo de hacer el pedido {pedido} de {producto}.",

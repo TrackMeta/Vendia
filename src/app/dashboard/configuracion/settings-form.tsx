@@ -10,7 +10,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Textarea } from "@/components/ui/textarea";
 import { formatMoney } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { ImageField } from "@/components/dashboard/fields";
@@ -32,7 +31,6 @@ type Values = {
   advance_amount: number;
   packaging_cost: number;
   payment_methods: string;
-  confirmation_message: string;
   real_sale_mode: string;
   ad_currency: string;
   usd_rate: number;
@@ -201,7 +199,7 @@ export function SettingsForm({
               <Field label="Nombre de la tienda">
                 <Input name="name" defaultValue={initial.name} required />
               </Field>
-              <Field label="WhatsApp" hint="Aparece en la página de gracias para que el cliente te escriba.">
+              <Field label="WhatsApp" hint="Para que el cliente te escriba (botón de WhatsApp de tus landings y de la página de gracias).">
                 <Input name="whatsapp" defaultValue={initial.whatsapp} placeholder="987 654 321" inputMode="tel" />
               </Field>
               <Field label="Teléfono">
@@ -240,17 +238,6 @@ export function SettingsForm({
             </CardContent>
           </Card>
 
-          <Card>
-            <CardHeader>
-              <CardTitle>Página de gracias</CardTitle>
-              <CardDescription>Lo que ve tu cliente justo después de hacer su pedido.</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Field label="Mensaje de confirmación" hint="Se muestra en la página de gracias después del pedido.">
-                <Textarea name="confirmation_message" defaultValue={initial.confirmation_message} rows={3} required />
-              </Field>
-            </CardContent>
-          </Card>
         </TabsContent>
 
         <TabsContent value="envios" keepMounted data-settings-tab="envios" className="flex flex-col gap-6">

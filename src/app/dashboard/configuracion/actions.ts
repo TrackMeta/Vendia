@@ -44,7 +44,6 @@ const settingsSchema = z.object({
         .filter(Boolean)
         .slice(0, 10),
     ),
-  confirmation_message: z.string().trim().min(1, "Escribe un mensaje de confirmación").max(1000),
   real_sale_mode: z.enum(["zone", "delivered"]),
   ad_currency: z.enum(["PEN", "USD"]),
   usd_rate: z.coerce.number().min(1, "Tipo de cambio inválido").max(20, "Tipo de cambio inválido"),

@@ -22,6 +22,8 @@ export default async function ThankYouPage({ params, searchParams }: PageProps<"
   const content = normalizeContent(landing.landing.content);
   const upsell = publicUpsell(content.thank_you_upsell);
   const page = content.thank_you;
+  // Mensaje de esta landing; las landings de antes usan el que la tienda tenía en Configuración
+  const confirmation = page.message.trim() || landing.store.confirmation_message;
   const orderNumber = typeof pedido === "string" && /^\d{1,10}$/.test(pedido) ? pedido : null;
   const whatsapp = landing.store.whatsapp?.replace(/\D/g, "");
   // Botón de WhatsApp: se puede apagar en la landing (Ventas → Página de gracias)
@@ -34,7 +36,7 @@ export default async function ThankYouPage({ params, searchParams }: PageProps<"
         <CheckCircle2 className="size-16 text-green-600" />
         <h1 className="text-2xl font-extrabold text-zinc-900">{page.title || "¡Pedido recibido!"}</h1>
         {orderNumber ? <p className="text-sm text-zinc-500">Número de pedido: #{orderNumber}</p> : null}
-        <p className="whitespace-pre-line text-base text-zinc-700">{landing.store.confirmation_message}</p>
+        {confirmation ? <p className="whitespace-pre-line text-base text-zinc-700">{confirmation}</p> : null}
         {upsell.enabled && orderId ? <UpsellOffer upsell={upsell} orderId={orderId} landingId={landing.landing.id} /> : null}
         {waNumber ? (
           <a

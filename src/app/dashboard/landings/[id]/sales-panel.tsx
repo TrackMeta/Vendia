@@ -35,6 +35,7 @@ export function SalesPanel({
   landingId,
   otherLandings,
   storeWhatsapp,
+  storeConfirmation,
   ctx,
   offers,
 }: {
@@ -47,6 +48,8 @@ export function SalesPanel({
   /** Ofertas del producto de la landing (para la prueba de precio). */
   offers: PublicOffer[];
   storeWhatsapp: string | null;
+  /** Mensaje que la tienda tenía en Configuración (lo usan las landings que aún no tienen uno propio) */
+  storeConfirmation: string;
   ctx: Ctx;
 }) {
   const wa = content.whatsapp_button;
@@ -87,8 +90,15 @@ export function SalesPanel({
         ) : null}
       </Section>
 
-      <Section title="Página de gracias" hint="Lo que ve el cliente después de pedir. El mensaje de confirmación se cambia en Configuración → Tienda.">
+      <Section title="Página de gracias" hint="Lo que ve el cliente justo después de hacer su pedido en esta landing.">
         <TextField label="Título" value={ty.title} onChange={(title) => setTy({ title: title.slice(0, 80) })} placeholder="¡Pedido recibido!" />
+        <TextField
+          label="Mensaje de confirmación"
+          value={ty.message || storeConfirmation}
+          onChange={(message) => setTy({ message: message.slice(0, 1000) })}
+          placeholder="¡Gracias por tu pedido! Te escribiremos por WhatsApp para confirmarlo."
+          multiline
+        />
         <ToggleField label="Botón de WhatsApp" checked={ty.whatsappEnabled} onChange={(whatsappEnabled) => setTy({ whatsappEnabled })} />
         {ty.whatsappEnabled ? (
           <>

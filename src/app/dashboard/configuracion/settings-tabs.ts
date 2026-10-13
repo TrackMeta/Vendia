@@ -1,7 +1,7 @@
 // Pestañas de Configuración: compartidas entre la página (servidor) y el formulario (cliente)
 
 export const SETTINGS_TABS = [
-  { id: "tienda", label: "Tienda", description: "Nombre, contacto, logo y el mensaje que ve tu cliente al terminar su pedido." },
+  { id: "tienda", label: "Tienda", description: "Nombre, contacto y logo de tu tienda. La página de gracias se arma en cada landing (Ventas)." },
   { id: "envios", label: "Envíos y adelanto", description: "Cuánto cobras de envío en Lima y provincia, el adelanto, el embalaje y cómo te pagan." },
   { id: "couriers", label: "Couriers", description: "Con quién despachas y cuánto te cobra cada courier. Cada uno se guarda por separado." },
   { id: "publicidad", label: "Publicidad", description: "Moneda de tu cuenta de anuncios, tipo de cambio e IGV para calcular tu gasto real." },
@@ -26,7 +26,6 @@ export const FIELD_TAB: Record<string, SettingsTabId> = {
   address: "tienda",
   logo_path: "tienda",
   favicon_path: "tienda",
-  confirmation_message: "tienda",
   shipping_lima: "envios",
   shipping_province: "envios",
   advance_amount: "envios",

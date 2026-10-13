@@ -127,6 +127,7 @@ export const DEFAULT_THANK_YOU_UPSELL: ThankYouUpsell = {
 
 export const DEFAULT_THANK_YOU_PAGE: ThankYouPage = {
   title: "¡Pedido recibido!",
+  message: "",
   whatsappEnabled: true,
   whatsappText: "Escríbenos por WhatsApp",
   whatsappMessage: "Hola {tienda}, acabo de hacer el pedido {pedido} de {producto}.",

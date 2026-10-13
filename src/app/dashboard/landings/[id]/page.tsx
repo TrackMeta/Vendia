@@ -42,7 +42,7 @@ export default async function LandingEditorPage({ params }: PageProps<"/dashboar
       .eq("store_id", store.id)
       .eq("is_active", true)
       .order("position"),
-    supabase.from("store_settings").select("shipping_lima, shipping_province, advance_amount, whatsapp").eq("store_id", store.id).single(),
+    supabase.from("store_settings").select("shipping_lima, shipping_province, advance_amount, whatsapp, confirmation_message").eq("store_id", store.id).single(),
     supabase.from("product_images").select("product_id, storage_path, is_primary, position").eq("store_id", store.id).order("position"),
     supabase.from("landing_pages").select("id, title, slug, status").eq("store_id", store.id).neq("id", id).order("updated_at", { ascending: false }),
     supabase.from("product_variants").select("id, product_id, name, stock, is_active").eq("store_id", store.id).eq("is_active", true).order("position"),
@@ -96,6 +96,7 @@ export default async function LandingEditorPage({ params }: PageProps<"/dashboar
       }))}
       otherLandings={others ?? []}
       storeWhatsapp={settings?.whatsapp ?? null}
+      storeConfirmation={settings?.confirmation_message ?? ""}
       offersByProduct={offersByProduct}
       pricing={{
         shippingLima: Number(settings?.shipping_lima ?? 0),

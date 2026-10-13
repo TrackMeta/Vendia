@@ -231,6 +231,7 @@ export function LandingBuilder({
   pricing,
   otherLandings,
   storeWhatsapp,
+  storeConfirmation,
 }: {
   landing: {
     id: string;
@@ -244,6 +245,7 @@ export function LandingBuilder({
   };
   otherLandings: { id: string; title: string; slug: string; status: string }[];
   storeWhatsapp: string | null;
+  storeConfirmation: string;
   storeId: string;
   storeSlug: string;
   storeName: string;
@@ -752,6 +754,7 @@ export function LandingBuilder({
                 landingId={landing.id}
                 otherLandings={otherLandings}
                 storeWhatsapp={storeWhatsapp}
+                storeConfirmation={storeConfirmation}
                 ctx={ctx}
                 offers={offersByProduct[productId] ?? []}
               />

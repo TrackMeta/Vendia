@@ -60,6 +60,7 @@ export function LandingRenderer({
   const { content } = data;
   const preview = mode === "preview";
   const popup = content.theme.formMode === "popup";
+  const showClose = content.theme.formCloseButton !== false;
   const isOpen = popup && (formOpen || Boolean(forceFormOpen));
   if (isOpen && !formMounted) setFormMounted(true);
   // Mientras se envía el pedido, tocar afuera no cierra la ventana
@@ -258,18 +259,21 @@ export function LandingRenderer({
             aria-modal="true"
             aria-label="Formulario de pedido"
             onClick={(e) => e.stopPropagation()}
-            className={`vd-sheet relative w-full max-w-[480px] overflow-y-auto rounded-t-2xl bg-white px-4 pt-10 pb-6 sm:rounded-2xl ${
+            className={`vd-sheet relative w-full max-w-[480px] overflow-y-auto rounded-t-2xl bg-white px-4 pb-6 sm:rounded-2xl ${showClose ? "pt-10" : "pt-6"} ${
               preview ? "max-h-[92%]" : "max-h-[92svh]"
             }`}
           >
-            <button
-              type="button"
-              onClick={() => setFormOpen(false)}
-              aria-label="Cerrar"
-              className="absolute top-2 right-2 rounded-full p-2 text-zinc-500 hover:bg-zinc-100"
-            >
-              <X className="size-5" />
-            </button>
+            {/* La X se puede quitar en el editor (Formulario): igual se cierra tocando fuera */}
+            {showClose ? (
+              <button
+                type="button"
+                onClick={() => setFormOpen(false)}
+                aria-label="Cerrar"
+                className="absolute top-2 right-2 rounded-full p-2 text-zinc-500 hover:bg-zinc-100"
+              >
+                <X className="size-5" />
+              </button>
+            ) : null}
             <CodForm data={data} preview={preview} preferredOfferId={preferredOfferId} priceToken={priceToken} onSubmittingChange={setSubmitting} />
           </div>
         </div>

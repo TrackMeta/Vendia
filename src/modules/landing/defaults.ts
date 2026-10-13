@@ -169,7 +169,7 @@ const baseForm = (): FormBlock[] => [
 
 const sticky = (text = "REALIZA TU PEDIDO") => ({ enabled: true, text, subtext: "Envío a todo el Perú · Pagas al recibir", bg: GREEN, color: WHITE });
 
-const theme = (): LandingContent["theme"] => ({ font: "Poppins", pageBg: WHITE, textColor: DARK, accent: GREEN, formMode: "popup" });
+const theme = (): LandingContent["theme"] => ({ font: "Poppins", pageBg: WHITE, textColor: DARK, accent: GREEN, formMode: "popup", formCloseButton: true });
 
 function imageBlock(src = "") {
   return { ...(createPageBlock("image") as Extract<PageBlock, { type: "image" }>), src };
@@ -273,7 +273,7 @@ export function createClassicTemplate(productImages: string[] = []): LandingCont
 
   return {
     version: 1,
-    theme: { font: "Poppins", pageBg: WHITE, textColor: DARK, accent: GREEN, formMode: "popup" },
+    theme: { font: "Poppins", pageBg: WHITE, textColor: DARK, accent: GREEN, formMode: "popup", formCloseButton: true },
     page_blocks: [
       createPageBlock("marquee"),
       img(0),

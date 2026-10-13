@@ -748,6 +748,14 @@ export function LandingBuilder({
                     { value: "embedded", label: "Dentro de la página" },
                   ]}
                 />
+                {content.theme.formMode === "popup" ? (
+                  <ToggleField
+                    label="Mostrar la X para cerrar"
+                    hint="Sin la X, el cliente igual puede cerrar el formulario tocando fuera de él."
+                    checked={content.theme.formCloseButton !== false}
+                    onChange={(formCloseButton) => update((c) => ({ ...c, theme: { ...c.theme, formCloseButton } }))}
+                  />
+                ) : null}
               </EditorCard>
               {(offersByProduct[productId] ?? []).length === 0 ? (
                 <p className="rounded-md bg-amber-50 p-2 text-xs text-amber-800 dark:bg-amber-950 dark:text-amber-200">

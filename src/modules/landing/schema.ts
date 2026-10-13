@@ -279,6 +279,8 @@ export const landingTheme = z.object({
   textColor: color.default("#111111"),
   accent: color.default("#16a34a"),
   formMode: z.enum(["popup", "embedded"]).default("popup"),
+  /** La X para cerrar la ventana del formulario (sin ella se cierra tocando fuera) */
+  formCloseButton: z.boolean().default(true),
 });
 
 export const stickyButton = z.object({

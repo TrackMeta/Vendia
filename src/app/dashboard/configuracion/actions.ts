@@ -8,7 +8,8 @@ import { createClient } from "@/lib/supabase/server";
 import { COURIER_IDS, COURIERS, SHALOM_ORIGINS } from "@/modules/couriers";
 import { buildSequence } from "@/modules/orders/contact";
 
-export type ActionResult = { ok: true; message?: string } | { ok: false; error: string };
+// field: campo con error, para abrir su pestaña en Configuración
+export type ActionResult = { ok: true; message?: string } | { ok: false; error: string; field?: string };
 
 const optional = (max: number) =>
   z
@@ -55,12 +56,12 @@ const settingsSchema = z.object({
 export async function saveSettings(_prev: ActionResult | undefined, formData: FormData): Promise<ActionResult> {
   const { store } = await requireOwner();
   const parsed = settingsSchema.safeParse(Object.fromEntries(formData.entries()));
-  if (!parsed.success) return { ok: false, error: parsed.error.issues[0].message };
+  if (!parsed.success) return { ok: false, error: parsed.error.issues[0].message, field: String(parsed.error.issues[0].path[0] ?? "") };
   const { name, contact_calls, contact_whatsapp, apply_igv, ...rest } = parsed.data;
   const settings = { ...rest, apply_igv: Boolean(apply_igv), contact_sequence: buildSequence(contact_calls, Boolean(contact_whatsapp)) };
 
   for (const path of [settings.logo_path, settings.favicon_path]) {
-    if (path && !path.startsWith(`${store.id}/`)) return { ok: false, error: "Imagen inválida" };
+    if (path && !path.startsWith(`${store.id}/`)) return { ok: false, error: "Imagen inválida", field: "logo_path" };
   }
 
   const supabase = await createClient();

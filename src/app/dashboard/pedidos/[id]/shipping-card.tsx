@@ -94,7 +94,7 @@ export function ShippingCard({
     });
 
   return (
-    <Card>
+    <Card className="@container">
       <CardHeader>
         <CardTitle>Envío</CardTitle>
         <CardDescription>
@@ -104,7 +104,7 @@ export function ShippingCard({
           {d.exported_at ? " · Ya se exportó a la planilla del courier." : ""}
         </CardDescription>
       </CardHeader>
-      <CardContent className="grid gap-4 sm:grid-cols-2">
+      <CardContent className="grid gap-4 @sm:grid-cols-2">
         <Field label="Courier" htmlFor="courier_id">
           <AppSelect id="courier_id" value={d.courier_id ?? ""} onChange={(e) => set("courier_id", e.target.value || null)} className={selectClass}>
             <option value="">Sin asignar</option>
@@ -162,7 +162,7 @@ export function ShippingCard({
           </>
         ) : (
           <>
-            <div className="sm:col-span-2">
+            <div className="@sm:col-span-2">
               <Field
                 label="Ubicación de entrega (opcional)"
                 htmlFor="delivery_location"
@@ -189,7 +189,7 @@ export function ShippingCard({
                 </div>
               </Field>
             </div>
-            <div className="sm:col-span-2">
+            <div className="@sm:col-span-2">
               <Field label="Código de seguimiento / guía" htmlFor="tracking_code">
                 <Input id="tracking_code" value={d.tracking_code ?? ""} onChange={(e) => set("tracking_code", e.target.value)} />
               </Field>
@@ -220,7 +220,7 @@ export function ShippingCard({
         </Field>
 
         {failed ? (
-          <div className="sm:col-span-2">
+          <div className="@sm:col-span-2">
             <Field label="Costo de la devolución" hint="Cuántos envíos te cobró el courier por este pedido que no se entregó.">
               <div className="flex flex-wrap gap-2">
                 {[0, 1, 2].map((n) => (
@@ -238,7 +238,7 @@ export function ShippingCard({
           </div>
         ) : null}
 
-        <div className="flex justify-end sm:col-span-2">
+        <div className="flex justify-end @sm:col-span-2">
           <Button onClick={save} disabled={pending}>
             {pending ? "Guardando…" : "Guardar envío"}
           </Button>

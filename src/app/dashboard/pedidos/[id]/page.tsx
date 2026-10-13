@@ -5,8 +5,9 @@ import { notFound } from "next/navigation";
 import { ContactPanel } from "@/components/dashboard/contact-panel";
 import { LiveRefresh } from "@/components/dashboard/notifications";
 import { OrderStatusBadge, SimpleBadge } from "@/components/dashboard/status-badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardAction, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { requireStore } from "@/lib/auth";
+import { cn } from "@/lib/utils";
 import { displayPeruPhone, formatDateTime, formatMoney, one } from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
 import {
@@ -35,11 +36,12 @@ import { BrandIcon, SourceIcon } from "@/components/brand-icons";
 
 export const metadata: Metadata = { title: "Pedido" };
 
-function Row({ label, children }: { label: string; children: React.ReactNode }) {
+/** Fila etiqueta → valor (va dentro de un <dl>). El valor se alinea a la derecha con cifras tabulares. */
+function Row({ label, strong, children }: { label: string; strong?: boolean; children: React.ReactNode }) {
   return (
-    <div className="flex justify-between gap-4 py-1.5 text-sm">
-      <span className="text-muted-foreground">{label}</span>
-      <span className="text-right font-medium">{children}</span>
+    <div className={cn("flex items-baseline justify-between gap-4 py-1.5 text-sm", strong && "text-base font-semibold")}>
+      <dt className={cn("shrink-0", !strong && "text-muted-foreground")}>{label}</dt>
+      <dd className={cn("min-w-0 text-right tabular-nums [overflow-wrap:anywhere]", strong ? "font-semibold" : "font-medium")}>{children}</dd>
     </div>
   );
 }
@@ -146,40 +148,71 @@ export default async function OrderDetailPage({ params }: PageProps<"/dashboard/
     `Hola ${firstName}, te saludamos de ${store.name}. Recibimos tu pedido #${order.order_number} de ${item ? itemLabel(item) : ""} por ${formatMoney(order.total)}, con entrega en ${order.address}, ${order.district_name}. ¿Nos confirmas tu pedido?`,
   );
 
+  const waHref = `https://wa.me/${order.customer_phone}?text=${waText}`;
+  const mapHref = mapsLink(order.delivery_location as string | null);
+
   return (
     <div className="flex flex-col gap-6">
       <LiveRefresh />
-      {/* Celular: llamar y WhatsApp siempre a mano, sobre la barra de navegación */}
-      <div className="fixed inset-x-0 bottom-[calc(3.6rem+env(safe-area-inset-bottom))] z-20 flex gap-2 border-t bg-background/95 p-2 backdrop-blur md:hidden">
-        <a href={`tel:+${order.customer_phone}`} className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-foreground py-3 text-sm font-semibold text-background">
-          <Phone className="size-4" /> Llamar
-        </a>
-        <a
-          href={`https://wa.me/${order.customer_phone}?text=${waText}`}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-[#25D366] py-3 text-sm font-semibold text-white"
-        >
-          <BrandIcon name="whatsapp" className="size-5" /> WhatsApp
-        </a>
+      {/* Barra fija: estado y acciones siempre a mano al bajar (en celular va debajo del header de 56px) */}
+      <div className="sticky top-14 z-10 -mx-4 -mt-6 border-b bg-background/95 px-4 py-2 backdrop-blur md:top-0 md:-mx-8 md:-mt-8 md:px-8 md:py-3">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+          <div className="flex min-w-0 flex-1 items-center gap-2">
+            <Link
+              href="/dashboard/pedidos"
+              aria-label="Volver a pedidos"
+              className="-ml-1.5 inline-flex size-8 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            >
+              <ArrowLeft className="size-4" />
+            </Link>
+            <h1 className="shrink-0 text-base font-semibold tracking-tight tabular-nums md:text-lg">
+              <span className="max-sm:sr-only">Pedido </span>#{order.order_number}
+            </h1>
+            <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+              <OrderStatusBadge status={order.status as OrderStatus} />
+              <ZoneBadge zone={zone} />
+              <time dateTime={order.created_at} className="hidden text-xs whitespace-nowrap text-muted-foreground tabular-nums sm:inline">
+                {formatDateTime(order.created_at)}
+              </time>
+            </div>
+          </div>
+          {/* Contacto: arriba a la derecha en celular, al final de la fila en pantallas grandes */}
+          <div className="flex shrink-0 items-center gap-2 xl:order-last">
+            <a
+              href={`tel:+${order.customer_phone}`}
+              aria-label="Llamar al cliente"
+              className="inline-flex size-8 items-center justify-center rounded-lg border bg-background text-foreground transition-colors hover:bg-muted md:hidden dark:bg-input/30"
+            >
+              <Phone className="size-4" />
+            </a>
+            <a
+              href={waHref}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="Confirmar por WhatsApp"
+              className="inline-flex h-8 min-w-8 items-center justify-center gap-1.5 rounded-lg bg-[#25D366] px-1.5 text-sm font-semibold text-white transition-opacity hover:opacity-90 sm:px-3"
+            >
+              <BrandIcon name="whatsapp" className="size-5" />
+              <span className="hidden sm:inline">WhatsApp</span>
+            </a>
+          </div>
+          <StatusActions orderId={order.id} status={order.status as OrderStatus} zone={zone} className="basis-full xl:basis-auto" />
+        </div>
       </div>
+
       <div className="flex flex-col gap-3">
-        <Link href="/dashboard/pedidos" className="flex w-fit items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
-          <ArrowLeft className="size-4" /> Pedidos
-        </Link>
-        <div className="flex flex-wrap items-center gap-3">
-          <h1 className="text-2xl font-semibold tracking-tight">Pedido #{order.order_number}</h1>
-          <OrderStatusBadge status={order.status as OrderStatus} className="text-sm" />
-          <ZoneBadge zone={zone} />
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-2 text-sm text-muted-foreground">
+          <time dateTime={order.created_at} className="tabular-nums sm:hidden">
+            {formatDateTime(order.created_at)}
+          </time>
           {order.source === "manual" ? <SimpleBadge>Manual{order.source_channel ? ` · ${order.source_channel}` : ""}</SimpleBadge> : null}
-          <span className="text-sm text-muted-foreground">{formatDateTime(order.created_at)}</span>
           <div className="ml-auto">
             <AssignSelect orderId={order.id} assignedTo={order.assigned_to} members={members} currentUserId={user.id} />
           </div>
         </div>
         {risks.length ? (
           <p className="flex items-center gap-2 rounded-md bg-red-50 p-2 text-sm text-red-800 dark:bg-red-950 dark:text-red-200">
-            <AlertTriangle className="size-4" /> Cliente riesgoso: {risks.map((r) => RISK_LABELS[r] ?? r).join(", ")}. Revisa su historial antes de despachar.
+            <AlertTriangle className="size-4 shrink-0" /> Cliente riesgoso: {risks.map((r) => RISK_LABELS[r] ?? r).join(", ")}. Revisa su historial antes de despachar.
           </p>
         ) : null}
         {order.cancel_reason ? (
@@ -190,10 +223,9 @@ export default async function OrderDetailPage({ params }: PageProps<"/dashboard/
         ) : null}
         {order.is_possible_duplicate ? (
           <p className="flex items-center gap-2 rounded-md bg-amber-50 p-2 text-sm text-amber-800 dark:bg-amber-950 dark:text-amber-200">
-            <AlertTriangle className="size-4" /> Posible duplicado: el mismo celular pidió este producto hace menos de 30 minutos.
+            <AlertTriangle className="size-4 shrink-0" /> Posible duplicado: el mismo celular pidió este producto hace menos de 30 minutos.
           </p>
         ) : null}
-        <StatusActions orderId={order.id} status={order.status as OrderStatus} zone={zone} />
         {pendingContact ? (
           <ContactPanel
             storeName={store.name}
@@ -220,44 +252,36 @@ export default async function OrderDetailPage({ params }: PageProps<"/dashboard/
         ) : null}
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-3">
-        <div className="flex flex-col gap-6 lg:col-span-2">
+      {/* Escritorio: dos columnas. Celular: una sola (las columnas usan `contents` y el orden lo da `order-*`):
+          cliente → productos → envío → pagos → dirección → origen, contacto e historial */}
+      <div className="flex flex-col gap-6 lg:grid lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start xl:grid-cols-[minmax(0,1fr)_22rem]">
+        <div className="contents lg:flex lg:flex-col lg:gap-6">
           <Card>
             <CardHeader>
               <CardTitle>Cliente y entrega</CardTitle>
             </CardHeader>
             <CardContent className="flex flex-col gap-4">
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <div className="flex flex-col">
-                  <Link href={`/dashboard/clientes/${order.customer_id}`} className="font-medium hover:underline">
-                    {order.customer_name}
-                  </Link>
-                  <span className="text-sm text-muted-foreground">
-                    {displayPeruPhone(order.customer_phone)}
-                    {order.dni ? ` · DNI ${order.dni}` : ""}
-                    {order.customer_email ? ` · ${order.customer_email}` : ""}
-                  </span>
-                </div>
-                <a
-                  href={`https://wa.me/${order.customer_phone}?text=${waText}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center gap-2 rounded-lg bg-[#25D366] px-3 py-2 text-sm font-semibold text-white"
-                >
-                  <BrandIcon name="whatsapp" className="size-5" /> Confirmar por WhatsApp
-                </a>
+              <div className="flex min-w-0 flex-col">
+                <Link href={`/dashboard/clientes/${order.customer_id}`} className="w-fit font-medium hover:underline">
+                  {order.customer_name}
+                </Link>
+                <span className="text-sm text-muted-foreground [overflow-wrap:anywhere]">
+                  <span className="tabular-nums">{displayPeruPhone(order.customer_phone)}</span>
+                  {order.dni ? <span className="tabular-nums"> · DNI {order.dni}</span> : null}
+                  {order.customer_email ? ` · ${order.customer_email}` : ""}
+                </span>
               </div>
               <div className="rounded-lg bg-muted/50 p-3 text-sm">
                 <p className="font-medium">{order.address}</p>
                 {order.reference ? <p className="text-muted-foreground">Ref: {order.reference}</p> : null}
                 <p className="mt-1">
                   {order.district_name}, {order.province_name}, {order.department_name}{" "}
-                  <span className="text-xs text-muted-foreground">(ubigeo {order.district_code})</span>
+                  <span className="text-xs text-muted-foreground tabular-nums">(ubigeo {order.district_code})</span>
                 </p>
                 {order.customer_notes ? <p className="mt-2 text-muted-foreground">Nota del cliente: {order.customer_notes}</p> : null}
-                {mapsLink(order.delivery_location as string | null) ? (
+                {mapHref ? (
                   <a
-                    href={mapsLink(order.delivery_location as string | null)!}
+                    href={mapHref}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="mt-2 inline-flex items-center gap-1.5 text-sm font-medium text-primary hover:underline"
@@ -273,45 +297,61 @@ export default async function OrderDetailPage({ params }: PageProps<"/dashboard/
             <CardHeader>
               <CardTitle>Productos y montos</CardTitle>
             </CardHeader>
-            <CardContent>
-              {items.map((i) => (
-                <div key={i.id} className="flex justify-between gap-4 border-b py-2 text-sm last:border-b-0">
-                  <span>
-                    <span className="font-medium">{i.product_name}</span>
-                    {i.kind === "bump" ? <SimpleBadge tone="info">Adicional del formulario</SimpleBadge> : null}
-                    {i.kind === "upsell" ? <SimpleBadge tone="success">Agregado en gracias</SimpleBadge> : null}
-                    {i.offer_name ? <span className="text-muted-foreground"> · {i.offer_name}</span> : null}
-                    <span className="text-muted-foreground"> · {i.quantity} u.</span>
-                  </span>
-                  <span className="shrink-0 whitespace-nowrap tabular-nums">{formatMoney(i.line_price)}</span>
-                </div>
-              ))}
+            <CardContent className="flex flex-col gap-3">
+              <ul className="divide-y">
+                {items.map((i) => (
+                  <li key={i.id} className="flex items-start justify-between gap-4 py-2 text-sm first:pt-0">
+                    <div className="flex min-w-0 flex-col gap-0.5">
+                      <span className="font-medium">{i.product_name}</span>
+                      <span className="text-xs text-muted-foreground tabular-nums">
+                        {i.offer_name ? `${i.offer_name} · ` : ""}
+                        {i.quantity} u.
+                      </span>
+                      {i.kind === "bump" ? (
+                        <span className="mt-0.5">
+                          <SimpleBadge tone="info">Adicional del formulario</SimpleBadge>
+                        </span>
+                      ) : null}
+                      {i.kind === "upsell" ? (
+                        <span className="mt-0.5">
+                          <SimpleBadge tone="success">Agregado en gracias</SimpleBadge>
+                        </span>
+                      ) : null}
+                    </div>
+                    <span className="shrink-0 text-right font-medium whitespace-nowrap tabular-nums">{formatMoney(i.line_price)}</span>
+                  </li>
+                ))}
+              </ul>
               {hasVariants && mainItem ? (
-                <div className="mt-2">
-                  <VariantsEditor
-                    orderId={order.id}
-                    label={packageProduct?.variant_label ?? "Variante"}
-                    units={mainItem.quantity}
-                    current={mainItem.variant_breakdown ?? []}
-                    options={productVariants ?? []}
-                    editable={variantsEditable}
-                  />
-                </div>
+                <VariantsEditor
+                  orderId={order.id}
+                  label={packageProduct?.variant_label ?? "Variante"}
+                  units={mainItem.quantity}
+                  current={mainItem.variant_breakdown ?? []}
+                  options={productVariants ?? []}
+                  editable={variantsEditable}
+                />
               ) : null}
-              <div className="mt-3 border-t pt-2">
+              <dl className="border-t pt-1.5">
                 <Row label="Subtotal">{formatMoney(order.subtotal)}</Row>
                 <Row label="Envío cobrado">{formatMoney(order.shipping_charged)}</Row>
-                <Row label="Total">{formatMoney(order.total)}</Row>
+                <Row label="Total" strong>
+                  {formatMoney(order.total)}
+                </Row>
                 {Number(order.advance_amount) > 0 ? (
                   <>
                     <Row label="Adelanto">{formatMoney(order.advance_amount)}</Row>
-                    <Row label="Saldo a cobrar">{formatMoney(order.balance_due)}</Row>
+                    <Row label="Saldo a cobrar" strong>
+                      {formatMoney(order.balance_due)}
+                    </Row>
                   </>
                 ) : null}
+              </dl>
+              <dl className="rounded-lg bg-muted/50 px-3 py-1.5">
                 <Row label="Costo de producto">{formatMoney(order.product_cost_total)}</Row>
                 {Number(order.packaging_cost) > 0 ? <Row label="Embalaje">{formatMoney(order.packaging_cost)}</Row> : null}
                 {Number(order.commission_amount) > 0 ? <Row label="Comisión del confirmador">{formatMoney(order.commission_amount)}</Row> : null}
-              </div>
+              </dl>
             </CardContent>
           </Card>
 
@@ -340,6 +380,19 @@ export default async function OrderDetailPage({ params }: PageProps<"/dashboard/
             }}
           />
 
+          <div className="order-1 lg:order-none">
+            <OrderDetailsForm
+              orderId={order.id}
+              initial={{
+                internal_notes: order.internal_notes ?? "",
+                address: order.address,
+                reference: order.reference ?? "",
+              }}
+            />
+          </div>
+        </div>
+
+        <div className="contents lg:flex lg:flex-col lg:gap-6">
           <PaymentsCard
             storeId={store.id}
             orderId={order.id}
@@ -349,127 +402,126 @@ export default async function OrderDetailPage({ params }: PageProps<"/dashboard/
             payments={payments}
           />
 
-          <OrderDetailsForm
-            orderId={order.id}
-            initial={{
-              internal_notes: order.internal_notes ?? "",
-              address: order.address,
-              reference: order.reference ?? "",
-            }}
-          />
-        </div>
+          <div className="order-2 flex flex-col gap-6 lg:order-none">
+            {ad ? (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <BrandIcon name="meta" /> Anuncio
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="flex flex-col gap-3">
+                  <div className="flex gap-3">
+                    {ad.thumbnail_url ? (
+                      // Miniatura servida por Meta (dominio externo variable)
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={ad.thumbnail_url} alt="" className="size-20 shrink-0 rounded-lg object-cover" />
+                    ) : null}
+                    <div className="flex min-w-0 flex-col gap-0.5 text-sm">
+                      <span className="font-medium">{ad.name}</span>
+                      {adCampaign?.name ? <span className="truncate text-xs text-muted-foreground">Campaña: {adCampaign.name}</span> : null}
+                      {adSet?.name ? <span className="truncate text-xs text-muted-foreground">Conjunto: {adSet.name}</span> : null}
+                      {ad.status ? <span className="text-xs text-muted-foreground">{ad.status.toLowerCase().replace(/_/g, " ")}</span> : null}
+                    </div>
+                  </div>
+                  {ad.title || ad.body ? (
+                    <p className="line-clamp-4 text-sm text-muted-foreground">
+                      {ad.title ? <b className="text-foreground">{ad.title}. </b> : null}
+                      {ad.body}
+                    </p>
+                  ) : null}
+                  {ad.preview_url ? (
+                    <a href={ad.preview_url} target="_blank" rel="noopener noreferrer" className="text-sm font-medium text-primary hover:underline">
+                      Ver anuncio
+                    </a>
+                  ) : null}
+                </CardContent>
+              </Card>
+            ) : null}
 
-        <div className="flex flex-col gap-6">
-          {ad ? (
             <Card>
               <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <BrandIcon name="meta" /> Anuncio
-                </CardTitle>
+                <CardTitle>Origen del pedido</CardTitle>
               </CardHeader>
-              <CardContent className="flex flex-col gap-3">
-                <div className="flex gap-3">
-                  {ad.thumbnail_url ? (
-                    // Miniatura servida por Meta (dominio externo variable)
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={ad.thumbnail_url} alt="" className="size-20 shrink-0 rounded-lg object-cover" />
-                  ) : null}
-                  <div className="flex min-w-0 flex-col gap-0.5 text-sm">
-                    <span className="font-medium">{ad.name}</span>
-                    {adCampaign?.name ? <span className="truncate text-xs text-muted-foreground">Campaña: {adCampaign.name}</span> : null}
-                    {adSet?.name ? <span className="truncate text-xs text-muted-foreground">Conjunto: {adSet.name}</span> : null}
-                    {ad.status ? <span className="text-xs text-muted-foreground">{ad.status.toLowerCase().replace(/_/g, " ")}</span> : null}
-                  </div>
-                </div>
-                {ad.title || ad.body ? (
-                  <p className="line-clamp-4 text-sm text-muted-foreground">
-                    {ad.title ? <b className="text-foreground">{ad.title}. </b> : null}
-                    {ad.body}
-                  </p>
-                ) : null}
-                {ad.preview_url ? (
-                  <a href={ad.preview_url} target="_blank" rel="noopener noreferrer" className="text-sm font-medium text-primary hover:underline">
-                    Ver anuncio
-                  </a>
-                ) : null}
+              <CardContent>
+                <dl>
+                  <Row label="Landing">{landing ? landing.title : "—"}</Row>
+                  <Row label="Fuente">
+                    <span className="inline-flex items-center gap-1.5">
+                      <SourceIcon source={attr?.utm_source} />
+                      {attr?.utm_source ?? "Directo / orgánico"}
+                    </span>
+                  </Row>
+                  <Row label="Medio">{attr?.utm_medium ?? "—"}</Row>
+                  <Row label="Campaña">{attr?.utm_campaign ?? "—"}</Row>
+                  <Row label="Anuncio">{ad?.name ?? attr?.utm_content ?? "—"}</Row>
+                  <Row label="Conjunto">{adSet?.name ?? attr?.utm_term ?? "—"}</Row>
+                  <Row label="ID campaña">{attr?.campaign_id ?? "—"}</Row>
+                  <Row label="ID anuncio">{attr?.ad_id ?? "—"}</Row>
+                  <Row label="Clic de Meta (fbclid)">{attr?.fbclid ? "Sí" : "No"}</Row>
+                </dl>
               </CardContent>
             </Card>
-          ) : null}
 
-          <Card>
-            <CardHeader>
-              <CardTitle>Origen del pedido</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <Row label="Landing">{landing ? landing.title : "—"}</Row>
-              <Row label="Fuente">
-                <span className="inline-flex items-center gap-1.5">
-                  <SourceIcon source={attr?.utm_source} />
-                  {attr?.utm_source ?? "Directo / orgánico"}
-                </span>
-              </Row>
-              <Row label="Medio">{attr?.utm_medium ?? "—"}</Row>
-              <Row label="Campaña">{attr?.utm_campaign ?? "—"}</Row>
-              <Row label="Anuncio">{ad?.name ?? attr?.utm_content ?? "—"}</Row>
-              <Row label="Conjunto">{adSet?.name ?? attr?.utm_term ?? "—"}</Row>
-              <Row label="ID campaña">{attr?.campaign_id ?? "—"}</Row>
-              <Row label="ID anuncio">{attr?.ad_id ?? "—"}</Row>
-              <Row label="Clic de Meta (fbclid)">{attr?.fbclid ? "Sí" : "No"}</Row>
-            </CardContent>
-          </Card>
+            <Card>
+              <CardHeader>
+                <CardTitle>Intentos de contacto</CardTitle>
+                {attempts?.length ? (
+                  <CardAction>
+                    <SimpleBadge>{attempts.length}</SimpleBadge>
+                  </CardAction>
+                ) : null}
+              </CardHeader>
+              <CardContent>
+                {attempts?.length ? (
+                  <ol className="flex flex-col gap-3">
+                    {attempts.map((a) => (
+                      <li key={a.id} className="flex flex-col border-l-2 pl-3 text-sm">
+                        <span className="font-medium">
+                          {a.channel === "call" ? (
+                            <Phone className="mr-1 inline size-3.5 align-[-2px]" />
+                          ) : (
+                            <BrandIcon name="whatsapp" className="mr-1 inline size-4 align-[-3px]" />
+                          )}
+                          {a.channel === "call" ? "Llamada" : "WhatsApp"} {a.attempt_number} · {CONTACT_RESULTS[a.result as ContactResult]?.label ?? a.result}
+                        </span>
+                        <span className="text-xs text-muted-foreground tabular-nums">
+                          {formatDateTime(a.created_at)} · {memberName(a.created_by)}
+                        </span>
+                        {a.next_contact_at ? (
+                          <span className="text-xs text-sky-600 tabular-nums dark:text-sky-400">Volver a llamar: {formatDateTime(a.next_contact_at)}</span>
+                        ) : null}
+                        {a.note ? <span className="mt-0.5 text-xs">{a.note}</span> : null}
+                      </li>
+                    ))}
+                  </ol>
+                ) : (
+                  <p className="text-sm text-muted-foreground">Aún no se ha contactado al cliente.</p>
+                )}
+              </CardContent>
+            </Card>
 
-          <Card>
-            <CardHeader>
-              <CardTitle>Intentos de contacto</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {attempts?.length ? (
+            <Card>
+              <CardHeader>
+                <CardTitle>Historial</CardTitle>
+              </CardHeader>
+              <CardContent>
                 <ol className="flex flex-col gap-3">
-                  {attempts.map((a) => (
-                    <li key={a.id} className="flex flex-col border-l-2 pl-3 text-sm">
-                      <span className="font-medium">
-                        {a.channel === "call" ? (
-                          <Phone className="mr-1 inline size-3.5 align-[-2px]" />
-                        ) : (
-                          <BrandIcon name="whatsapp" className="mr-1 inline size-4 align-[-3px]" />
-                        )}
-                        {a.channel === "call" ? "Llamada" : "WhatsApp"} {a.attempt_number} · {CONTACT_RESULTS[a.result as ContactResult]?.label ?? a.result}
+                  {history.map((h) => (
+                    <li key={h.id} className="flex flex-col border-l-2 pl-3 text-sm">
+                      <span className="font-medium">{ORDER_STATUS_LABELS[h.to_status as OrderStatus]}</span>
+                      <span className="text-xs text-muted-foreground tabular-nums">
+                        {formatDateTime(h.created_at)} · {h.source === "system" ? "Sistema" : h.source === "integration" ? "Integración" : "Manual"}
                       </span>
-                      <span className="text-xs text-muted-foreground">
-                        {formatDateTime(a.created_at)} · {memberName(a.created_by)}
-                      </span>
-                      {a.next_contact_at ? <span className="text-xs text-sky-600">Volver a llamar: {formatDateTime(a.next_contact_at)}</span> : null}
-                      {a.note ? <span className="mt-0.5 text-xs">{a.note}</span> : null}
+                      {h.note ? <span className="mt-0.5 text-xs">{h.note}</span> : null}
                     </li>
                   ))}
                 </ol>
-              ) : (
-                <p className="text-sm text-muted-foreground">Aún no se ha contactado al cliente.</p>
-              )}
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Historial</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <ol className="flex flex-col gap-3">
-                {history.map((h) => (
-                  <li key={h.id} className="flex flex-col border-l-2 pl-3 text-sm">
-                    <span className="font-medium">{ORDER_STATUS_LABELS[h.to_status as OrderStatus]}</span>
-                    <span className="text-xs text-muted-foreground">
-                      {formatDateTime(h.created_at)} · {h.source === "system" ? "Sistema" : h.source === "integration" ? "Integración" : "Manual"}
-                    </span>
-                    {h.note ? <span className="mt-0.5 text-xs">{h.note}</span> : null}
-                  </li>
-                ))}
-              </ol>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+          </div>
         </div>
       </div>
-      <div className="h-16 md:hidden" aria-hidden />
     </div>
   );
 }

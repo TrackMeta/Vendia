@@ -1,14 +1,14 @@
+import { UserCheck } from "lucide-react";
 import type { Metadata } from "next";
-import Link from "next/link";
 import { LiveRefresh } from "@/components/dashboard/notifications";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { requireStore } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
-import { cn } from "@/lib/utils";
 import { type ContactChannel, DEFAULT_SEQUENCE, sortForConfirmation } from "@/modules/orders/contact";
 import type { OrderStatus } from "@/modules/orders/state-machine";
 import { type BatchRow, BatchesList, type StoreCourier } from "./export-dialog";
 import { LogisticsTable, type LogisticsOrder } from "./logistics-table";
+import { CountChip, SCROLL_ROW, Segmented, ToggleChip } from "../pedidos/orders-filters";
 
 export const metadata: Metadata = { title: "Logística" };
 
@@ -123,37 +123,27 @@ export default async function LogisticsPage({ searchParams }: PageProps<"/dashbo
         title="Logística"
         description="Confirma por llamada o WhatsApp, prepara el despacho, descarga la planilla para tu courier y marca las entregas."
       />
-      <div className="flex gap-1.5 overflow-x-auto pb-1">
-        {(Object.keys(VIEWS) as ViewKey[]).map((key) => (
-          <Link
-            key={key}
-            href={href({ vista: key })}
-            className={cn(
-              "rounded-full border px-3 py-1 text-sm whitespace-nowrap",
-              view === key ? "border-foreground bg-foreground text-background" : "hover:bg-muted",
-            )}
-          >
-            {VIEWS[key].label} <span className="opacity-60">{countFor(key)}</span>
-          </Link>
-        ))}
-      </div>
-      <div className="flex flex-wrap items-center gap-1.5 text-sm">
-        {(Object.keys(ZONES) as (keyof typeof ZONES)[]).map((z) => (
-          <Link
-            key={z}
-            href={href({ zona: z === "todas" ? undefined : z })}
-            className={cn("rounded-md border px-2.5 py-0.5", zone === z ? "border-primary bg-primary/10 text-primary" : "hover:bg-muted")}
-          >
-            {ZONES[z]}
-          </Link>
-        ))}
-        <span className="mx-1 text-muted-foreground">·</span>
-        <Link
-          href={href({ mios: mine ? undefined : "1" })}
-          className={cn("rounded-md border px-2.5 py-0.5", mine ? "border-primary bg-primary/10 text-primary" : "hover:bg-muted")}
-        >
-          Mis pendientes
-        </Link>
+      {/* Bandejas, zona y «Solo míos» en una sola barra (en el celular, dos líneas) */}
+      <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+        <nav aria-label="Bandeja" className={SCROLL_ROW}>
+          {(Object.keys(VIEWS) as ViewKey[]).map((key) => (
+            <CountChip key={key} href={href({ vista: key })} active={view === key} label={VIEWS[key].label} count={countFor(key)} />
+          ))}
+        </nav>
+        <div className="flex flex-wrap items-center gap-1.5">
+          <Segmented
+            label="Zona"
+            options={(Object.keys(ZONES) as (keyof typeof ZONES)[]).map((z) => ({
+              key: z,
+              label: ZONES[z],
+              href: href({ zona: z === "todas" ? undefined : z }),
+              active: zone === z,
+            }))}
+          />
+          <ToggleChip href={href({ mios: mine ? undefined : "1" })} active={mine} icon={UserCheck} title="Solo los pedidos asignados a ti">
+            Solo míos
+          </ToggleChip>
+        </div>
       </div>
       <LogisticsTable
         view={view}

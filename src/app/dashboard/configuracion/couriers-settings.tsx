@@ -119,7 +119,7 @@ export function CouriersSettings({ rows }: { rows: CourierSettingsRow[] }) {
       },
   );
   return (
-    <Card className="mt-6">
+    <Card>
       <CardHeader>
         <CardTitle>Couriers</CardTitle>
         <CardDescription>

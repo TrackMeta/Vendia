@@ -5,7 +5,7 @@ import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import { ReceiptPreview } from "@/components/dashboard/receipt-preview";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { formatDate, formatMoney } from "@/lib/format";
@@ -110,36 +110,36 @@ export function PaymentsCard({
     });
 
   return (
-    <Card>
-      <CardHeader className="flex flex-row items-start justify-between gap-3">
-        <div className="flex flex-col gap-1.5">
-          <CardTitle>Pagos</CardTitle>
-          <CardDescription>
-            {zone === "provincia" ? "Adelanto antes del envío y saldo cuando llega a la agencia." : "Lima es contraentrega: registra aquí si te pagaron por adelantado."}
-          </CardDescription>
-        </div>
-        <Button size="sm" variant="outline" onClick={() => setOpen((v) => !v)}>
-          <Plus /> Registrar pago
-        </Button>
+    <Card className="@container">
+      <CardHeader>
+        <CardTitle>Pagos</CardTitle>
+        <CardDescription>
+          {zone === "provincia" ? "Adelanto antes del envío y saldo cuando llega a la agencia." : "Lima es contraentrega: registra aquí si te pagaron por adelantado."}
+        </CardDescription>
+        <CardAction>
+          <Button size="sm" variant="outline" onClick={() => setOpen((v) => !v)} aria-expanded={open}>
+            <Plus /> Registrar pago
+          </Button>
+        </CardAction>
       </CardHeader>
       <CardContent className="flex flex-col gap-3">
-        <div className="grid grid-cols-3 gap-2 text-center text-sm">
+        <div className="grid grid-cols-3 gap-2 text-center text-sm tabular-nums">
           <div className="rounded-lg bg-muted/50 p-2">
             <p className="text-xs text-muted-foreground">Total</p>
-            <p className="font-semibold">{formatMoney(total)}</p>
+            <p className="font-semibold whitespace-nowrap">{formatMoney(total)}</p>
           </div>
           <div className="rounded-lg bg-muted/50 p-2">
             <p className="text-xs text-muted-foreground">Pagado</p>
-            <p className="font-semibold text-emerald-600">{formatMoney(summary.paid)}</p>
+            <p className="font-semibold whitespace-nowrap text-emerald-600 dark:text-emerald-400">{formatMoney(summary.paid)}</p>
           </div>
           <div className="rounded-lg bg-muted/50 p-2">
             <p className="text-xs text-muted-foreground">Falta</p>
-            <p className="font-semibold">{formatMoney(summary.pending)}</p>
+            <p className="font-semibold whitespace-nowrap">{formatMoney(summary.pending)}</p>
           </div>
         </div>
 
         {open ? (
-          <div className="grid gap-3 rounded-lg border p-3 sm:grid-cols-2">
+          <div className="grid gap-3 rounded-lg border p-3 @sm:grid-cols-2">
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="pay-kind">Tipo</Label>
               <AppSelect id="pay-kind" value={kind} onChange={(e) => setKind(e.target.value as PaymentKind)} className={selectClass}>
@@ -168,15 +168,15 @@ export function PaymentsCard({
               <Label htmlFor="pay-date">Fecha</Label>
               <Input id="pay-date" type="date" value={paidOn} onChange={(e) => setPaidOn(e.target.value)} />
             </div>
-            <div className="flex flex-col gap-1.5 sm:col-span-2">
+            <div className="flex flex-col gap-1.5 @sm:col-span-2">
               <Label htmlFor="pay-file">Comprobante (captura o PDF)</Label>
               <Input id="pay-file" type="file" accept="image/*,application/pdf" onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
             </div>
-            <div className="flex flex-col gap-1.5 sm:col-span-2">
+            <div className="flex flex-col gap-1.5 @sm:col-span-2">
               <Label htmlFor="pay-note">Nota (opcional)</Label>
               <Input id="pay-note" value={note} maxLength={300} onChange={(e) => setNote(e.target.value)} placeholder="N.° de operación, quién pagó…" />
             </div>
-            <div className="flex justify-end gap-2 sm:col-span-2">
+            <div className="flex justify-end gap-2 @sm:col-span-2">
               <Button variant="outline" onClick={() => setOpen(false)}>
                 Cancelar
               </Button>

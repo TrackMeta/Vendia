@@ -129,13 +129,14 @@ export function PerformanceTable({ rows, firstColumn, showMeta }: { rows: PerfRo
         </Popover>
       </div>
 
-      <div className="overflow-x-auto rounded-xl bg-card ring-1 ring-foreground/10">
+      {/* Con muchas filas la tabla tiene su propio scroll y los títulos de las columnas quedan fijos */}
+      <div className={cn("overflow-x-auto rounded-xl bg-card ring-1 ring-foreground/10", rows.length > 12 && "max-h-[75vh] overflow-y-auto overscroll-contain")}>
         <table className="w-full text-sm">
-          <thead className="bg-muted/40 text-xs text-muted-foreground">
+          <thead className="sticky top-0 z-20 bg-muted text-xs text-muted-foreground shadow-[inset_0_-1px_0_var(--border)]">
             <tr>
-              <th className="sticky left-0 z-10 bg-muted/90 px-3 py-2 text-left font-medium backdrop-blur">{firstColumn}</th>
+              <th className="sticky left-0 z-30 bg-muted px-3 py-2 text-left font-medium">{firstColumn}</th>
               {columns.map((c) => (
-                <th key={c.id} className={cn("px-3 py-2 text-right font-medium whitespace-nowrap", c.highlight && "text-foreground")} title={c.hint}>
+                <th key={c.id} className={cn("bg-muted px-3 py-2 text-right font-medium whitespace-nowrap", c.highlight && "text-foreground")} title={c.hint}>
                   <button
                     type="button"
                     onClick={() => setSort((s) => ({ id: c.id, desc: s.id === c.id ? !s.desc : true }))}
@@ -184,9 +185,9 @@ export function PerformanceTable({ rows, firstColumn, showMeta }: { rows: PerfRo
               </tr>
             ))}
           </tbody>
-          <tfoot className="border-t bg-muted/30 text-xs font-medium">
+          <tfoot className="sticky bottom-0 z-20 border-t bg-muted text-xs font-medium shadow-[inset_0_1px_0_var(--border)]">
             <tr>
-              <td className="sticky left-0 bg-muted/90 px-3 py-2">Total ({rows.length})</td>
+              <td className="sticky left-0 z-30 bg-muted px-3 py-2">Total ({rows.length})</td>
               {columns.map((c) => {
                 const t = total(c);
                 return (

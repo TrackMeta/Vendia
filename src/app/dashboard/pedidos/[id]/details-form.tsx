@@ -25,26 +25,26 @@ export function OrderDetailsForm({
   }, [state]);
 
   return (
-    <Card>
+    <Card className="@container">
       <CardHeader>
         <CardTitle>Dirección y notas internas</CardTitle>
         <CardDescription>Corrige la dirección si el cliente la cambió al confirmar.</CardDescription>
       </CardHeader>
       <CardContent>
-        <form action={action} className="grid gap-4 sm:grid-cols-2">
-          <div className="flex flex-col gap-2 sm:col-span-2">
+        <form action={action} className="grid gap-4 @sm:grid-cols-2">
+          <div className="flex flex-col gap-2 @sm:col-span-2">
             <Label htmlFor="address">Dirección</Label>
             <Input id="address" name="address" defaultValue={initial.address} />
           </div>
-          <div className="flex flex-col gap-2 sm:col-span-2">
+          <div className="flex flex-col gap-2 @sm:col-span-2">
             <Label htmlFor="reference">Referencia</Label>
             <Input id="reference" name="reference" defaultValue={initial.reference} />
           </div>
-          <div className="flex flex-col gap-2 sm:col-span-2">
+          <div className="flex flex-col gap-2 @sm:col-span-2">
             <Label htmlFor="internal_notes">Notas internas (el cliente no las ve)</Label>
             <Textarea id="internal_notes" name="internal_notes" defaultValue={initial.internal_notes} rows={3} />
           </div>
-          <div className="flex justify-end sm:col-span-2">
+          <div className="flex justify-end @sm:col-span-2">
             <Button type="submit" disabled={pending}>
               {pending ? "Guardando…" : "Guardar"}
             </Button>

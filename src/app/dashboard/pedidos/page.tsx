@@ -1,4 +1,4 @@
-import { AlertTriangle, CalendarClock, Plus, ShoppingBag, UserCheck } from "lucide-react";
+import { AlertTriangle, ArrowDownUp, CalendarClock, Plus, Search, ShoppingBag, UserCheck, X } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { LiveRefresh } from "@/components/dashboard/notifications";
@@ -16,6 +16,8 @@ import { ORDER_STATUS_LABELS, ORDER_STATUSES, type OrderStatus } from "@/modules
 import { orderSearchFilters } from "@/modules/orders/search";
 import { ZoneBadge } from "../logistica/logistics-table";
 import { SourceIcon } from "@/components/brand-icons";
+import { OrderCard } from "./orders-card";
+import { CountChip, SCROLL_ROW, Segmented, ToggleChip } from "./orders-filters";
 
 export const metadata: Metadata = { title: "Pedidos" };
 
@@ -91,8 +93,7 @@ export default async function OrdersPage({ searchParams }: PageProps<"/dashboard
     const s = next.toString();
     return `/dashboard/pedidos${s ? `?${s}` : ""}`;
   };
-  const chip = (active: boolean) => cn("rounded-full border px-3 py-1 text-sm whitespace-nowrap", active ? "border-foreground bg-foreground text-background" : "hover:bg-muted");
-  const small = (active: boolean) => cn("rounded-md border px-2.5 py-0.5 text-sm", active ? "border-primary bg-primary/10 text-primary" : "hover:bg-muted");
+  const filtered = Boolean(status || zone || mine || q || sort === "zona");
 
   return (
     <div>
@@ -112,42 +113,62 @@ export default async function OrdersPage({ searchParams }: PageProps<"/dashboard
         </p>
       ) : null}
 
-      <div className="mb-4 flex flex-col gap-3">
-        <div className="-mx-1 flex gap-1.5 overflow-x-auto px-1 pb-1">
-          <Link href={href({ estado: null, pagina: null })} className={chip(!status)}>
-            Todos <span className="opacity-60">{total}</span>
-          </Link>
+      {/* Filtros en una sola barra: estados arriba; zona, míos, orden y búsqueda debajo (al lado en escritorio) */}
+      <div className="mb-4 flex flex-col gap-2">
+        <nav aria-label="Filtrar por estado" className={SCROLL_ROW}>
+          <CountChip href={href({ estado: null, pagina: null })} active={!status} label="Todos" count={total} />
           {ORDER_STATUSES.map((s) => (
-            <Link key={s} href={href({ estado: s, pagina: null })} className={chip(status === s)}>
-              {ORDER_STATUS_LABELS[s]} <span className="opacity-60">{statusCounts.get(s) ?? 0}</span>
-            </Link>
+            <CountChip key={s} href={href({ estado: s, pagina: null })} active={status === s} label={ORDER_STATUS_LABELS[s]} count={statusCounts.get(s) ?? 0} />
           ))}
+        </nav>
+        <div className="flex flex-col gap-2 md:flex-row md:items-center">
+          <div className="flex flex-wrap items-center gap-1.5">
+            <Segmented
+              label="Zona"
+              options={[
+                { key: "todas", label: "Todas", href: href({ zona: null, pagina: null }), active: !zone },
+                { key: "lima", label: "Lima", href: href({ zona: "lima", pagina: null }), active: zone === "lima" },
+                { key: "provincia", label: "Provincia", href: href({ zona: "provincia", pagina: null }), active: zone === "provincia" },
+              ]}
+            />
+            <ToggleChip href={href({ mios: mine ? null : "1", pagina: null })} active={mine} icon={UserCheck} title="Solo los pedidos asignados a ti">
+              Solo míos
+            </ToggleChip>
+            <ToggleChip href={href({ orden: sort === "zona" ? null : "zona", pagina: null })} active={sort === "zona"} icon={ArrowDownUp} title="Lima primero, luego provincia">
+              Ordenar por zona
+            </ToggleChip>
+            {filtered ? (
+              <Link href="/dashboard/pedidos" className="px-1.5 text-sm text-muted-foreground hover:text-foreground hover:underline">
+                Limpiar
+              </Link>
+            ) : null}
+          </div>
+          <form role="search" className="relative md:ml-auto md:w-80">
+            {status ? <input type="hidden" name="estado" value={status} /> : null}
+            {zone ? <input type="hidden" name="zona" value={zone} /> : null}
+            {mine ? <input type="hidden" name="mios" value="1" /> : null}
+            {sort === "zona" ? <input type="hidden" name="orden" value="zona" /> : null}
+            <Search className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden />
+            <Input
+              name="q"
+              defaultValue={q}
+              enterKeyHint="search"
+              aria-label="Buscar pedidos"
+              placeholder="Nombre, celular, DNI, distrito o n.º"
+              title="Buscar por nombre, celular, DNI, distrito o n.º de pedido"
+              className={cn("h-9 bg-background pl-8 md:h-8", q && "pr-8")}
+            />
+            {q ? (
+              <Link
+                href={href({ q: null, pagina: null })}
+                aria-label="Borrar búsqueda"
+                className="absolute top-1/2 right-1 flex size-7 -translate-y-1/2 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground md:size-6"
+              >
+                <X className="size-3.5" />
+              </Link>
+            ) : null}
+          </form>
         </div>
-        <div className="flex flex-wrap items-center gap-1.5">
-          <Link href={href({ zona: null, pagina: null })} className={small(!zone)}>
-            Lima y provincia
-          </Link>
-          <Link href={href({ zona: "lima", pagina: null })} className={small(zone === "lima")}>
-            Lima
-          </Link>
-          <Link href={href({ zona: "provincia", pagina: null })} className={small(zone === "provincia")}>
-            Provincia
-          </Link>
-          <span className="mx-1 text-muted-foreground">·</span>
-          <Link href={href({ mios: mine ? null : "1", pagina: null })} className={small(mine)}>
-            Mis pendientes
-          </Link>
-          <span className="mx-1 text-muted-foreground">·</span>
-          <Link href={href({ orden: sort === "zona" ? null : "zona", pagina: null })} className={small(sort === "zona")}>
-            Ordenar por zona
-          </Link>
-        </div>
-        <form className="max-w-sm">
-          {status ? <input type="hidden" name="estado" value={status} /> : null}
-          {zone ? <input type="hidden" name="zona" value={zone} /> : null}
-          {mine ? <input type="hidden" name="mios" value="1" /> : null}
-          <Input name="q" defaultValue={q} placeholder="Buscar por nombre, celular, DNI, distrito o n.º de pedido" />
-        </form>
       </div>
 
       {!orders?.length ? (
@@ -173,33 +194,17 @@ export default async function OrdersPage({ searchParams }: PageProps<"/dashboard
           <ul className="flex flex-col gap-2 md:hidden">
             {orders.map((o) => {
               const item = (o.order_items as { product_name: string; offer_name: string | null; quantity: number }[])[0];
+              const attr = one(o.order_attribution as unknown as { utm_source: string | null; utm_campaign: string | null }[]);
               const risky = o.is_possible_duplicate || ((o.risk_reasons as string[] | null) ?? []).some((r) => r !== "posible_duplicado");
               return (
                 <li key={o.id}>
-                  <Link href={`/dashboard/pedidos/${o.id}`} className="flex flex-col gap-1.5 rounded-xl bg-card p-3 ring-1 ring-foreground/10 active:bg-muted/60">
-                    <span className="flex items-center justify-between gap-2">
-                      <span className="flex items-center gap-1 text-sm font-semibold">
-                        #{o.order_number}
-                        {risky ? <AlertTriangle className="size-3.5 text-amber-500" aria-label="Revisar: posible duplicado o riesgo" /> : null}
-                      </span>
-                      <OrderStatusBadge status={o.status as OrderStatus} />
-                    </span>
-                    <span className="flex items-baseline justify-between gap-2">
-                      <span className="truncate font-medium">{o.customer_name}</span>
-                      <span className="shrink-0 font-semibold tabular-nums">{formatMoney(o.total)}</span>
-                    </span>
-                    <span className="truncate text-xs text-muted-foreground">
-                      {displayPeruPhone(o.customer_phone)} · {item?.product_name}
-                      {item?.quantity ? ` (${item.quantity} u.)` : ""}
-                    </span>
-                    <span className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
-                      <span className="flex min-w-0 items-center gap-1.5">
-                        <ZoneBadge zone={o.zone as "lima" | "provincia"} />
-                        <span className="truncate">{o.district_name}</span>
-                      </span>
-                      <span className="shrink-0">{formatDateTime(o.created_at)}</span>
-                    </span>
-                  </Link>
+                  <OrderCard
+                    order={{ ...o, status: o.status as OrderStatus, zone: o.zone as "lima" | "provincia" }}
+                    risky={risky}
+                    manual={o.source === "manual"}
+                    source={o.source === "manual" ? o.source_channel : (attr?.utm_source ?? null)}
+                    product={item ? `${item.product_name}${item.quantity ? ` (${item.quantity} u.)` : ""}` : ""}
+                  />
                 </li>
               );
             })}
@@ -250,7 +255,7 @@ export default async function OrdersPage({ searchParams }: PageProps<"/dashboard
                           </span>
                         </div>
                       </TableCell>
-                      <TableCell className="text-right">{formatMoney(o.total)}</TableCell>
+                      <TableCell className="text-right font-medium tabular-nums">{formatMoney(o.total)}</TableCell>
                       <TableCell className="hidden md:table-cell">
                         <div className="flex flex-col items-start gap-0.5">
                           <ZoneBadge zone={o.zone as "lima" | "provincia"} />

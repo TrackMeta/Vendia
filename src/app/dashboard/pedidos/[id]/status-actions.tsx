@@ -12,6 +12,7 @@ import Link from "next/link";
 import { allowedTransitions, isManualTransitionAllowed, nextStatus, ORDER_STATUS_LABELS, type OrderStatus, type Zone } from "@/modules/orders/state-machine";
 import { changeOrderStatus } from "../actions";
 import { AppSelect } from "@/components/dashboard/app-select";
+import { cn } from "@/lib/utils";
 
 const NEGATIVE: OrderStatus[] = ["cancelled", "failed_delivery", "returned"];
 
@@ -21,7 +22,7 @@ function reasonsFor(status: OrderStatus | null): Record<string, string> | null {
   return null;
 }
 
-export function StatusActions({ orderId, status, zone }: { orderId: string; status: OrderStatus; zone: Zone }) {
+export function StatusActions({ orderId, status, zone, className }: { orderId: string; status: OrderStatus; zone: Zone; className?: string }) {
   const [pending, startTransition] = useTransition();
   const [target, setTarget] = useState<OrderStatus | null>(null);
   const [note, setNote] = useState("");
@@ -45,14 +46,14 @@ export function StatusActions({ orderId, status, zone }: { orderId: string; stat
   if (!next && others.length === 0 && !settleHint) return null;
 
   return (
-    <div className="flex flex-wrap items-center gap-2">
+    <div className={cn("flex flex-wrap items-center gap-2", className)}>
       {settleHint ? (
-        <Link href="/dashboard/liquidacion" className="text-sm text-muted-foreground underline">
+        <Link href="/dashboard/liquidacion" className="text-xs text-muted-foreground underline hover:text-foreground">
           Pasa a «Cobrado» cuando lo liquides en Liquidación
         </Link>
       ) : null}
       {next ? (
-        <Button onClick={() => apply(next)} disabled={pending}>
+        <Button onClick={() => apply(next)} disabled={pending} className="max-sm:flex-1">
           Marcar como {ORDER_STATUS_LABELS[next]}
         </Button>
       ) : null}
@@ -61,7 +62,7 @@ export function StatusActions({ orderId, status, zone }: { orderId: string; stat
           <DropdownMenuTrigger render={<Button variant="outline" disabled={pending} />}>
             Otro estado <ChevronDown />
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="start">
+          <DropdownMenuContent align="end">
             {others.map((s) => (
               <DropdownMenuItem
                 key={s}

@@ -4,10 +4,12 @@ import { requireOwner } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { CouriersSettings, type CourierSettingsRow } from "./couriers-settings";
 import { SettingsForm } from "./settings-form";
+import { parseSettingsTab } from "./settings-tabs";
 
 export const metadata: Metadata = { title: "Configuración" };
 
-export default async function SettingsPage() {
+export default async function SettingsPage({ searchParams }: PageProps<"/dashboard/configuracion">) {
+  const { tab } = await searchParams;
   const { store } = await requireOwner();
   const supabase = await createClient();
   const [{ data: settings }, { data: couriers }] = await Promise.all([
@@ -21,6 +23,8 @@ export default async function SettingsPage() {
       <SettingsForm
         storeId={store.id}
         storeSlug={store.slug}
+        initialTab={parseSettingsTab(tab)}
+        couriers={<CouriersSettings rows={(couriers ?? []).map((c) => ({ ...c, shipping_cost: Number(c.shipping_cost) }) as CourierSettingsRow)} />}
         initial={{
           name: store.name,
           whatsapp: settings?.whatsapp ?? "",
@@ -43,7 +47,6 @@ export default async function SettingsPage() {
           contact_whatsapp: ((settings?.contact_sequence as string[] | null) ?? ["whatsapp"]).includes("whatsapp"),
         }}
       />
-      <CouriersSettings rows={(couriers ?? []).map((c) => ({ ...c, shipping_cost: Number(c.shipping_cost) }) as CourierSettingsRow)} />
     </div>
   );
 }

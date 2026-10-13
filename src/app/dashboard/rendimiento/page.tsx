@@ -57,7 +57,19 @@ async function levelRows(storeId: string, range: DateRange, level: Level) {
   return (data ?? []) as Record<string, unknown>[];
 }
 
-async function AdsView({ storeId, range, level, levelHref }: { storeId: string; range: DateRange; level: Level; levelHref: (l: Level) => string }) {
+async function AdsView({
+  storeId,
+  range,
+  level,
+  levelHref,
+  last30Href,
+}: {
+  storeId: string;
+  range: DateRange;
+  level: Level;
+  levelHref: (l: Level) => string;
+  last30Href: string;
+}) {
   const supabase = await createClient();
   const cfg = LEVELS[level];
   const [data, { data: meta }, { data: accounts }] = await Promise.all([
@@ -124,6 +136,13 @@ async function AdsView({ storeId, range, level, levelHref }: { storeId: string; 
               : showMeta
                 ? "Conecta Meta en Marketing para ver tus campañas, o cambia las fechas."
                 : "Aún no hay pedidos en este periodo."
+          }
+          action={
+            range.preset !== "30d" ? (
+              <Link href={last30Href} className="text-sm font-medium text-primary hover:underline">
+                Ver los últimos 30 días
+              </Link>
+            ) : null
           }
         />
       )}
@@ -233,7 +252,7 @@ export default async function PerformancePage({ searchParams }: PageProps<"/dash
 
       <DateRangeFilter basePath="/dashboard/rendimiento" range={range} params={keep} />
 
-      {view === "anuncios" ? <AdsView storeId={store.id} range={range} level={level} levelHref={(l) => href({ nivel: l })} /> : null}
+      {view === "anuncios" ? <AdsView storeId={store.id} range={range} level={level} levelHref={(l) => href({ nivel: l })} last30Href={href({ nivel: level, rango: "30d", desde: undefined, hasta: undefined })} /> : null}
       {view !== "anuncios" ? (
         <FilterBar
           level={filterLevel}

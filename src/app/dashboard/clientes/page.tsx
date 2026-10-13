@@ -39,10 +39,25 @@ export default async function CustomersPage({ searchParams }: PageProps<"/dashbo
         <Input name="q" defaultValue={q} placeholder="Buscar por nombre o celular" />
       </form>
       {!customers?.length ? (
-        <EmptyState icon={Users} title={q ? "Sin resultados" : "Aún no tienes clientes"} description="Los clientes se crean automáticamente con cada pedido." />
+        <EmptyState
+          icon={Users}
+          title={q ? "Sin resultados" : "Aún no tienes clientes"}
+          description={q ? "Prueba con otro nombre o celular." : "Los clientes se crean automáticamente con cada pedido."}
+          action={
+            q ? (
+              <Link href="/dashboard/clientes" className="text-sm font-medium text-primary hover:underline">
+                Ver todos los clientes
+              </Link>
+            ) : (
+              <Link href="/dashboard/pedidos/nuevo" className="text-sm font-medium text-primary hover:underline">
+                Crear un pedido manual
+              </Link>
+            )
+          }
+        />
       ) : (
         <div className="overflow-hidden rounded-xl bg-card ring-1 ring-foreground/10">
-          <Table>
+          <Table stickyHeader={(customers?.length ?? 0) > 15}>
             <TableHeader>
               <TableRow>
                 <TableHead>Cliente</TableHead>

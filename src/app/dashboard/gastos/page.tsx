@@ -1,5 +1,6 @@
 import { Receipt } from "lucide-react";
 import type { Metadata } from "next";
+import Link from "next/link";
 import { DateRangeFilter, rangeParams } from "@/components/dashboard/date-range-filter";
 import { EmptyState, PageHeader } from "@/components/dashboard/page-header";
 import { SimpleBadge } from "@/components/dashboard/status-badge";
@@ -90,10 +91,17 @@ export default async function ExpensesPage({ searchParams }: PageProps<"/dashboa
           icon={Receipt}
           title="Sin gastos en este periodo"
           description="Registra tu gasto en Meta Ads a mano o importa el reporte del Administrador de anuncios."
+          action={
+            range.preset !== "30d" ? (
+              <Link href="/dashboard/gastos?rango=30d" className="text-sm font-medium text-primary hover:underline">
+                Ver los últimos 30 días
+              </Link>
+            ) : null
+          }
         />
       ) : (
         <div className="overflow-hidden rounded-xl bg-card ring-1 ring-foreground/10">
-          <Table>
+          <Table stickyHeader={(expenses?.length ?? 0) > 15}>
             <TableHeader>
               <TableRow>
                 <TableHead>Fecha</TableHead>

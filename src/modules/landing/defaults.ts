@@ -1,4 +1,4 @@
-import type { FormBlock, FormBlockType, LandingContent, PageBlock, PageBlockType, ThankYouUpsell, WhatsappButton } from "./schema";
+import type { FormBlock, FormBlockType, LandingContent, PageBlock, PageBlockType, ThankYouUpsell, WhatsappButton, ThankYouPage } from "./schema";
 import { DEFAULT_PRIVACY_NOTICE, formBlock, formFieldsBlock } from "./schema";
 
 export function newBlockId(): string {
@@ -121,6 +121,15 @@ export const DEFAULT_THANK_YOU_UPSELL: ThankYouUpsell = {
   buttonText: "SÍ, AGREGAR A MI PEDIDO",
   productId: "",
   cost: 0,
+  headline: "Oferta solo para ti, ahora",
+  color: "#ea580c",
+};
+
+export const DEFAULT_THANK_YOU_PAGE: ThankYouPage = {
+  title: "¡Pedido recibido!",
+  whatsappEnabled: true,
+  whatsappText: "Escríbenos por WhatsApp",
+  whatsappMessage: "Hola {tienda}, acabo de hacer el pedido {pedido} de {producto}.",
 };
 
 /**
@@ -144,6 +153,7 @@ export function normalizeContent(content: LandingContent): LandingContent {
     form_blocks: (content.form_blocks ?? []).map(normalizeFormBlock),
     whatsapp_button: { ...DEFAULT_WHATSAPP_BUTTON, ...(content.whatsapp_button ?? {}) },
     thank_you_upsell: { ...DEFAULT_THANK_YOU_UPSELL, ...(content.thank_you_upsell ?? {}) },
+    thank_you: { ...DEFAULT_THANK_YOU_PAGE, ...(content.thank_you ?? {}) },
     angles: content.angles ?? [],
   };
 }
@@ -196,6 +206,7 @@ export function createTemplate(key: TemplateKey, productImages: string[] = []): 
         sticky_button: sticky(),
         whatsapp_button: { ...DEFAULT_WHATSAPP_BUTTON },
         thank_you_upsell: { ...DEFAULT_THANK_YOU_UPSELL },
+        thank_you: { ...DEFAULT_THANK_YOU_PAGE },
         angles: [],
       };
     case "packs":
@@ -224,6 +235,7 @@ export function createTemplate(key: TemplateKey, productImages: string[] = []): 
         sticky_button: sticky("ELIGE TU PACK"),
         whatsapp_button: { ...DEFAULT_WHATSAPP_BUTTON },
         thank_you_upsell: { ...DEFAULT_THANK_YOU_UPSELL },
+        thank_you: { ...DEFAULT_THANK_YOU_PAGE },
         angles: [],
       };
     case "producto":
@@ -241,6 +253,7 @@ export function createTemplate(key: TemplateKey, productImages: string[] = []): 
         sticky_button: sticky("COMPRAR AHORA"),
         whatsapp_button: { ...DEFAULT_WHATSAPP_BUTTON, enabled: true },
         thank_you_upsell: { ...DEFAULT_THANK_YOU_UPSELL },
+        thank_you: { ...DEFAULT_THANK_YOU_PAGE },
         angles: [],
       };
     default:
@@ -278,6 +291,7 @@ export function createClassicTemplate(productImages: string[] = []): LandingCont
     sticky_button: sticky(),
     whatsapp_button: { ...DEFAULT_WHATSAPP_BUTTON },
     thank_you_upsell: { ...DEFAULT_THANK_YOU_UPSELL },
+    thank_you: { ...DEFAULT_THANK_YOU_PAGE },
     angles: [],
   };
 }

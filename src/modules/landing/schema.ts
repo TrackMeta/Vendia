@@ -307,6 +307,19 @@ export const thankYouUpsell = z.object({
   buttonText: shortText.default("SÍ, AGREGAR A MI PEDIDO"),
   productId: optionalProductId,
   cost: money.default(0),
+  /** Título de la tarjeta de la oferta */
+  headline: shortText.default("Oferta solo para ti, ahora"),
+  /** Color de la tarjeta y del botón */
+  color: color.default("#ea580c"),
+});
+
+/** Página de gracias: título y botón de WhatsApp (el mensaje de confirmación está en Configuración). */
+export const thankYouPage = z.object({
+  title: shortText.default("¡Pedido recibido!"),
+  whatsappEnabled: z.boolean().default(true),
+  whatsappText: shortText.default("Escríbenos por WhatsApp"),
+  /** Se puede usar {tienda}, {pedido} y {producto} */
+  whatsappMessage: longText.default("Hola {tienda}, acabo de hacer el pedido {pedido} de {producto}."),
 });
 
 const REQUIRED_FORM_BLOCKS = ["form_offers", "form_fields", "form_submit"] as const;
@@ -344,6 +357,14 @@ export const landingContent = z
       buttonText: "SÍ, AGREGAR A MI PEDIDO",
       productId: "",
       cost: 0,
+      headline: "Oferta solo para ti, ahora",
+      color: "#ea580c",
+    }),
+    thank_you: thankYouPage.default({
+      title: "¡Pedido recibido!",
+      whatsappEnabled: true,
+      whatsappText: "Escríbenos por WhatsApp",
+      whatsappMessage: "Hola {tienda}, acabo de hacer el pedido {pedido} de {producto}.",
     }),
     angles: z.array(landingAngle).max(MAX_ANGLES, `Máximo ${MAX_ANGLES} ángulos por landing`).default([]),
   })
@@ -394,6 +415,7 @@ export type LandingTheme = z.infer<typeof landingTheme>;
 export type StickyButton = z.infer<typeof stickyButton>;
 export type WhatsappButton = z.infer<typeof whatsappButton>;
 export type ThankYouUpsell = z.infer<typeof thankYouUpsell>;
+export type ThankYouPage = z.infer<typeof thankYouPage>;
 export type BumpItem = z.infer<typeof bumpItem>;
 export type LandingContent = z.infer<typeof landingContent>;
 

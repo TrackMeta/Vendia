@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { ImageField, NumberField, TextField, ToggleField } from "@/components/dashboard/fields";
+import { ColorField, ImageField, NumberField, TextField, ToggleField } from "@/components/dashboard/fields";
+import { DEFAULT_THANK_YOU_PAGE, DEFAULT_THANK_YOU_UPSELL } from "@/modules/landing/defaults";
 import type { LandingContent } from "@/modules/landing/schema";
 import type { LandingSettings } from "../actions";
 import type { PublicOffer } from "@/modules/landing/types";
@@ -52,6 +53,8 @@ export function SalesPanel({
   const up = content.thank_you_upsell;
   const setWa = (patch: Partial<typeof wa>) => update((c) => ({ ...c, whatsapp_button: { ...c.whatsapp_button, ...patch } }));
   const setUp = (patch: Partial<typeof up>) => update((c) => ({ ...c, thank_you_upsell: { ...c.thank_you_upsell, ...patch } }));
+  const ty = { ...DEFAULT_THANK_YOU_PAGE, ...(content.thank_you ?? {}) };
+  const setTy = (patch: Partial<typeof ty>) => update((c) => ({ ...c, thank_you: { ...DEFAULT_THANK_YOU_PAGE, ...(c.thank_you ?? {}), ...patch } }));
   const ab = settings.ab;
   const weightOf = (id: string) => ab.variants.find((v) => v.landing_id === id)?.weight;
   const toggleVariant = (id: string, on: boolean) => {
@@ -84,10 +87,40 @@ export function SalesPanel({
         ) : null}
       </Section>
 
+      <Section title="Página de gracias" hint="Lo que ve el cliente después de pedir. El mensaje de confirmación se cambia en Configuración → Tienda.">
+        <TextField label="Título" value={ty.title} onChange={(title) => setTy({ title: title.slice(0, 80) })} placeholder="¡Pedido recibido!" />
+        <ToggleField label="Botón de WhatsApp" checked={ty.whatsappEnabled} onChange={(whatsappEnabled) => setTy({ whatsappEnabled })} />
+        {ty.whatsappEnabled ? (
+          <>
+            {!storeWhatsapp ? (
+              <p className="rounded-md bg-amber-50 p-2 text-xs text-amber-800 dark:bg-amber-950 dark:text-amber-200">
+                Falta tu número de WhatsApp: sin él el botón no aparece.{" "}
+                <Link href="/dashboard/configuracion" className="underline">
+                  Agrégalo en Configuración
+                </Link>
+                .
+              </p>
+            ) : null}
+            <TextField label="Texto del botón" value={ty.whatsappText} onChange={(whatsappText) => setTy({ whatsappText: whatsappText.slice(0, 60) })} placeholder="Escríbenos por WhatsApp" />
+            <TextField label="Mensaje que se escribe solo" value={ty.whatsappMessage} onChange={(whatsappMessage) => setTy({ whatsappMessage: whatsappMessage.slice(0, 500) })} multiline />
+            <p className="-mt-1 text-xs text-muted-foreground">
+              Puedes usar <code>{"{tienda}"}</code>, <code>{"{pedido}"}</code> y <code>{"{producto}"}</code>: Vendia los cambia por el nombre de tu tienda, el número de
+              pedido y el producto.
+            </p>
+          </>
+        ) : null}
+      </Section>
+
       <Section title="Oferta en la página de gracias" hint="Después de pedir, el cliente puede sumar este producto a su MISMO pedido con un clic (hasta 30 min y antes de confirmar).">
         <ToggleField label="Mostrar la oferta" checked={up.enabled} onChange={(enabled) => setUp({ enabled })} />
         {up.enabled ? (
           <>
+            <TextField
+              label="Título de la tarjeta"
+              value={up.headline ?? DEFAULT_THANK_YOU_UPSELL.headline}
+              onChange={(headline) => setUp({ headline: headline.slice(0, 60) })}
+              placeholder="Oferta solo para ti, ahora"
+            />
             <TextField label="Nombre" value={up.name} onChange={(name) => setUp({ name })} placeholder="Segunda unidad a mitad de precio" />
             <div className="grid grid-cols-2 gap-3">
               <label className="flex flex-col gap-1.5 text-xs font-medium">
@@ -115,6 +148,7 @@ export function SalesPanel({
             </div>
             <TextField label="Texto" value={up.text} onChange={(text) => setUp({ text })} multiline />
             <TextField label="Texto del botón" value={up.buttonText} onChange={(buttonText) => setUp({ buttonText })} />
+            <ColorField label="Color de la tarjeta y del botón" value={up.color ?? DEFAULT_THANK_YOU_UPSELL.color} onChange={(color) => setUp({ color })} />
             <ProductLink value={up.productId} products={ctx.products ?? []} onChange={(productId) => setUp({ productId })} />
             {!up.productId ? (
               <label className="flex flex-col gap-1.5 text-xs font-medium">

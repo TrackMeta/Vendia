@@ -1,9 +1,11 @@
-import { CheckCircle2, MessageCircle } from "lucide-react";
+import { CheckCircle2 } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { normalizeContent } from "@/modules/landing/defaults";
+import { BrandIcon } from "@/components/brand-icons";
 import { publicUpsell } from "@/modules/landing/public-content";
+import { fillThankYouMessage } from "@/modules/landing/thank-you";
 import { getPublicLanding } from "@/modules/landing/public-data";
 import { UpsellOffer } from "./upsell-offer";
 
@@ -17,19 +19,20 @@ export default async function ThankYouPage({ params, searchParams }: PageProps<"
 
   const orderId = typeof o === "string" && /^[0-9a-f-]{36}$/i.test(o) ? o : null;
   // Sin el costo: la oferta va a un componente del navegador
-  const upsell = publicUpsell(normalizeContent(landing.landing.content).thank_you_upsell);
+  const content = normalizeContent(landing.landing.content);
+  const upsell = publicUpsell(content.thank_you_upsell);
+  const page = content.thank_you;
   const orderNumber = typeof pedido === "string" && /^\d{1,10}$/.test(pedido) ? pedido : null;
   const whatsapp = landing.store.whatsapp?.replace(/\D/g, "");
-  const waNumber = whatsapp ? (whatsapp.length === 9 ? `51${whatsapp}` : whatsapp) : null;
-  const waText = encodeURIComponent(
-    `Hola ${landing.store.name}, acabo de hacer el pedido${orderNumber ? ` #${orderNumber}` : ""} de ${landing.product.name}.`,
-  );
+  // Botón de WhatsApp: se puede apagar en la landing (Ventas → Página de gracias)
+  const waNumber = page.whatsappEnabled && whatsapp ? (whatsapp.length === 9 ? `51${whatsapp}` : whatsapp) : null;
+  const waText = encodeURIComponent(fillThankYouMessage(page.whatsappMessage, { store: landing.store.name, orderNumber, product: landing.product.name }));
 
   return (
     <main className="flex flex-1 items-center justify-center bg-zinc-50 px-4 py-12">
       <div className="flex w-full max-w-md flex-col items-center gap-4 rounded-2xl bg-white p-8 text-center shadow-sm">
         <CheckCircle2 className="size-16 text-green-600" />
-        <h1 className="text-2xl font-extrabold text-zinc-900">¡Pedido recibido!</h1>
+        <h1 className="text-2xl font-extrabold text-zinc-900">{page.title || "¡Pedido recibido!"}</h1>
         {orderNumber ? <p className="text-sm text-zinc-500">Número de pedido: #{orderNumber}</p> : null}
         <p className="whitespace-pre-line text-base text-zinc-700">{landing.store.confirmation_message}</p>
         {upsell.enabled && orderId ? <UpsellOffer upsell={upsell} orderId={orderId} landingId={landing.landing.id} /> : null}
@@ -40,7 +43,7 @@ export default async function ThankYouPage({ params, searchParams }: PageProps<"
             rel="noopener noreferrer"
             className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#25D366] px-4 py-3 font-bold text-white"
           >
-            <MessageCircle className="size-5" /> Escríbenos por WhatsApp
+            <BrandIcon name="whatsapp" className="size-6" /> {page.whatsappText || "Escríbenos por WhatsApp"}
           </a>
         ) : null}
         <Link href={`/p/${store}/${slug}`} className="text-sm text-zinc-500 underline underline-offset-4">

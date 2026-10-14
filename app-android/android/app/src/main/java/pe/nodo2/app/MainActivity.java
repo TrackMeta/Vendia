@@ -1,4 +1,4 @@
-package pe.vendia.app;
+package pe.nodo2.app;
 
 import android.os.Bundle;
 import android.view.ViewGroup.MarginLayoutParams;

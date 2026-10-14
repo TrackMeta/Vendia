@@ -1,12 +1,12 @@
 apply plugin: 'com.android.application'
 
 android {
-    namespace "pe.vendia.app"
+    namespace "pe.nodo2.app"
     // BuildConfig lo usa VendiaNativoPlugin (versión del APK); en AGP 8 viene apagado
     buildFeatures { buildConfig true }
     compileSdk rootProject.ext.compileSdkVersion
     defaultConfig {
-        applicationId "pe.vendia.app"
+        applicationId "pe.nodo2.app"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         // La versión la pone GitHub Actions (número de corrida); a mano queda 1 / 1.0

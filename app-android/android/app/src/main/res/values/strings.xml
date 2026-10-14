@@ -2,8 +2,8 @@
 <resources>
     <string name="app_name">Vendia</string>
     <string name="title_activity_main">Vendia</string>
-    <string name="package_name">pe.vendia.app</string>
-    <string name="custom_url_scheme">pe.vendia.app</string>
+    <string name="package_name">pe.nodo2.app</string>
+    <string name="custom_url_scheme">pe.nodo2.app</string>
     <string name="atajo_nuevo_pedido">Nuevo pedido</string>
     <string name="atajo_por_confirmar">Por confirmar</string>
 </resources>

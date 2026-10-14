@@ -9,8 +9,8 @@
         android:shortcutLongLabel="@string/atajo_nuevo_pedido">
         <intent
             android:action="android.intent.action.VIEW"
-            android:targetPackage="pe.vendia.app"
-            android:targetClass="pe.vendia.app.MainActivity"
+            android:targetPackage="pe.nodo2.app"
+            android:targetClass="pe.nodo2.app.MainActivity"
             android:data="https://vendia-theta.vercel.app/dashboard/pedidos/nuevo" />
     </shortcut>
     <shortcut
@@ -21,8 +21,8 @@
         android:shortcutLongLabel="@string/atajo_por_confirmar">
         <intent
             android:action="android.intent.action.VIEW"
-            android:targetPackage="pe.vendia.app"
-            android:targetClass="pe.vendia.app.MainActivity"
+            android:targetPackage="pe.nodo2.app"
+            android:targetClass="pe.nodo2.app.MainActivity"
             android:data="https://vendia-theta.vercel.app/dashboard/logistica?vista=confirmar" />
     </shortcut>
 </shortcuts>

@@ -1,6 +1,6 @@
 "use client";
 
-import { Bell, BellRing, Check, ShoppingBag, Trash2, X } from "lucide-react";
+import { Bell, BellRing, Check, ShoppingBag, Trash2, Volume2, VolumeX, X } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -9,6 +9,8 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { formatDateTime } from "@/lib/format";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
+import { playNotificationSound, playSound } from "@/modules/notifications/sound";
+import { useSoundPrefs } from "./sound-settings";
 
 type Notification = {
   id: string;
@@ -37,28 +39,6 @@ export async function dismissNotifications(storeId: string, ids: string[] | null
     return false;
   }
   return true;
-}
-
-/** Sonido corto generado (sin archivos): dos tonos. Los navegadores lo permiten tras la primera interacción. */
-function playChime() {
-  try {
-    const Ctx = window.AudioContext ?? (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
-    const ctx = new Ctx();
-    [880, 1320].forEach((freq, i) => {
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.frequency.value = freq;
-      osc.type = "sine";
-      const t = ctx.currentTime + i * 0.16;
-      gain.gain.setValueAtTime(0.0001, t);
-      gain.gain.exponentialRampToValueAtTime(0.25, t + 0.02);
-      gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.15);
-      osc.connect(gain).connect(ctx.destination);
-      osc.start(t);
-      osc.stop(t + 0.16);
-    });
-    setTimeout(() => void ctx.close(), 600);
-  } catch {}
 }
 
 function browserNotify(title: string, body: string | null, link: string | null) {
@@ -114,7 +94,7 @@ export function NotificationBell({ storeId, initialUnread }: { storeId: string; 
           const n = payload.new as Notification;
           setUnread((u) => u + 1);
           setItems((list) => (list ? [{ ...n, read: false }, ...list].slice(0, 15) : list));
-          playChime();
+          playNotificationSound(n.type === "new_order" ? "new_order" : "other");
           toast(n.title, {
             description: n.body ?? undefined,
             icon: <ShoppingBag className="size-4" />,
@@ -158,7 +138,7 @@ export function NotificationBell({ storeId, initialUnread }: { storeId: string; 
         notified.add(key);
         const title = `Toca llamar · #${o.order_number}`;
         const body = `${o.customer_name} pidió que lo llamen a las ${formatDateTime(o.next_contact_at)}.`;
-        playChime();
+        playNotificationSound("other");
         toast(title, { description: body, action: { label: "Ver", onClick: () => router.push(`/dashboard/pedidos/${o.id}`) }, duration: 12000 });
         if (document.visibilityState !== "visible") browserNotify(title, body, `/dashboard/pedidos/${o.id}`);
       }
@@ -191,12 +171,15 @@ export function NotificationBell({ storeId, initialUnread }: { storeId: string; 
     router.refresh();
   };
 
+  // Sonido de esta persona: se silencia rápido desde la campanita (los ajustes están en Notificaciones)
+  const [sound, setSound] = useSoundPrefs();
+
   const enableBrowser = async () => {
     if (typeof Notification === "undefined") return;
     const result = await Notification.requestPermission();
     setPermission(result);
     if (result === "granted") {
-      playChime();
+      playSound(sound.sound, sound.volume);
       browserNotify("Avisos activados", "Te avisaremos de cada pedido nuevo mientras Vendia esté abierta.", null);
     }
   };
@@ -219,7 +202,18 @@ export function NotificationBell({ storeId, initialUnread }: { storeId: string; 
       </PopoverTrigger>
       <PopoverContent align="end" className="w-80 p-0">
         <div className="flex items-center justify-between border-b px-3 py-2">
-          <p className="text-sm font-semibold">Notificaciones</p>
+          <p className="flex items-center gap-1.5 text-sm font-semibold">
+            Notificaciones
+            <button
+              type="button"
+              onClick={() => setSound({ ...sound, enabled: !sound.enabled })}
+              aria-label={sound.enabled ? "Silenciar el sonido de los avisos" : "Activar el sonido de los avisos"}
+              title={sound.enabled ? "Sonido activado (toca para silenciar)" : "Sonido silenciado (toca para activar)"}
+              className="rounded-md p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+            >
+              {sound.enabled ? <Volume2 className="size-4" /> : <VolumeX className="size-4" />}
+            </button>
+          </p>
           <span className="flex items-center gap-3">
             {unread ? (
               <button type="button" onClick={markAllRead} className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground">

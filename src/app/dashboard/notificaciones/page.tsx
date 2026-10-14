@@ -6,6 +6,7 @@ import { requireStore } from "@/lib/auth";
 import { formatDateTime } from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
 import { cn } from "@/lib/utils";
+import { SoundSettings } from "@/components/dashboard/sound-settings";
 import { DismissAllButton, DismissButton, MarkAllReadButton } from "./mark-all-read";
 
 export const metadata: Metadata = { title: "Notificaciones" };
@@ -45,6 +46,7 @@ export default async function NotificationsPage() {
           ) : null
         }
       />
+      <SoundSettings />
       {!list?.length ? (
         <EmptyState icon={Bell} title="Sin notificaciones" description="Aquí verás cada pedido nuevo y los avisos importantes de tu tienda." />
       ) : (

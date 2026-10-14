@@ -104,7 +104,6 @@ function BottomNav({ isOwner, onMore }: { isOwner: boolean; onMore: () => void }
 export function DashboardShell({
   children,
   storeName,
-  storeSlug,
   userEmail,
   blocked,
   storeId,
@@ -116,7 +115,6 @@ export function DashboardShell({
 }: {
   children: React.ReactNode;
   storeName: string;
-  storeSlug: string;
   userEmail: string;
   blocked: boolean;
   storeId: string;
@@ -157,7 +155,7 @@ export function DashboardShell({
           </Link>
           {isDesktop === true ? bell : null}
         </div>
-        <StoreSwitcher current={storeId} currentName={storeName} currentLogo={storeLogo} slug={storeSlug} isOwner={isOwner} stores={stores} />
+        <StoreSwitcher current={storeId} currentName={storeName} currentLogo={storeLogo} isOwner={isOwner} stores={stores} />
         <SearchButton onOpen={openSearch} />
       </div>
       <div className="vd-sidebar-scroll flex-1 overflow-y-auto pr-1.5 pb-3 pl-3">

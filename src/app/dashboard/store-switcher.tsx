@@ -30,8 +30,6 @@ function StoreAvatar({ name, logo, className }: { name: string; logo: string | n
   );
 }
 
-const siteHost = (process.env.NEXT_PUBLIC_SITE_URL ?? "").replace(/^https?:\/\//, "").replace(/\/$/, "");
-
 /**
  * Selector de tienda (arriba del menú). Un usuario puede tener varias tiendas propias y ser
  * Confirmador en otras; todo el panel muestra solo la tienda elegida aquí.
@@ -40,14 +38,12 @@ export function StoreSwitcher({
   current,
   currentName,
   currentLogo,
-  slug,
   isOwner,
   stores,
 }: {
   current: string;
   currentName: string;
   currentLogo: string | null;
-  slug: string;
   isOwner: boolean;
   stores: StoreOption[];
 }) {
@@ -90,14 +86,6 @@ export function StoreSwitcher({
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
-      {/* Dirección pública: la base de todas las landings de esta tienda */}
-      <Link
-        href={isOwner ? "/dashboard/landings" : "/dashboard/pedidos"}
-        title="Dirección de tu tienda: tus landings se publican debajo de ella"
-        className="truncate rounded-md px-1.5 py-0.5 text-xs text-muted-foreground transition-colors hover:text-white"
-      >
-        {siteHost ? `${siteHost}/p/${slug}` : `/p/${slug}`}
-      </Link>
     </div>
   );
 }

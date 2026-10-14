@@ -19,7 +19,6 @@ export default async function DashboardLayout({ children }: LayoutProps<"/dashbo
   return (
     <DashboardShell
       storeName={store.name}
-      storeSlug={store.slug}
       userEmail={user.email ?? ""}
       blocked={store.status === "blocked"}
       storeId={store.id}

@@ -1,7 +1,7 @@
 "use client";
 
-import { Play, Volume2, VolumeX } from "lucide-react";
-import { useMemo, useSyncExternalStore } from "react";
+import { ChevronDown, Play, Volume2, VolumeX } from "lucide-react";
+import { useMemo, useState, useSyncExternalStore } from "react";
 import { AppSelect } from "@/components/dashboard/app-select";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
@@ -47,25 +47,42 @@ function subscribe(onChange: () => void) {
   };
 }
 
-/** Ajustes del sonido de los avisos (página Notificaciones). */
+/** Ajustes del sonido de los avisos (página Notificaciones). Plegada: título, resumen e interruptor. */
 export function SoundSettings() {
   const [prefs, update, ready] = useSoundPrefs();
+  const [open, setOpen] = useState(false);
   const set = (patch: Partial<SoundPrefs>) => update({ ...prefs, ...patch });
+  const summary = prefs.enabled
+    ? `${SOUNDS[prefs.sound]} · volumen ${VOLUMES[prefs.volume].toLowerCase()}${prefs.onlyOrders ? " · solo pedidos nuevos" : ""}`
+    : "Silenciado";
 
   return (
-    <section className="flex flex-col gap-4 rounded-xl bg-card p-4 ring-1 ring-foreground/10">
-      <div className="flex items-start justify-between gap-3">
-        <div className="flex flex-col gap-0.5">
-          <h2 className="flex items-center gap-2 text-sm font-semibold">
-            {prefs.enabled ? <Volume2 className="size-4" aria-hidden /> : <VolumeX className="size-4 text-muted-foreground" aria-hidden />}
-            Sonido de los avisos
-          </h2>
-          <p className="text-xs text-muted-foreground">Suena cuando llega un aviso con Vendia abierta. Se guarda en este celular o computadora: cada persona elige el suyo.</p>
-        </div>
+    <section className="flex flex-col rounded-xl bg-card ring-1 ring-foreground/10">
+      <div className="flex items-center gap-3 p-4">
+        <button
+          type="button"
+          onClick={() => setOpen((o) => !o)}
+          aria-expanded={open}
+          aria-controls="ajustes-sonido"
+          className="flex min-w-0 flex-1 items-center gap-2 text-left"
+        >
+          {prefs.enabled ? <Volume2 className="size-4 shrink-0" aria-hidden /> : <VolumeX className="size-4 shrink-0 text-muted-foreground" aria-hidden />}
+          <span className="flex min-w-0 flex-col">
+            <span className="text-sm font-semibold">Sonido de los avisos</span>
+            <span className="truncate text-xs text-muted-foreground">{ready ? summary : "…"}</span>
+          </span>
+          <ChevronDown className={cn("ml-auto size-4 shrink-0 text-muted-foreground transition-transform", open && "rotate-180")} aria-hidden />
+        </button>
         <Switch checked={prefs.enabled} onCheckedChange={(enabled) => set({ enabled })} aria-label="Sonido de los avisos" disabled={!ready} />
       </div>
 
-      <div className={cn("flex flex-col gap-4", !prefs.enabled && "pointer-events-none opacity-50")} aria-disabled={!prefs.enabled}>
+      <div
+        id="ajustes-sonido"
+        hidden={!open}
+        className={cn("flex flex-col gap-4 border-t px-4 pt-4 pb-4", !prefs.enabled && "pointer-events-none opacity-50")}
+        aria-disabled={!prefs.enabled}
+      >
+        <p className="text-xs text-muted-foreground">Suena cuando llega un aviso con Vendia abierta. Se guarda en este celular o computadora: cada persona elige el suyo.</p>
         <div className="flex flex-wrap items-end gap-2">
           <label className="flex min-w-48 flex-1 flex-col gap-1.5 text-xs font-medium">
             Sonido

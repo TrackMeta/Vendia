@@ -1,0 +1,78 @@
+# Arma el APK de Vendia (Android) en la nube y lo publica para descargar. Se corre a mano
+# (Actions → «APK de Vendia» → Run workflow) o solo cuando cambia algo de app-android/. La web (el panel)
+# NO necesita un APK nuevo: se actualiza sola con cada deploy de Vercel, porque el APK la carga desde ahí.
+#
+# Descarga fija (siempre el último): https://github.com/TrackMeta/Vendia/releases/latest/download/Vendia.apk
+#
+# Secretos (Settings → Secrets and variables → Actions), todos opcionales:
+#   GOOGLE_SERVICES_JSON  → contenido de google-services.json de Firebase (activa los avisos con la app cerrada)
+#   ANDROID_KEYSTORE_B64  → la llave de firma en base64 (sin ella sale un APK de prueba, que para actualizar
+#   ANDROID_KEYSTORE_PASS    hay que desinstalar el anterior)
+#   ANDROID_KEY_ALIAS
+#   ANDROID_KEY_PASS
+name: APK de Vendia
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ["app-android/**", ".github/workflows/apk.yml"]
+permissions:
+  contents: write
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      VERSION: 1.0.${{ github.run_number }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with: { node-version: 20 }
+      - uses: actions/setup-java@v5
+        with: { distribution: temurin, java-version: 21 }
+      - name: Dependencias
+        working-directory: app-android
+        run: npm ci
+      - name: Firebase (si está el secreto)
+        env: { GSJ: "${{ secrets.GOOGLE_SERVICES_JSON }}" }
+        run: |
+          if [ -n "$GSJ" ]; then printf '%s' "$GSJ" > app-android/android/app/google-services.json; echo "FIREBASE=si" >> "$GITHUB_ENV"; echo "con Firebase"; else echo "FIREBASE=no" >> "$GITHUB_ENV"; echo "sin Firebase: los avisos con la app cerrada quedan apagados"; fi
+      - name: Llave de firma (si está el secreto)
+        env: { KS: "${{ secrets.ANDROID_KEYSTORE_B64 }}" }
+        run: |
+          if [ -n "$KS" ]; then echo "$KS" | base64 -d > "$RUNNER_TEMP/vendia.keystore"; echo "VENDIA_KEYSTORE=$RUNNER_TEMP/vendia.keystore" >> "$GITHUB_ENV"; echo "con firma propia"; else echo "sin llave: APK de prueba (firma de depuración)"; fi
+      - name: Sincronizar Capacitor
+        working-directory: app-android
+        run: npx cap sync android 2>&1 | tee $RUNNER_TEMP/sync.log; test ${PIPESTATUS[0]} -eq 0 || { tail -25 $RUNNER_TEMP/sync.log | while IFS= read -r l; do echo "::error::$l"; done; exit 1; }
+      - name: Compilar
+        working-directory: app-android/android
+        env:
+          VENDIA_VERSION_CODE: ${{ github.run_number }}
+          VENDIA_VERSION_NAME: 1.0.${{ github.run_number }}
+          VENDIA_KEYSTORE_PASS: ${{ secrets.ANDROID_KEYSTORE_PASS }}
+          VENDIA_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          VENDIA_KEY_PASS: ${{ secrets.ANDROID_KEY_PASS }}
+        run: |
+          chmod +x gradlew
+          # Si falla, las líneas del error salen como anotaciones (se ven sin iniciar sesión en GitHub)
+          falla() { grep -E "error|What went wrong|FAILURE|e: |Could not|> " "$RUNNER_TEMP/gradle.log" | tail -30 | while IFS= read -r l; do echo "::error::$l"; done; exit 1; }
+          if [ -n "$VENDIA_KEYSTORE" ]; then ./gradlew --no-daemon assembleRelease > "$RUNNER_TEMP/gradle.log" 2>&1 || falla; cp app/build/outputs/apk/release/app-release.apk "$RUNNER_TEMP/Vendia.apk"; echo "FIRMADA=si" >> "$GITHUB_ENV"
+          else ./gradlew --no-daemon assembleDebug > "$RUNNER_TEMP/gradle.log" 2>&1 || falla; cp app/build/outputs/apk/debug/app-debug.apk "$RUNNER_TEMP/Vendia.apk"; echo "FIRMADA=no" >> "$GITHUB_ENV"; fi
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Vendia-APK-${{ env.VERSION }}
+          path: ${{ runner.temp }}/Vendia.apk
+          retention-days: 30
+      # Publica la versión: el enlace .../releases/latest/download/Vendia.apk siempre baja la última
+      - name: Publicar para descargar
+        if: github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          TAG="app-v$VERSION"
+          if [ "$FIRMADA" = "si" ]; then F="APK firmado: se instala encima del anterior (actualiza sin borrar nada)."; else F="APK de prueba (sin firma propia): para instalarlo hay que desinstalar el anterior."; fi
+          if [ "$FIREBASE" = "si" ]; then A="Con Firebase: llegan avisos aunque la app esté cerrada."; else A="Sin Firebase: los avisos solo llegan con la app abierta."; fi
+          NOTAS=$(printf 'Vendia %s para Android.\n\n- %s\n- %s\n\nDescarga siempre la última: https://github.com/%s/releases/latest/download/Vendia.apk' "$VERSION" "$F" "$A" "$GH_REPO")
+          if gh release view "$TAG" > /dev/null 2>&1; then gh release upload "$TAG" "$RUNNER_TEMP/Vendia.apk" --clobber
+          else gh release create "$TAG" "$RUNNER_TEMP/Vendia.apk" --title "Vendia $VERSION" --notes "$NOTAS" --target "$GITHUB_SHA" --latest; fi

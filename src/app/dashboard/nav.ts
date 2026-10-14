@@ -9,6 +9,7 @@ import {
   Receipt,
   Settings,
   ShoppingBag,
+  Smartphone,
   TrendingUp,
   Trophy,
   Truck,
@@ -76,6 +77,9 @@ export const NAV_GROUPS: NavGroup[] = [
 ];
 
 export const HELP_ITEM: NavItem = { href: "/dashboard/ayuda", label: "Ayuda", icon: LifeBuoy, keywords: "soporte guia" };
+
+/** «Descarga la app»: se esconde dentro de la propia app de celular. */
+export const APP_ITEM: NavItem = { href: "/dashboard/app", label: "App de celular", icon: Smartphone, keywords: "android apk descargar instalar avisos" };
 
 export function visibleGroups(isOwner: boolean): NavGroup[] {
   return NAV_GROUPS.map((g) => ({ ...g, items: g.items.filter((i) => (isOwner ? !i.staffOnly : !i.ownerOnly)) })).filter((g) => g.items.length > 0);

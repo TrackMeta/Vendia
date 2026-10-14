@@ -627,6 +627,30 @@ async function main() {
 
   const totals = (await step("gastos del periodo", `select public.get_expense_totals('${storeId}', current_date - 3, current_date + 1)`)) as Record<string, number>;
   expect("gastos se calculan", typeof totals === "object");
+
+  console.log("\n— App de celular (Bloque 16) —");
+  const fcmToken = "tok_" + "x".repeat(40);
+  await step(
+    "registrar este celular",
+    `select public.register_push_device('${fcmToken}', 'Pixel', '1.0', 'caja', true, true, array['${storeId}'::uuid, gen_random_uuid()])`,
+  );
+  const dev = (await db.query<{ s: string; o: boolean; m: string[] }>(`select sound as s, only_orders as o, muted_store_ids::text[] as m from public.push_devices where token = '${fcmToken}'`)).rows[0];
+  expect("guarda sonido y tiendas (solo las suyas)", dev.s === "caja" && dev.o === true && dev.m.length === 1 && dev.m[0] === storeId, JSON.stringify(dev));
+  await step("volver a registrarlo lo actualiza", `select public.register_push_device('${fcmToken}', null, null, 'nada-raro', false, false, '{}')`);
+  const dev2 = (await db.query<{ s: string; e: boolean; model: string }>(`select sound as s, sound_enabled as e, model from public.push_devices where token = '${fcmToken}'`)).rows[0];
+  expect("un sonido inventado vuelve a ding-dong y conserva el modelo", dev2.s === "dingdong" && dev2.e === false && dev2.model === "Pixel", JSON.stringify(dev2));
+  await step(
+    "una notificación nueva no falla sin pg_net",
+    `insert into public.notifications (store_id, type, title) values ('${storeId}', 'new_order', 'Pedido nuevo') returning id`,
+  );
+  const pushToken = (await db.query<{ v: string }>("select value as v from public.app_internal where key = 'push_token'")).rows[0]?.v ?? "";
+  expect("la base genera su llave de avisos", pushToken.length >= 32);
+  try {
+    await db.query(`select public.register_push_device('corto')`);
+    expect("un token corto se rechaza", false);
+  } catch {
+    expect("un token corto se rechaza", true);
+  }
   console.log("\nOK — prueba de humo completa");
 }
 

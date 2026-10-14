@@ -38,3 +38,14 @@ supabase/.branches/
 
 # Archivos originales de íconos (las versiones optimizadas están en public/brands)
 /Recursos Iconos/
+
+# App de celular (APK): dependencias, compilados, llaves y config de Firebase NUNCA en el repo (es público)
+app-android/node_modules/
+app-android/android/app/google-services.json
+app-android/android/app/build/
+app-android/android/.gradle/
+app-android/android/build/
+*.keystore
+*.jks
+# Llave de firma del APK y sus datos (solo en la compu de Rodrigo; ver app-android/LEEME.md)
+.llaves-app/

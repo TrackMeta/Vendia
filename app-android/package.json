@@ -1,0 +1,21 @@
+{
+  "name": "vendia-app-android",
+  "version": "1.0.0",
+  "private": true,
+  "description": "APK de Vendia: envoltorio Capacitor que carga el panel web (/dashboard) desde Vercel",
+  "scripts": {
+    "sync": "cap sync android",
+    "iconos": "node tools-iconos.mjs",
+    "sonidos": "node tools-sonidos.mjs"
+  },
+  "dependencies": {
+    "@capacitor/android": "^7.6.9",
+    "@capacitor/app": "^7.1.2",
+    "@capacitor/core": "^7.6.9",
+    "@capacitor/push-notifications": "^7.0.7",
+    "@capacitor/status-bar": "^7.0.6"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^7.6.9"
+  }
+}

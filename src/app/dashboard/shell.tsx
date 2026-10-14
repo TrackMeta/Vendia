@@ -10,8 +10,10 @@ import { NotificationBell } from "@/components/dashboard/notifications";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import type { ThemePref } from "@/lib/theme";
 import { cn } from "@/lib/utils";
+import { forgetPushDevice } from "@/modules/app-native/push";
 import { CommandMenu, SearchButton } from "./command-menu";
-import { HELP_ITEM, isActive, type NavItem, visibleGroups } from "./nav";
+import { isNativeApp } from "@/modules/app-native/client";
+import { APP_ITEM, HELP_ITEM, isActive, type NavItem, visibleGroups } from "./nav";
 import { StoreSwitcher } from "./store-switcher";
 import { ThemeToggle, useEffectiveDark } from "./theme-toggle";
 
@@ -139,6 +141,12 @@ export function DashboardShell({
     () => window.matchMedia("(min-width: 768px)").matches,
     () => null,
   );
+  // Dentro de la app de celular no se ofrece descargarla
+  const inApp = useSyncExternalStore(
+    () => () => {},
+    isNativeApp,
+    () => null,
+  );
   const bell = <NotificationBell storeId={storeId} initialUnread={unread} />;
   const openSearch = () => {
     setOpen(false);
@@ -162,12 +170,19 @@ export function DashboardShell({
         <Nav onNavigate={() => setOpen(false)} isOwner={isOwner} />
       </div>
       <div className="flex flex-col gap-0.5 border-t border-sidebar-border p-3">
+        {inApp === false ? <NavLink item={APP_ITEM} onNavigate={() => setOpen(false)} /> : null}
         <NavLink item={HELP_ITEM} onNavigate={() => setOpen(false)} />
         <div className="px-3 pt-1 pb-1">
           <ThemeToggle value={themePref} onChange={setThemePref} />
         </div>
         <p className="truncate px-3 text-xs text-muted-foreground">{userEmail}</p>
-        <form action={logout}>
+        <form
+          action={async () => {
+            // En la app de celular: este celular deja de recibir avisos de esta cuenta
+            await forgetPushDevice();
+            await logout();
+          }}
+        >
           <button
             type="submit"
             className="flex w-full items-center gap-3 rounded-md px-3 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-white/[0.06] hover:text-white"

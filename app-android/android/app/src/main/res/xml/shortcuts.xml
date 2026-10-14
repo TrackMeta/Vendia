@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Atajos del ícono (mantener presionado). La app web los recibe por App «appUrlOpen» y navega. -->
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+    <shortcut
+        android:shortcutId="nuevo_pedido"
+        android:enabled="true"
+        android:icon="@drawable/ic_atajo_nuevo"
+        android:shortcutShortLabel="@string/atajo_nuevo_pedido"
+        android:shortcutLongLabel="@string/atajo_nuevo_pedido">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:targetPackage="pe.vendia.app"
+            android:targetClass="pe.vendia.app.MainActivity"
+            android:data="https://vendia-theta.vercel.app/dashboard/pedidos/nuevo" />
+    </shortcut>
+    <shortcut
+        android:shortcutId="por_confirmar"
+        android:enabled="true"
+        android:icon="@drawable/ic_atajo_confirmar"
+        android:shortcutShortLabel="@string/atajo_por_confirmar"
+        android:shortcutLongLabel="@string/atajo_por_confirmar">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:targetPackage="pe.vendia.app"
+            android:targetClass="pe.vendia.app.MainActivity"
+            android:data="https://vendia-theta.vercel.app/dashboard/logistica?vista=confirmar" />
+    </shortcut>
+</shortcuts>

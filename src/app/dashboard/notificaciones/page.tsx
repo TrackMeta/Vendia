@@ -2,10 +2,11 @@ import { Bell } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { EmptyState, PageHeader } from "@/components/dashboard/page-header";
-import { requireStore } from "@/lib/auth";
+import { getMyStores, requireStore } from "@/lib/auth";
 import { formatDateTime } from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
 import { cn } from "@/lib/utils";
+import { PhoneAlerts } from "@/components/dashboard/phone-alerts";
 import { SoundSettings } from "@/components/dashboard/sound-settings";
 import { DismissAllButton, DismissButton, MarkAllReadButton } from "./mark-all-read";
 
@@ -25,9 +26,10 @@ const TYPE_LABEL: Record<string, string> = {
 export default async function NotificationsPage() {
   const { user, store } = await requireStore();
   const supabase = await createClient();
-  const [{ data: list }, { data: reads }] = await Promise.all([
+  const [{ data: list }, { data: reads }, myStores] = await Promise.all([
     supabase.from("notifications").select("id, type, title, body, link, created_at").eq("store_id", store.id).order("created_at", { ascending: false }).limit(100),
     supabase.from("notification_reads").select("notification_id").eq("user_id", user.id).limit(1000),
+    getMyStores(),
   ]);
   const readSet = new Set((reads ?? []).map((r) => r.notification_id));
   const unread = (list ?? []).filter((n) => !readSet.has(n.id)).length;
@@ -47,6 +49,7 @@ export default async function NotificationsPage() {
         }
       />
       <SoundSettings />
+      <PhoneAlerts stores={myStores.map((s) => ({ id: s.id, name: s.name }))} />
       {!list?.length ? (
         <EmptyState icon={Bell} title="Sin notificaciones" description="Aquí verás cada pedido nuevo y los avisos importantes de tu tienda." />
       ) : (

@@ -8,7 +8,7 @@ import { Command, CommandDialog, CommandEmpty, CommandGroup, CommandInput, Comma
 import { formatMoney } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { displayPhone } from "@/modules/country";
-import { HELP_ITEM, visibleGroups } from "./nav";
+import { APP_ITEM, HELP_ITEM, visibleGroups } from "./nav";
 import { quickSearch, type SearchResult } from "./search-actions";
 
 const EMPTY: SearchResult = { orders: [], customers: [] };
@@ -87,7 +87,7 @@ export function CommandMenu({ open, onOpenChange, isOwner }: { open: boolean; on
   const term = fold(query.trim());
   const searching = term.length >= 2;
   const shown = searching ? results : EMPTY;
-  const sections = [...visibleGroups(isOwner).flatMap((g) => g.items), HELP_ITEM].filter(
+  const sections = [...visibleGroups(isOwner).flatMap((g) => g.items), HELP_ITEM, APP_ITEM].filter(
     (i) => !term || fold(`${i.label} ${i.keywords ?? ""}`).includes(term),
   );
   const nothing = searching && !pending && !shown.orders.length && !shown.customers.length && !sections.length;

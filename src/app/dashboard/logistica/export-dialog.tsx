@@ -12,6 +12,7 @@ import { formatDateTime } from "@/lib/format";
 import { buildCourierFile, COURIERS, reviewExport, toCourierOrder } from "@/modules/couriers";
 import { type ExportOrder, getBatchExport, getExportOrders, reserveExport } from "./actions";
 import { CourierIcon } from "@/components/brand-icons";
+import { mimeFor, saveFile } from "@/modules/app-native/files";
 
 export type StoreCourier = {
   courier_id: string;
@@ -21,24 +22,13 @@ export type StoreCourier = {
   origin_agency: string | null;
 };
 
-function download(bytes: Uint8Array, fileName: string) {
-  const url = URL.createObjectURL(new Blob([bytes as BlobPart], { type: "application/octet-stream" }));
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = fileName;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 3000);
-}
-
 async function generate(courierId: string, orders: ExportOrder[], originAgency: string | null) {
   const def = COURIERS[courierId];
   if (!def?.template) throw new Error(`${def?.name ?? courierId} todavía no tiene plantilla.`);
   const res = await fetch(`/couriers/${def.template}`);
   if (!res.ok) throw new Error(`No se pudo cargar la plantilla de ${def.name}.`);
   const out = await buildCourierFile(courierId, orders.map(toCourierOrder), await res.arrayBuffer(), { originAgency });
-  download(out.bytes, out.fileName);
+  await saveFile(out.bytes, out.fileName, mimeFor(out.fileName));
   return out.rows;
 }
 

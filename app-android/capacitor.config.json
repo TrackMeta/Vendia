@@ -1,0 +1,30 @@
+{
+  "appId": "pe.vendia.app",
+  "appName": "Vendia",
+  "webDir": "www",
+  "server": {
+    "url": "https://vendia-theta.vercel.app/dashboard",
+    "androidScheme": "https",
+    "errorPath": "offline.html",
+    "allowNavigation": ["vendia-theta.vercel.app"]
+  },
+  "android": {
+    "allowMixedContent": false,
+    "backgroundColor": "#FFFFFF",
+    "adjustMarginsForEdgeToEdge": "force"
+  },
+  "plugins": {
+    "PushNotifications": {
+      "presentationOptions": [
+        "badge",
+        "sound",
+        "alert"
+      ]
+    },
+    "StatusBar": {
+      "overlaysWebView": false,
+      "style": "LIGHT",
+      "backgroundColor": "#FFFFFF"
+    }
+  }
+}

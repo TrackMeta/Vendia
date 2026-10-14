@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { ErrorListener } from "@/components/error-listener";
+import { NativeBridge } from "@/components/native-bridge";
 import { Toaster } from "@/components/ui/sonner";
 import "./globals.css";
 
@@ -43,6 +44,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         {children}
         <Toaster richColors position="top-center" />
         <ErrorListener />
+        <NativeBridge />
       </body>
     </html>
   );

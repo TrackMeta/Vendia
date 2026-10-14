@@ -240,7 +240,7 @@ export function LogisticsTable({
         ) : null}
         {view === "despachar" ? (
           <>
-            <form method="post" action="/dashboard/logistica/exportar" className={cn("shrink-0", general)}>
+            <form method="post" action="/dashboard/logistica/exportar" data-download="pedidos.csv" className={cn("shrink-0", general)}>
               {targetIds.map((id) => (
                 <input key={id} type="hidden" name="ids" value={id} />
               ))}

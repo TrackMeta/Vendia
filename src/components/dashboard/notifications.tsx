@@ -23,6 +23,12 @@ type Notification = {
 };
 
 export const ORDERS_CHANGED_EVENT = "vendia:orders-changed";
+/** Se marcaron como leídas o se borraron notificaciones (p. ej. desde la página Notificaciones): la campanita se pone al día. */
+export const NOTIFICATIONS_CHANGED_EVENT = "vendia:notifications-changed";
+
+export function notifyNotificationsChanged() {
+  window.dispatchEvent(new Event(NOTIFICATIONS_CHANGED_EVENT));
+}
 
 /**
  * Borra notificaciones (una, varias o todas con `ids = null`). Solo se ocultan para quien las
@@ -38,6 +44,7 @@ export async function dismissNotifications(storeId: string, ids: string[] | null
     );
     return false;
   }
+  notifyNotificationsChanged();
   return true;
 }
 
@@ -116,6 +123,17 @@ export function NotificationBell({ storeId, initialUnread }: { storeId: string; 
       void supabase.removeChannel(channel);
     };
   }, [storeId, router]);
+
+  // Marcadas o borradas en otra parte (página Notificaciones): número y lista al día
+  useEffect(() => {
+    const onChange = async () => {
+      const { data } = await createClient().rpc("unread_notifications_count", { p_store_id: storeId });
+      if (typeof data === "number") setUnread(data);
+      if (items) void loadItems();
+    };
+    window.addEventListener(NOTIFICATIONS_CHANGED_EVENT, onChange);
+    return () => window.removeEventListener(NOTIFICATIONS_CHANGED_EVENT, onChange);
+  }, [storeId, items, loadItems]);
 
   // Recordatorios de «llamar después»
   useEffect(() => {

@@ -3,7 +3,7 @@
 import { Check, Trash2, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
-import { dismissNotifications } from "@/components/dashboard/notifications";
+import { dismissNotifications, notifyNotificationsChanged } from "@/components/dashboard/notifications";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -28,6 +28,7 @@ export function MarkAllReadButton({ storeId }: { storeId: string }) {
       onClick={() =>
         startTransition(async () => {
           await createClient().rpc("mark_notifications_read", { p_store_id: storeId, p_ids: null });
+          notifyNotificationsChanged();
           router.refresh();
         })
       }

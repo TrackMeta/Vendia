@@ -57,8 +57,8 @@ type ViewTransitionDoc = Document & {
 };
 
 /**
- * Cambia de tema con un círculo que nace del botón tocado (View Transitions), en la computadora y en
- * el celular. `apply` cambia las clases del tema directo en la página (sin esperar a React): así la
+ * Cambia de tema con un círculo que nace del botón tocado (View Transitions), solo en la computadora
+ * (en el celular no iba fluido: ahí cambia directo, ver ThemeToggle). `apply` cambia las clases del tema directo en la página (sin esperar a React): así la
  * foto «nueva» está lista al instante y el círculo arranca enseguida.
  * Sin View Transitions (navegadores viejos) o con «reducir movimiento»: directo.
  */
@@ -165,12 +165,11 @@ export function ThemeToggle({ value, onChange, light = false }: { value: ThemePr
               if (window.matchMedia("(pointer: coarse)").matches) {
                 setMoving(o.value);
                 if (timer.current) clearTimeout(timer.current);
-                // Cuando la píldora llega, el tema nuevo nace en un círculo desde el botón
+                // Cuando la píldora llega, los colores cambian de una vez (el círculo no iba fluido en el celular)
                 timer.current = setTimeout(() => {
-                  switchTheme(() => {
-                    apply();
-                    setMoving(null);
-                  }, target);
+                  apply();
+                  setMoving(null);
+                  window.setTimeout(() => window.dispatchEvent(new Event(THEME_EVENT)), 60);
                 }, 240);
                 return;
               }

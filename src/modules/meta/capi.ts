@@ -161,7 +161,7 @@ export async function sendMarketingEvent(admin: SupabaseClient, marketingEventId
       body: JSON.stringify({
         data: [payload],
         access_token: token,
-        ...(settings.test_event_code ? { test_event_code: settings.test_event_code } : {}),
+        // Los eventos reales nunca llevan el código de prueba (solo el botón «Enviar evento de prueba»)
       }),
       signal: AbortSignal.timeout(10_000),
     });

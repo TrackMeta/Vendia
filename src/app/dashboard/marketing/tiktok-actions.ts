@@ -95,7 +95,10 @@ export async function sendTikTokTestEvent(): Promise<ActionResult> {
     });
     const json = (await res.json().catch(() => ({}))) as { code?: number; message?: string };
     if (!res.ok || (json.code !== undefined && json.code !== 0)) return { ok: false, error: `TikTok respondió: ${json.message ?? `HTTP ${res.status}`}` };
-    return { ok: true, message: "TikTok recibió el evento de prueba. Revísalo en Events Manager → Probar eventos." };
+    // El código de prueba sirve una sola vez: se borra para que nunca quede puesto por error
+    await createAdminClient().from("store_tiktok_settings").update({ test_event_code: null }).eq("store_id", store.id);
+    revalidatePath("/dashboard/marketing");
+    return { ok: true, message: "TikTok recibió el evento de prueba. Revísalo en Events Manager → Probar eventos. El código de prueba se borró solo." };
   } catch {
     return { ok: false, error: "No se pudo conectar con TikTok" };
   }

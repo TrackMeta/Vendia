@@ -91,7 +91,7 @@ export function TikTokSettingsForm({
               <div className="flex flex-col gap-1.5">
                 <Label htmlFor="tt-test">Código de prueba (opcional)</Label>
                 <Input id="tt-test" name="test_event_code" defaultValue={initial.test_event_code} placeholder="TEST12345" className="max-w-60" />
-                <p className="text-xs text-muted-foreground">Mientras esté puesto, los eventos van a «Probar eventos» de TikTok. Quítalo al terminar.</p>
+                <p className="text-xs text-muted-foreground">Solo para el botón de prueba: se usa una vez y se borra solo. Tus pedidos y ventas reales nunca van a «Probar eventos».</p>
               </div>
               <div className="flex flex-col gap-2 text-sm">
                 <label className="flex items-center gap-2">

@@ -51,7 +51,7 @@ export function MetaSettingsForm({
           <div className="flex flex-col gap-2">
             <Label htmlFor="test_event_code">Código de prueba (opcional)</Label>
             <Input id="test_event_code" name="test_event_code" defaultValue={initial.test_event_code} placeholder="TEST12345" />
-            <p className="text-xs text-muted-foreground">Mientras esté puesto, los eventos van a «Probar eventos». Quítalo al terminar de probar.</p>
+            <p className="text-xs text-muted-foreground">Solo para el botón «Enviar evento de prueba»: se usa una vez y se borra solo. Tus pedidos y ventas reales nunca van a «Probar eventos».</p>
           </div>
           <div className="flex flex-col gap-2 sm:col-span-2">
             <Label htmlFor="token">Token de acceso de Conversions API</Label>

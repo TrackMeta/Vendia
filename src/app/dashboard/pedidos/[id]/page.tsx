@@ -25,7 +25,9 @@ import { itemLabel, type VariantBreakdown } from "@/modules/orders/items";
 import { mapsLink } from "@/modules/orders/location";
 import { type PaymentKind, type PaymentMethod, RECEIPTS_BUCKET } from "@/modules/orders/payments";
 import { ORDER_STATUS_LABELS, type OrderStatus } from "@/modules/orders/state-machine";
+import { isRealSale, parseSaleMode } from "@/modules/metrics/real-sale";
 import { ZoneBadge } from "../../logistica/zone-badge";
+import { type AdsEventRow, AdsEventsCard } from "./ads-events-card";
 import { AssignSelect } from "./assign-select";
 import { OrderDetailsForm } from "./details-form";
 import { type PaymentRow, PaymentsCard } from "./payments-card";
@@ -54,7 +56,7 @@ export default async function OrderDetailPage({ params }: PageProps<"/dashboard/
   // Todo en una sola tanda (antes el pedido esperaba a lo demás)
   const [{ data: attempts }, { data: settings }, { data: team }, { data: paymentRows }, { data: storeCouriers }, { data: order }] = await Promise.all([
     supabase.from("order_contact_attempts").select("id, attempt_number, channel, result, note, next_contact_at, created_by, created_at").eq("order_id", id).order("id", { ascending: false }),
-    supabase.from("store_settings").select("contact_sequence").eq("store_id", store.id).maybeSingle(),
+    supabase.from("store_settings").select("contact_sequence, real_sale_mode").eq("store_id", store.id).maybeSingle(),
     supabase.rpc("get_store_team", { p_store_id: store.id }),
     supabase
       .from("order_payments")
@@ -102,7 +104,8 @@ export default async function OrderDetailPage({ params }: PageProps<"/dashboard/
   // Comprobantes: enlaces firmados de 1 hora (el bucket es privado)
   const receiptPaths = (paymentRows ?? []).map((p) => p.receipt_path).filter((x): x is string => Boolean(x));
   // Medida y peso por defecto: oferta → producto (order_items no tiene FK a products)
-  const [{ data: metaEntities }, { data: packageProduct }, { data: packageOffer }, { data: productVariants }, { data: signed }] = await Promise.all([
+  const isOwner = store.role === "owner";
+  const [{ data: metaEntities }, { data: packageProduct }, { data: packageOffer }, { data: productVariants }, { data: signed }, { data: adsEvents }, { data: tiktokSettings }] = await Promise.all([
     metaIds.length
       ? supabase.from("meta_entities").select("id, level, name, status, thumbnail_url, body, title, preview_url").eq("store_id", store.id).in("id", metaIds)
       : Promise.resolve({
@@ -120,7 +123,13 @@ export default async function OrderDetailPage({ params }: PageProps<"/dashboard/
     receiptPaths.length
       ? supabase.storage.from(RECEIPTS_BUCKET).createSignedUrls(receiptPaths, 3600)
       : Promise.resolve({ data: [] as { path: string | null; signedUrl: string }[] }),
+    // Anuncios: lo que Meta/TikTok recibieron de este pedido (solo el dueño los ve)
+    isOwner
+      ? supabase.from("marketing_events").select("platform, event_name, status, last_error, sent_at, created_at").eq("order_id", id).in("event_name", ["Lead", "Purchase", "SubmitForm", "CompletePayment"])
+      : Promise.resolve({ data: [] as AdsEventRow[] }),
+    isOwner ? supabase.from("store_tiktok_settings").select("enabled").eq("store_id", store.id).maybeSingle() : Promise.resolve({ data: null }),
   ]);
+  const isSale = isRealSale(order as Parameters<typeof isRealSale>[0], parseSaleMode(settings?.real_sale_mode));
   const ad = metaEntities?.find((e) => e.level === "ad");
   const adCampaign = metaEntities?.find((e) => e.level === "campaign");
   const adSet = metaEntities?.find((e) => e.level === "adset");
@@ -440,6 +449,16 @@ export default async function OrderDetailPage({ params }: PageProps<"/dashboard/
                   ) : null}
                 </CardContent>
               </Card>
+            ) : null}
+
+            {isOwner ? (
+              <AdsEventsCard
+                orderId={order.id}
+                rows={(adsEvents ?? []) as AdsEventRow[]}
+                fromLanding={order.source === "landing"}
+                isSale={isSale}
+                tiktok={Boolean(tiktokSettings?.enabled)}
+              />
             ) : null}
 
             <Card>

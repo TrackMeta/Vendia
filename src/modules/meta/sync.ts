@@ -281,17 +281,6 @@ export async function syncDueMetaStores(admin: SupabaseClient, budgetMs = 40_000
   return { due: due.length, synced: done.length };
 }
 
-/** Sincroniza todas las tiendas conectadas (cron diario). */
-export async function syncAllMetaStores(admin: SupabaseClient) {
-  const { data } = await admin.from("store_meta_settings").select("store_id").not("ad_account_id", "is", null).eq("sync_enabled", true);
-  const results: { storeId: string; ok: boolean; error?: string }[] = [];
-  for (const s of data ?? []) {
-    const r = await syncMetaStore(admin, s.store_id);
-    results.push({ storeId: s.store_id, ok: r.ok, ...(r.ok ? {} : { error: r.error }) });
-  }
-  return results;
-}
-
 /**
  * Para las páginas que muestran gasto (Inicio, Rendimiento, Gastos): después de responder,
  * si la última lectura de Meta tiene más de una hora, se vuelve a leer en segundo plano.

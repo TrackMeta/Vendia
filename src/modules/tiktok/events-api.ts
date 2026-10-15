@@ -113,7 +113,7 @@ export async function sendTikTokEvent(admin: SupabaseClient, marketingEventId: s
       body: JSON.stringify({
         event_source: "web",
         event_source_id: settings.pixel_code,
-        ...(settings.test_event_code ? { test_event_code: settings.test_event_code } : {}),
+        // Los eventos reales nunca llevan el código de prueba (solo el botón «Enviar evento de prueba»)
         data: [payload],
       }),
       signal: AbortSignal.timeout(10_000),

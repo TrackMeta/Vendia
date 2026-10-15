@@ -40,26 +40,31 @@ export function StoreSwitcher({
   currentLogo,
   isOwner,
   stores,
+  light = false,
 }: {
   current: string;
   currentName: string;
   currentLogo: string | null;
   isOwner: boolean;
   stores: StoreOption[];
+  /** Versión clara (menú «Más» del celular); por defecto, la del menú grafito. */
+  light?: boolean;
 }) {
   const [pending, startTransition] = useTransition();
   return (
-    <div className="flex flex-col gap-1.5 rounded-lg bg-white/[0.04] p-1.5">
+    <div className={cn("flex flex-col gap-1.5 p-1.5", light ? "rounded-xl ring-1 ring-foreground/10" : "rounded-lg bg-white/[0.04]")}>
       <DropdownMenu>
         <DropdownMenuTrigger
           disabled={pending}
-          className="flex w-full items-center gap-2.5 rounded-md p-1 text-left transition-colors hover:bg-white/[0.06]"
+          className={cn("flex w-full items-center gap-2.5 rounded-md p-1 text-left transition-colors", light ? "hover:bg-muted" : "hover:bg-white/[0.06]")}
           aria-label={`Tienda actual: ${currentName}. Cambiar de tienda`}
         >
-          <StoreAvatar name={currentName} logo={currentLogo} className="bg-white/10 text-white" />
+          <StoreAvatar name={currentName} logo={currentLogo} className={light ? "bg-primary/10 text-primary" : "bg-white/10 text-white"} />
           <span className="flex min-w-0 flex-1 flex-col">
-            <span className="text-[10px] font-medium tracking-wide text-white/40 uppercase">{isOwner ? "Tienda" : "Tienda · Confirmador"}</span>
-            <span className="truncate text-sm font-medium text-white">{currentName}</span>
+            <span className={cn("text-[10px] font-medium tracking-wide uppercase", light ? "text-muted-foreground" : "text-white/40")}>
+              {isOwner ? "Tienda" : "Tienda · Confirmador"}
+            </span>
+            <span className={cn("truncate text-sm font-medium", light ? "text-foreground" : "text-white")}>{currentName}</span>
           </span>
           {pending ? <Loader2 className="size-4 shrink-0 animate-spin text-muted-foreground" /> : <ChevronsUpDown className="size-4 shrink-0 text-muted-foreground" />}
         </DropdownMenuTrigger>

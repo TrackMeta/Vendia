@@ -51,9 +51,9 @@ export function saveThemePref(pref: ThemePref) {
 }
 
 /** Selector Claro / Oscuro / Como el dispositivo (en el pie del menú). */
-export function ThemeToggle({ value, onChange }: { value: ThemePref; onChange: (pref: ThemePref) => void }) {
+export function ThemeToggle({ value, onChange, light = false }: { value: ThemePref; onChange: (pref: ThemePref) => void; light?: boolean }) {
   return (
-    <div className="flex items-center gap-0.5 rounded-md bg-white/[0.04] p-0.5" role="group" aria-label="Tema del panel">
+    <div className={cn("flex items-center gap-0.5 rounded-md p-0.5", light ? "bg-muted" : "bg-white/[0.04]")} role="group" aria-label="Tema del panel">
       {OPTIONS.map((o) => (
         <button
           key={o.value}
@@ -66,8 +66,9 @@ export function ThemeToggle({ value, onChange }: { value: ThemePref; onChange: (
             onChange(o.value);
           }}
           className={cn(
-            "flex flex-1 items-center justify-center rounded px-2 py-1 text-muted-foreground transition-colors hover:text-white",
-            value === o.value && "bg-white/10 text-white",
+            "flex flex-1 items-center justify-center rounded px-2 py-1 text-muted-foreground transition-colors",
+            light ? "hover:text-foreground" : "hover:text-white",
+            value === o.value && (light ? "bg-background text-foreground shadow-sm ring-1 ring-foreground/10" : "bg-white/10 text-white"),
           )}
         >
           <o.icon className="size-3.5" />

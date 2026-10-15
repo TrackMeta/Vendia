@@ -1,6 +1,6 @@
 "use client";
 
-import { Home, LogOut, Menu, ShoppingBag, Trophy, Truck, Users } from "lucide-react";
+import { Bell, Home, LogOut, Menu, ShoppingBag, Trophy, Truck, Users } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useState, useSyncExternalStore } from "react";
@@ -103,6 +103,83 @@ function BottomNav({ isOwner, onMore }: { isOwner: boolean; onMore: () => void }
   );
 }
 
+/** Lo que se usa en la calle, en el «Más» del celular (lo de la barra de abajo no se repite). */
+const MORE_HREFS = ["/dashboard/abandonados", "/dashboard/rendimiento", "/dashboard/gastos", "/dashboard/liquidacion"];
+const NOTIFICATIONS_ITEM: NavItem = { href: "/dashboard/notificaciones", label: "Notificaciones", icon: Bell };
+
+/** Cerrar sesión. En la app de celular, ese celular deja de recibir avisos de esta cuenta. */
+async function logoutHere() {
+  await forgetPushDevice();
+  await logout();
+}
+
+/**
+ * «Más» en el celular: hoja blanca que sube desde abajo con la tienda, botones grandes,
+ * el tema y cerrar sesión (el menú grafito queda para la computadora).
+ */
+function MoreSheet({
+  open,
+  onOpenChange,
+  isOwner,
+  themePref,
+  onThemeChange,
+  switcher,
+  inApp,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  isOwner: boolean;
+  themePref: ThemePref;
+  onThemeChange: (pref: ThemePref) => void;
+  switcher: React.ReactNode;
+  /** Dentro de la app de celular no se ofrece descargarla. */
+  inApp: boolean | null;
+}) {
+  const pathname = usePathname();
+  const all = visibleGroups(isOwner).flatMap((g) => g.items);
+  const items = [...MORE_HREFS.map((href) => all.find((i) => i.href === href)).filter((i): i is NavItem => Boolean(i)), NOTIFICATIONS_ITEM, ...(inApp === false ? [APP_ITEM] : [])];
+  const close = () => onOpenChange(false);
+  return (
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent side="bottom" showCloseButton={false} className="gap-0 rounded-t-2xl border-none px-4 pt-2 pb-[calc(env(safe-area-inset-bottom)+1rem)]">
+        <SheetTitle className="sr-only">Más</SheetTitle>
+        <div aria-hidden className="mx-auto mb-3 h-1 w-9 rounded-full bg-foreground/15" />
+        {switcher}
+        <nav className="mt-3 grid grid-cols-3 gap-2" aria-label="Más secciones">
+          {items.map((item) => {
+            const active = isActive(item, pathname);
+            return (
+              <IntentLink
+                key={item.href}
+                href={item.href}
+                onClick={close}
+                aria-current={active ? "page" : undefined}
+                className={cn(
+                  "flex flex-col items-center gap-1.5 rounded-xl bg-muted px-1 py-3.5 text-center text-xs transition-colors active:bg-muted/70",
+                  active && "font-medium ring-1 ring-primary/40",
+                )}
+              >
+                <item.icon className="size-6 text-primary" />
+                <span className="truncate">{item.label}</span>
+              </IntentLink>
+            );
+          })}
+        </nav>
+        <div className="mt-4 flex items-center gap-3 border-t pt-3">
+          <div className="w-32">
+            <ThemeToggle value={themePref} onChange={onThemeChange} light />
+          </div>
+          <form action={logoutHere} className="ml-auto">
+            <button type="submit" className="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm font-medium text-primary active:bg-primary/10">
+              <LogOut className="size-4" /> Cerrar sesión
+            </button>
+          </form>
+        </div>
+      </SheetContent>
+    </Sheet>
+  );
+}
+
 export function DashboardShell({
   children,
   storeName,
@@ -176,13 +253,7 @@ export function DashboardShell({
           <ThemeToggle value={themePref} onChange={setThemePref} />
         </div>
         <p className="truncate px-3 text-xs text-muted-foreground">{userEmail}</p>
-        <form
-          action={async () => {
-            // En la app de celular: este celular deja de recibir avisos de esta cuenta
-            await forgetPushDevice();
-            await logout();
-          }}
-        >
+        <form action={logoutHere}>
           <button
             type="submit"
             className="flex w-full items-center gap-3 rounded-md px-3 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-white/[0.06] hover:text-white"
@@ -197,12 +268,15 @@ export function DashboardShell({
   return (
     <div className={cn("flex min-h-svh w-full bg-canvas text-foreground", dark && "dark")}>
       <aside className="sticky top-0 hidden h-svh w-60 shrink-0 md:block">{sidebar}</aside>
-      <Sheet open={open} onOpenChange={setOpen}>
-        <SheetContent side="left" className="dark w-72 border-none bg-sidebar p-0 text-sidebar-foreground">
-          <SheetTitle className="sr-only">Menú</SheetTitle>
-          {sidebar}
-        </SheetContent>
-      </Sheet>
+      <MoreSheet
+        open={open}
+        onOpenChange={setOpen}
+        isOwner={isOwner}
+        themePref={themePref}
+        onThemeChange={setThemePref}
+        inApp={inApp}
+        switcher={<StoreSwitcher current={storeId} currentName={storeName} currentLogo={storeLogo} isOwner={isOwner} stores={stores} light />}
+      />
       <CommandMenu open={searchOpen} onOpenChange={setSearchOpen} isOwner={isOwner} />
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="sticky top-0 z-20 flex h-14 items-center gap-2 border-b bg-background/95 px-4 backdrop-blur md:hidden">

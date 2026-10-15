@@ -1,8 +1,8 @@
 "use client";
 
-import { MapPin, Search } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
-import { normalizeForSearch } from "@/modules/ubigeo/names";
+import { ChevronDown, MapPin, Search } from "lucide-react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
+import { filterOptions, normalizeForSearch } from "@/modules/ubigeo/names";
 
 type Compact = { d: [string, string][]; p: [string, string][]; t: [string, string][] };
 type Index = {
@@ -57,8 +57,121 @@ function loadUbigeo(): Promise<Index> {
 
 export type UbigeoValue = { department: string; province: string; district: string };
 
-const selectClass =
-  "h-12 w-full appearance-none rounded-lg border border-zinc-300 bg-white px-3 text-base text-zinc-900 outline-none focus:border-zinc-900 disabled:bg-zinc-100 disabled:text-zinc-400";
+/**
+ * Lista que se puede filtrar escribiendo (las listas del celular no dejan escribir).
+ * Al tocarla se abre con todas las opciones; mientras el cliente escribe, quedan solo las que coinciden.
+ */
+function FilterSelect({
+  label,
+  placeholder,
+  options,
+  value,
+  disabled,
+  onPick,
+}: {
+  label: string;
+  placeholder: string;
+  options: { code: string; name: string }[];
+  value: string;
+  disabled?: boolean;
+  onPick: (code: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [text, setText] = useState("");
+  const [active, setActive] = useState(0);
+  const input = useRef<HTMLInputElement>(null);
+  const wrap = useRef<HTMLDivElement>(null);
+  const listId = useId();
+  const selected = options.find((o) => o.code === value);
+  const shown = useMemo(() => filterOptions(options, text), [options, text]);
+
+  const pick = (code: string) => {
+    onPick(code);
+    setOpen(false);
+    setText("");
+    input.current?.blur();
+  };
+
+  return (
+    <div ref={wrap} className="relative scroll-mt-24">
+      <input
+        ref={input}
+        type="text"
+        role="combobox"
+        aria-label={label}
+        aria-expanded={open}
+        aria-controls={listId}
+        aria-autocomplete="list"
+        autoComplete="off"
+        autoCorrect="off"
+        spellCheck={false}
+        enterKeyHint="done"
+        disabled={disabled}
+        value={open ? text : (selected?.name ?? "")}
+        placeholder={open && selected ? selected.name : placeholder}
+        onFocus={() => {
+          setOpen(true);
+          setText("");
+          setActive(0);
+          // En el celular el teclado tapa media pantalla: sube el campo para que se vea la lista
+          if (window.matchMedia("(pointer: coarse)").matches) setTimeout(() => wrap.current?.scrollIntoView({ block: "start", behavior: "smooth" }), 300);
+        }}
+        onBlur={() => {
+          setOpen(false);
+          setText("");
+        }}
+        onChange={(e) => {
+          setText(e.target.value);
+          setActive(0);
+        }}
+        onKeyDown={(e) => {
+          if (e.key === "ArrowDown") {
+            e.preventDefault();
+            setActive((i) => Math.min(i + 1, shown.length - 1));
+          } else if (e.key === "ArrowUp") {
+            e.preventDefault();
+            setActive((i) => Math.max(i - 1, 0));
+          } else if (e.key === "Enter") {
+            // Enter elige la opción marcada (y no envía el formulario)
+            e.preventDefault();
+            if (shown[active]) pick(shown[active].code);
+          } else if (e.key === "Escape") {
+            input.current?.blur();
+          }
+        }}
+        className="h-12 w-full rounded-lg border border-zinc-300 bg-white pr-9 pl-3 text-base text-zinc-900 outline-none placeholder:text-zinc-500 focus:border-zinc-900 disabled:bg-zinc-100 disabled:text-zinc-400 disabled:placeholder:text-zinc-400"
+      />
+      <ChevronDown className="pointer-events-none absolute top-1/2 right-3 size-4 -translate-y-1/2 text-zinc-400" />
+      {open ? (
+        <ul
+          id={listId}
+          role="listbox"
+          aria-label={label}
+          // Tocar la lista no le quita el foco al campo (así no se cierra antes de elegir)
+          onMouseDown={(e) => e.preventDefault()}
+          className="absolute z-30 mt-1 max-h-60 w-full overflow-auto overscroll-contain rounded-lg border border-zinc-200 bg-white py-1 shadow-lg"
+        >
+          {shown.length ? (
+            shown.map((o, i) => (
+              <li
+                key={o.code}
+                role="option"
+                aria-selected={o.code === value}
+                onClick={() => pick(o.code)}
+                onMouseEnter={() => setActive(i)}
+                className={`cursor-pointer px-3 py-2.5 text-sm text-zinc-800 ${i === active ? "bg-zinc-100" : ""} ${o.code === value ? "font-semibold" : ""}`}
+              >
+                {o.name}
+              </li>
+            ))
+          ) : (
+            <li className="px-3 py-2.5 text-sm text-zinc-500">Sin coincidencias</li>
+          )}
+        </ul>
+      ) : null}
+    </div>
+  );
+}
 
 export function UbigeoPicker({ value, onChange, search = true }: { value: UbigeoValue; onChange: (value: UbigeoValue) => void; search?: boolean }) {
   const [index, setIndex] = useState<Index | null>(null);
@@ -121,48 +234,30 @@ export function UbigeoPicker({ value, onChange, search = true }: { value: Ubigeo
         </div>
       ) : null}
 
-      <select
-        aria-label="Departamento"
-        className={selectClass}
+      <FilterSelect
+        label="Departamento"
+        placeholder={index ? "Departamento" : "Cargando ubicaciones…"}
+        options={index?.departments ?? []}
         value={value.department}
         disabled={!index}
-        onChange={(e) => onChange({ department: e.target.value, province: "", district: "" })}
-      >
-        <option value="">{index ? "Departamento" : "Cargando ubicaciones…"}</option>
-        {index?.departments.map((d) => (
-          <option key={d.code} value={d.code}>
-            {d.name}
-          </option>
-        ))}
-      </select>
-      <select
-        aria-label="Provincia"
-        className={selectClass}
+        onPick={(code) => onChange({ department: code, province: "", district: "" })}
+      />
+      <FilterSelect
+        label="Provincia"
+        placeholder="Provincia"
+        options={index?.provinces.get(value.department) ?? []}
         value={value.province}
         disabled={!value.department}
-        onChange={(e) => onChange({ ...value, province: e.target.value, district: "" })}
-      >
-        <option value="">Provincia</option>
-        {index?.provinces.get(value.department)?.map((p) => (
-          <option key={p.code} value={p.code}>
-            {p.name}
-          </option>
-        ))}
-      </select>
-      <select
-        aria-label="Distrito"
-        className={selectClass}
+        onPick={(code) => onChange({ ...value, province: code, district: "" })}
+      />
+      <FilterSelect
+        label="Distrito"
+        placeholder="Distrito"
+        options={index?.districts.get(value.province) ?? []}
         value={value.district}
         disabled={!value.province}
-        onChange={(e) => onChange({ ...value, district: e.target.value })}
-      >
-        <option value="">Distrito</option>
-        {index?.districts.get(value.province)?.map((d) => (
-          <option key={d.code} value={d.code}>
-            {d.name}
-          </option>
-        ))}
-      </select>
+        onPick={(code) => onChange({ ...value, district: code })}
+      />
     </div>
   );
 }

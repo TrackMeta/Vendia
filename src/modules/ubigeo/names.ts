@@ -24,3 +24,17 @@ export function normalizeForSearch(value: string): string {
     .toLowerCase()
     .trim();
 }
+
+/** Coincidencias de lo escrito (sin importar tildes): primero las que empiezan así, después las que lo contienen. */
+export function filterOptions<T extends { name: string }>(options: T[], text: string): T[] {
+  const q = normalizeForSearch(text);
+  if (!q) return options;
+  const starts: T[] = [];
+  const contains: T[] = [];
+  for (const o of options) {
+    const key = normalizeForSearch(o.name);
+    if (key.startsWith(q)) starts.push(o);
+    else if (key.includes(q)) contains.push(o);
+  }
+  return [...starts, ...contains];
+}

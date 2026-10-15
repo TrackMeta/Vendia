@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { normalizeForSearch, toDisplayName } from "./names";
+import { normalizeForSearch, toDisplayName, filterOptions } from "./names";
 import { buildUbigeoDataset } from "./parse";
 
 const root = join(__dirname, "../../..");
@@ -66,5 +66,19 @@ describe("Nombres", () => {
 
   it("normaliza para búsqueda sin tildes", () => {
     expect(normalizeForSearch("  Ancón ")).toBe("ancon");
+  });
+});
+
+describe("Listas que se filtran escribiendo", () => {
+  const lima = [{ name: "Ate" }, { name: "Lima" }, { name: "Los Olivos" }, { name: "San Juan de Lurigancho" }, { name: "San Juan de Miraflores" }, { name: "Miraflores" }];
+  it("sin texto muestra todo", () => {
+    expect(filterOptions(lima, "")).toHaveLength(6);
+  });
+  it("primero lo que empieza así, después lo que lo contiene, sin importar tildes ni mayúsculas", () => {
+    expect(filterOptions(lima, "MIRA").map((o) => o.name)).toEqual(["Miraflores", "San Juan de Miraflores"]);
+    expect(filterOptions([{ name: "Junín" }, { name: "Áncash" }], "ancash").map((o) => o.name)).toEqual(["Áncash"]);
+  });
+  it("si nada coincide, la lista queda vacía", () => {
+    expect(filterOptions(lima, "zzz")).toEqual([]);
   });
 });

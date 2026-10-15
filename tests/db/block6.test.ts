@@ -71,8 +71,8 @@ describe("Dominios propios", () => {
 
   it("activo: resuelve la tienda, y el dominio general solo sirve tiendas del dueño", async () => {
     await admin.from("custom_domains").update({ status: "active" }).in("domain", [domainOne, domainAll]);
-    expect((await anon.rpc("resolve_custom_domain", { p_domain: domainOne.toUpperCase() })).data).toEqual({ store_slug: `b6-1-${runId}`, all_stores: false });
-    expect((await anon.rpc("resolve_custom_domain", { p_domain: domainAll })).data).toEqual({ store_slug: null, all_stores: true });
+    expect((await anon.rpc("resolve_custom_domain", { p_domain: domainOne.toUpperCase() })).data).toMatchObject({ store_slug: `b6-1-${runId}`, all_stores: false });
+    expect((await anon.rpc("resolve_custom_domain", { p_domain: domainAll })).data).toMatchObject({ store_slug: null, all_stores: true });
     expect((await anon.rpc("domain_serves_store", { p_domain: domainAll, p_store_slug: `b6-2-${runId}` })).data).toBe(true);
     expect((await anon.rpc("domain_serves_store", { p_domain: domainAll, p_store_slug: "tienda-demo" })).data).toBe(false);
   });

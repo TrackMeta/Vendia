@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { finishSlug, slugify, slugifyTyping } from "@/lib/format";
-import { COUNTRIES, UPCOMING_COUNTRIES } from "@/modules/country";
+import { COUNTRIES } from "@/modules/country";
 import { createStore } from "./actions";
 import { AppSelect } from "@/components/dashboard/app-select";
 
@@ -73,7 +73,6 @@ export function OnboardingForm() {
                 </option>
               ))}
             </AppSelect>
-            <p className="text-xs text-muted-foreground">Próximamente: {UPCOMING_COUNTRIES.join(", ")}.</p>
           </div>
           {state?.error ? (
             <p role="alert" className="text-sm text-destructive">

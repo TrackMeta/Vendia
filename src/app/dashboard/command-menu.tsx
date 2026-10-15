@@ -40,10 +40,22 @@ export function SearchButton({ onOpen, className, compact }: { onOpen: () => voi
 }
 
 /**
- * Buscador rápido (Ctrl+K o «/»): pedidos por teléfono, nombre o número; clientes; y secciones del panel.
+ * Buscador rápido (Ctrl+K o «/»): pedidos por celular, nombre, DNI o número; clientes; y secciones del panel
+ * (las secciones solo en la computadora).
  * Pensado para cuando un cliente llama: escribes su número y abres su pedido en un segundo.
  */
-export function CommandMenu({ open, onOpenChange, isOwner }: { open: boolean; onOpenChange: (open: boolean) => void; isOwner: boolean }) {
+export function CommandMenu({
+  open,
+  onOpenChange,
+  isOwner,
+  phone = false,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  isOwner: boolean;
+  /** En el celular solo pedidos y clientes (sin secciones ni atajos de teclado). */
+  phone?: boolean;
+}) {
   const router = useRouter();
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<SearchResult>(EMPTY);
@@ -87,20 +99,23 @@ export function CommandMenu({ open, onOpenChange, isOwner }: { open: boolean; on
   const term = fold(query.trim());
   const searching = term.length >= 2;
   const shown = searching ? results : EMPTY;
-  const sections = [...visibleGroups(isOwner).flatMap((g) => g.items), HELP_ITEM, APP_ITEM].filter(
-    (i) => !term || fold(`${i.label} ${i.keywords ?? ""}`).includes(term),
-  );
+  const sections = phone
+    ? []
+    : [...visibleGroups(isOwner).flatMap((g) => g.items), HELP_ITEM, APP_ITEM].filter((i) => !term || fold(`${i.label} ${i.keywords ?? ""}`).includes(term));
   const nothing = searching && !pending && !shown.orders.length && !shown.customers.length && !sections.length;
 
   return (
-    <CommandDialog open={open} onOpenChange={onOpenChange} title="Buscar" description="Busca pedidos, clientes o secciones" className="sm:max-w-lg">
+    <CommandDialog open={open} onOpenChange={onOpenChange} title="Buscar" description={phone ? "Busca pedidos o clientes" : "Busca pedidos, clientes o secciones"} className="sm:max-w-lg">
       <Command shouldFilter={false}>
-        <CommandInput placeholder="Teléfono, nombre o n.º de pedido…" value={query} onValueChange={setQuery} />
+        <CommandInput placeholder="Celular, nombre, DNI o n.º de pedido…" value={query} onValueChange={setQuery} />
         <CommandList className="max-h-[60vh]">
           {pending ? (
             <p className="flex items-center gap-2 px-3 py-2 text-xs text-muted-foreground">
               <Loader2 className="size-3.5 animate-spin" /> Buscando…
             </p>
+          ) : null}
+          {phone && !searching ? (
+            <p className="px-3 py-6 text-center text-sm text-muted-foreground">Escribe el celular, nombre, DNI o número de pedido.</p>
           ) : null}
           {nothing ? <CommandEmpty>No encontramos nada con «{query.trim()}».</CommandEmpty> : null}
           {shown.orders.length ? (
@@ -141,9 +156,11 @@ export function CommandMenu({ open, onOpenChange, isOwner }: { open: boolean; on
             </CommandGroup>
           ) : null}
         </CommandList>
-        <p className="border-t px-3 py-2 text-[11px] text-muted-foreground">
-          Abre el buscador con <kbd className="font-sans font-medium">Ctrl K</kbd> o <kbd className="font-sans font-medium">/</kbd> desde cualquier pantalla.
-        </p>
+        {phone ? null : (
+          <p className="border-t px-3 py-2 text-[11px] text-muted-foreground">
+            Abre el buscador con <kbd className="font-sans font-medium">Ctrl K</kbd> o <kbd className="font-sans font-medium">/</kbd> desde cualquier pantalla.
+          </p>
+        )}
       </Command>
     </CommandDialog>
   );

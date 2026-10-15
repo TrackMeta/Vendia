@@ -283,7 +283,7 @@ export function DashboardShell({
         inApp={inApp}
         switcher={<StoreSwitcher current={storeId} currentName={storeName} currentLogo={storeLogo} isOwner={isOwner} stores={stores} light />}
       />
-      <CommandMenu open={searchOpen} onOpenChange={setSearchOpen} isOwner={isOwner} />
+      <CommandMenu open={searchOpen} onOpenChange={setSearchOpen} isOwner={isOwner} phone={isDesktop === false} />
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="sticky top-0 z-20 flex h-14 items-center gap-2 border-b bg-background/95 px-4 backdrop-blur md:hidden">
           <Link href={isOwner ? "/dashboard" : "/dashboard/pedidos"} className="flex-1" aria-label="Vendia, ir al inicio">

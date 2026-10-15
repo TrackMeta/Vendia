@@ -136,6 +136,11 @@ export function ThemeToggle({ value, onChange, light = false }: { value: ThemePr
               if (on && value === o.value) return;
               const target = e.currentTarget;
               const apply = () => {
+                // Sin las animaciones de color de cada botón y tarjeta: así toda la pantalla cambia
+                // en el mismo cuadro (si no, se oscurece por partes)
+                const root = document.documentElement;
+                root.classList.add("vd-theme-instant");
+                window.setTimeout(() => root.classList.remove("vd-theme-instant"), 120);
                 saveThemePref(o.value);
                 // Ya en el mismo instante (la foto «nueva» de la transición debe salir con el tema nuevo)
                 document.documentElement.classList.toggle("dark", o.value === "dark");

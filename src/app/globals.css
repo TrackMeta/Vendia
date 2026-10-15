@@ -224,3 +224,11 @@ html.vd-theme-fade *::after {
     background-color: rgb(0 0 0 / 0.4) !important;
   }
 }
+
+/* Durante el cambio de tema, nada anima su color: toda la pantalla cambia en el mismo cuadro
+   (los botones y tarjetas tienen transiciones propias y se oscurecían por partes). */
+html.vd-theme-instant *,
+html.vd-theme-instant *::before,
+html.vd-theme-instant *::after {
+  transition: none !important;
+}

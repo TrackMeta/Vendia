@@ -6,9 +6,13 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { ATTRIBUTION_LIMITS } from "@/modules/attribution/limits";
 import { trackingText } from "@/modules/orders/order-input";
 
+const EVENT = z.enum(["page_view", "view_content", "initiate_checkout", "form_name", "form_phone", "form_location", "form_address", "form_submit"]);
+
 const schema = z.object({
   landing_id: z.uuid(),
-  event: z.enum(["page_view", "view_content", "initiate_checkout", "form_name", "form_phone", "form_location", "form_address", "form_submit"]),
+  // Varios eventos juntos (un solo pedido por tanda); `event` suelto lo mandan páginas abiertas antes del cambio
+  events: z.array(EVENT).min(1).max(EVENT.options.length).optional(),
+  event: EVENT.optional(),
   session_id: z.string().regex(/^[A-Za-z0-9]{8,64}$/),
   // Datos de seguimiento: si vienen largos se recortan (la visita igual se cuenta)
   utm_source: trackingText(ATTRIBUTION_LIMITS.utm_source),
@@ -33,11 +37,12 @@ export async function POST(request: NextRequest) {
   }
   const parsed = schema.safeParse(body);
   if (!parsed.success) return new NextResponse(null, { status: 400 });
+  const events = [...new Set(parsed.data.events ?? (parsed.data.event ? [parsed.data.event] : []))];
+  if (!events.length) return new NextResponse(null, { status: 400 });
 
   const admin = createAdminClient();
-  const base = {
+  const common = {
     p_landing_id: parsed.data.landing_id,
-    p_event: parsed.data.event,
     p_session: parsed.data.session_id,
     p_utm_source: parsed.data.utm_source ?? null,
     p_utm_campaign: parsed.data.utm_campaign ?? null,
@@ -52,9 +57,12 @@ export async function POST(request: NextRequest) {
     ...(parsed.data.adset_id ? { p_adset_id: parsed.data.adset_id } : {}),
     ...(parsed.data.ad_id ? { p_ad_id: parsed.data.ad_id } : {}),
   };
-  let { error } = await admin.rpc("track_landing_event", { ...base, ...extra, ...ids });
-  if (error && Object.keys(ids).length) ({ error } = await admin.rpc("track_landing_event", { ...base, ...extra }));
-  if (error && Object.keys(extra).length) ({ error } = await admin.rpc("track_landing_event", base));
-  if (error) console.error("track_landing_event", error.message);
+  for (const event of events) {
+    const base = { ...common, p_event: event };
+    let { error } = await admin.rpc("track_landing_event", { ...base, ...extra, ...ids });
+    if (error && Object.keys(ids).length) ({ error } = await admin.rpc("track_landing_event", { ...base, ...extra }));
+    if (error && Object.keys(extra).length) ({ error } = await admin.rpc("track_landing_event", base));
+    if (error) console.error("track_landing_event", error.message);
+  }
   return new NextResponse(null, { status: 204 });
 }

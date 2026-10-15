@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { logoutAndContinue } from "@/app/(auth)/actions";
+import { logoutAndContinue } from "@/app/(panel)/(auth)/actions";
 import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { getUser } from "@/lib/auth";

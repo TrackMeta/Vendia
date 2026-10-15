@@ -31,7 +31,8 @@ export async function generateMetadata({ params }: PageProps<"/p/[store]/[slug]"
   return {
     title: { absolute: `${landing.landing.title} | ${landing.store.name}` },
     description,
-    icons: landing.store.favicon_path ? { icon: publicAssetUrl(landing.store.favicon_path)! } : undefined,
+    // Sin ícono propio se queda el de (tienda)/layout.tsx («icons: undefined» lo borraría y el navegador pediría /favicon.ico)
+    ...(landing.store.favicon_path ? { icons: { icon: publicAssetUrl(landing.store.favicon_path)! } } : {}),
     openGraph: {
       title: landing.landing.title,
       description,

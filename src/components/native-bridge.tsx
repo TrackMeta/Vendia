@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import { externalUrl, isNativeApp, nativePlugin, PUSH_PREFS_EVENT, vendiaNativo } from "@/modules/app-native/client";
 import { fileNameFrom, saveFile } from "@/modules/app-native/files";
 import { refreshDeviceIfStale, registerPush, scheduleDeviceSync } from "@/modules/app-native/push";
-import { THEME_EVENT } from "@/app/dashboard/theme-toggle";
+import { THEME_EVENT } from "@/app/(panel)/dashboard/theme-toggle";
 import { SOUND_PREFS_EVENT } from "@/modules/notifications/sound";
 
 type Handle = { remove: () => Promise<void> | void };

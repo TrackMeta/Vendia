@@ -3,7 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import { ErrorListener } from "@/components/error-listener";
 import { NativeBridge } from "@/components/native-bridge";
 import { Toaster } from "@/components/ui/sonner";
-import "./globals.css";
+import "../globals.css";
 
 const geistSans = Geist({
   variable: "--font-sans",
@@ -18,7 +18,8 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: { default: "Vendia", template: "%s · Vendia" },
   description: "Landing pages y pedidos contraentrega para vendedores en Perú.",
-  // App instalable en el celular (ver app/manifest.ts)
+  // App instalable en el celular (ver app/manifest.webmanifest/route.ts)
+  manifest: "/manifest.webmanifest",
   appleWebApp: { capable: true, title: "Vendia", statusBarStyle: "default" },
   icons: {
     // Pestaña del navegador: la «V» sin fondo. En el celular (apple / app instalada) se queda con fondo: el sistema no acepta transparencia

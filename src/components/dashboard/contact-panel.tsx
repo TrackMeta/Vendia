@@ -4,7 +4,7 @@ import { CalendarClock, Check, Phone, PhoneOff, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
-import { logContactAttempt, updateOrderShipping } from "@/app/dashboard/pedidos/actions";
+import { logContactAttempt, updateOrderShipping } from "@/app/(panel)/dashboard/pedidos/actions";
 import { AgencyPicker } from "@/components/dashboard/agency-picker";
 import { Button } from "@/components/ui/button";
 import { displayPeruPhone, formatDateTime, formatMoney } from "@/lib/format";

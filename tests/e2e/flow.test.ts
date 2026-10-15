@@ -138,6 +138,20 @@ describe("Landing pública → pedido", () => {
   });
 });
 
+describe("Visitas de la landing", () => {
+  it("varios eventos llegan juntos en un solo pedido (y el formato anterior sigue sirviendo)", async () => {
+    const post = (body: object, ua = PHONE_UA) =>
+      fetch(`${BASE}/api/track`, { method: "POST", headers: { "User-Agent": ua }, body: JSON.stringify({ landing_id: landingId, ...body }) });
+    const juntos = await post({ session_id: `junto${runId}`, events: ["view_content", "initiate_checkout"] });
+    const suelto = await post({ session_id: `suelto${runId}`, event: "page_view" });
+    const robot = await post({ session_id: `robot${runId}`, events: ["page_view"] }, "python-requests/2.31.0");
+    expect([juntos.status, suelto.status, robot.status]).toEqual([204, 204, 204]);
+    const { data } = await admin.from("page_events").select("session_id, event_name").eq("landing_page_id", landingId).in("session_id", [`junto${runId}`, `suelto${runId}`, `robot${runId}`]);
+    const got = (data ?? []).map((r) => `${r.session_id.replace(runId, "")}:${r.event_name}`).sort();
+    expect(got).toEqual(["junto:initiate_checkout", "junto:view_content", "suelto:page_view"]);
+  });
+});
+
 describe("Abandonados y errores", () => {
   it("el formulario abandonado se guarda", async () => {
     const res = await fetch(`${BASE}/api/abandoned`, {

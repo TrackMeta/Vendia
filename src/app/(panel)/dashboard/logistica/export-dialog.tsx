@@ -4,7 +4,7 @@ import { AlertTriangle, CheckCircle2, Download, Loader2, Trash2 } from "lucide-r
 import { useRouter } from "next/navigation";
 import { useEffect, useState, useTransition } from "react";
 import { toast } from "sonner";
-import { updateOrderShipping } from "@/app/dashboard/pedidos/actions";
+import { updateOrderShipping } from "@/app/(panel)/dashboard/pedidos/actions";
 import { AgencyPicker } from "@/components/dashboard/agency-picker";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";

@@ -4,7 +4,7 @@ import { ArrowLeftRight, Bell, Home, LogOut, Menu, ShoppingBag, Trophy, Truck, U
 import Link, { useLinkStatus } from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState, useSyncExternalStore } from "react";
-import { logout } from "@/app/(auth)/actions";
+import { logout } from "@/app/(panel)/(auth)/actions";
 import { BrandLogo } from "@/components/brand";
 import { NotificationBell } from "@/components/dashboard/notifications";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";

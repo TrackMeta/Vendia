@@ -178,11 +178,35 @@ export function UbigeoPicker({ value, onChange, search = true }: { value: Ubigeo
   const [failed, setFailed] = useState(false);
   const [query, setQuery] = useState("");
   const [focused, setFocused] = useState(false);
+  const box = useRef<HTMLDivElement>(null);
 
+  // La lista de ubicaciones se descarga cuando el formulario está por aparecer en pantalla:
+  // quien entra y se va sin bajar no la pide (un pedido menos a Vercel por visita).
   useEffect(() => {
-    loadUbigeo()
-      .then(setIndex)
-      .catch(() => setFailed(true));
+    let started = false;
+    const load = () => {
+      if (started) return;
+      started = true;
+      loadUbigeo()
+        .then(setIndex)
+        .catch(() => setFailed(true));
+    };
+    const el = box.current;
+    if (!el || typeof IntersectionObserver === "undefined") {
+      load();
+      return;
+    }
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((e) => e.isIntersecting)) {
+          observer.disconnect();
+          load();
+        }
+      },
+      { rootMargin: "800px 0px" },
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
   }, []);
 
   const results = useMemo(() => {
@@ -199,7 +223,7 @@ export function UbigeoPicker({ value, onChange, search = true }: { value: Ubigeo
   };
 
   return (
-    <div className="flex flex-col gap-2">
+    <div ref={box} className="flex flex-col gap-2">
       {search ? (
         <div className="relative">
           <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-zinc-400" />

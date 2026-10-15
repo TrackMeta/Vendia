@@ -46,7 +46,8 @@ const nextConfig: NextConfig = {
     // Volver a una sección vista hace menos de 30 s es instantáneo (no vuelve al servidor).
     // Los datos nunca tienen más de 30 s, y cualquier cambio que hagas (revalidatePath) limpia esta memoria.
     staleTimes: { dynamic: 30, static: 30 },
-    serverActions: {
+    // El panel y las landings tienen bases separadas: la página «no existe» general va aparte
+    globalNotFound: true,    serverActions: {
       // Las imágenes se suben directo a Supabase Storage desde el navegador;
       // las Server Actions solo reciben JSON.
       bodySizeLimit: "2mb",

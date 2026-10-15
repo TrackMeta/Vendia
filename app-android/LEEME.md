@@ -3,6 +3,7 @@
 Envoltorio [Capacitor](https://capacitorjs.com) que abre el panel de Vendia
 (https://vendia-theta.vercel.app/dashboard) como una app del celular, con avisos, ícono y atajos propios.
 
+- **Paquete:** `pe.nodo2.app` (no se puede cambiar: es el que está registrado en Firebase, proyecto «Nodo 2»).
 - **La web se actualiza sola:** cada deploy de Vercel ya llega a la app, sin APK nuevo.
   **Solo hace falta un APK nuevo** si cambia algo de esta carpeta (permisos, ícono, sonidos, plugin nativo).
 - **Descargar (siempre la última):** https://github.com/TrackMeta/Vendia/releases/latest/download/Vendia.apk

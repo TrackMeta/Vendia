@@ -651,6 +651,27 @@ async function main() {
   } catch {
     expect("un token corto se rechaza", true);
   }
+
+  console.log("\n— Lotes exportados (Bloque 17) —");
+  const lote = (await step("lote exportado", `insert into public.export_batches (store_id, courier_id, order_count) values ('${storeId}', 'shalom', 1) returning id`)) as string;
+  const viejo = (await step(
+    "lote de hace 40 días",
+    `insert into public.export_batches (store_id, courier_id, order_count, created_at) values ('${storeId}', 'eva', 1, now() - interval '40 days') returning id`,
+  )) as string;
+  await step("el dueño quita un lote", `select public.delete_export_batch('${lote}')`);
+  expect("el lote ya no está", (await db.query(`select 1 from public.export_batches where id = '${lote}'`)).rows.length === 0);
+  const purged = (await step("limpieza de lotes viejos", "select public.purge_old_export_batches()")) as number;
+  expect("se borró solo el de más de 30 días", purged === 1 && (await db.query(`select 1 from public.export_batches where id = '${viejo}'`)).rows.length === 0);
+  const otro = (await db.query<{ id: string }>("insert into auth.users (email) values ('otro-lote@test.dev') returning id")).rows[0].id;
+  const ajeno = (await step("lote de la tienda", `insert into public.export_batches (store_id, courier_id, order_count) values ('${storeId}', 'shalom', 1) returning id`)) as string;
+  await db.exec(`set request.jwt.claim.sub = '${otro}'`);
+  try {
+    await db.query(`select public.delete_export_batch('${ajeno}')`);
+    expect("otra persona no puede quitar el lote", false);
+  } catch {
+    expect("otra persona no puede quitar el lote", true);
+  }
+  await db.exec(`set request.jwt.claim.sub = '${userId}'`);
   console.log("\nOK — prueba de humo completa");
 }
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { AlertTriangle, CheckCircle2, Download, Loader2 } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Download, Loader2, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, useTransition } from "react";
 import { toast } from "sonner";
@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { formatDateTime } from "@/lib/format";
 import { buildCourierFile, COURIERS, reviewExport, toCourierOrder } from "@/modules/couriers";
-import { type ExportOrder, getBatchExport, getExportOrders, reserveExport } from "./actions";
+import { deleteExportBatch, type ExportOrder, getBatchExport, getExportOrders, reserveExport } from "./actions";
 import { CourierIcon } from "@/components/brand-icons";
 import { mimeFor, saveFile } from "@/modules/app-native/files";
 
@@ -280,9 +280,22 @@ export type BatchRow = {
 };
 
 /** Historial de lotes exportados, con opción de volver a descargar el mismo archivo. */
-export function BatchesList({ batches }: { batches: BatchRow[] }) {
+export function BatchesList({ batches, canDelete = false }: { batches: BatchRow[]; canDelete?: boolean }) {
+  const router = useRouter();
   const [pending, startTransition] = useTransition();
+  const [confirm, setConfirm] = useState<BatchRow | null>(null);
   if (!batches.length) return null;
+  const remove = (b: BatchRow) =>
+    startTransition(async () => {
+      const r = await deleteExportBatch(b.id);
+      setConfirm(null);
+      if (!r.ok) {
+        toast.error(r.error);
+        return;
+      }
+      toast.success("Lote quitado del historial");
+      router.refresh();
+    });
   const again = (id: string) =>
     startTransition(async () => {
       const r = await getBatchExport(id);
@@ -298,7 +311,9 @@ export function BatchesList({ batches }: { batches: BatchRow[] }) {
     });
   return (
     <div className="flex flex-col gap-2 rounded-xl border p-3">
-      <p className="text-sm font-medium">Lotes exportados</p>
+      <p className="flex items-baseline justify-between gap-2 text-sm font-medium">
+        Lotes exportados <span className="text-xs font-normal text-muted-foreground">Se borran solos a los 30 días</span>
+      </p>
       <ul className="flex flex-col divide-y text-sm">
         {batches.map((b) => (
           <li key={b.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 py-2">
@@ -309,12 +324,37 @@ export function BatchesList({ batches }: { batches: BatchRow[] }) {
             <span className="text-muted-foreground">
               {b.order_count} pedido(s) · {formatDateTime(b.created_at)} · {b.created_by_name}
             </span>
-            <Button size="sm" variant="outline" className="ml-auto" disabled={pending} onClick={() => again(b.id)}>
-              <Download /> Descargar de nuevo
-            </Button>
+            <span className="ml-auto flex items-center gap-1">
+              <Button size="sm" variant="outline" disabled={pending} onClick={() => again(b.id)}>
+                <Download /> Descargar de nuevo
+              </Button>
+              {canDelete ? (
+                <Button size="icon-sm" variant="ghost" disabled={pending} onClick={() => setConfirm(b)} aria-label="Quitar lote" title="Quitar del historial" className="text-muted-foreground">
+                  <Trash2 />
+                </Button>
+              ) : null}
+            </span>
           </li>
         ))}
       </ul>
+      <Dialog open={confirm !== null} onOpenChange={(open) => !open && setConfirm(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>¿Quitar este lote del historial?</DialogTitle>
+            <DialogDescription>
+              Los pedidos no cambian: siguen marcados como exportados. Solo ya no podrás volver a descargar este Excel desde aquí.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setConfirm(null)} disabled={pending}>
+              Cancelar
+            </Button>
+            <Button variant="destructive" onClick={() => confirm && remove(confirm)} disabled={pending}>
+              {pending ? <Loader2 className="animate-spin" /> : <Trash2 />} Quitar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

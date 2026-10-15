@@ -12,6 +12,11 @@ import { CountChip, SCROLL_ROW, Segmented, ToggleChip } from "../pedidos/orders-
 
 export const metadata: Metadata = { title: "Logística" };
 
+/** Los lotes se guardan 30 días (después los borra la tarea diaria). */
+function thirtyDaysAgo() {
+  return new Date(Date.now() - 30 * 86_400_000).toISOString();
+}
+
 const VIEWS = {
   confirmar: { label: "Por confirmar", statuses: ["new", "pending_confirmation"] as OrderStatus[] },
   despachar: { label: "Por despachar", statuses: ["confirmed", "preparing"] as OrderStatus[] },
@@ -59,6 +64,7 @@ export default async function LogisticsPage({ searchParams }: PageProps<"/dashbo
           .from("export_batches")
           .select("id, courier_id, order_count, created_at, created_by")
           .eq("store_id", store.id)
+          .gte("created_at", thirtyDaysAgo())
           .order("created_at", { ascending: false })
           .limit(8)
       : Promise.resolve({
@@ -154,7 +160,7 @@ export default async function LogisticsPage({ searchParams }: PageProps<"/dashbo
         currentUserId={user.id}
         couriers={(couriers ?? []) as StoreCourier[]}
       />
-      {view === "despachar" ? <BatchesList batches={batchRows} /> : null}
+      {view === "despachar" ? <BatchesList batches={batchRows} canDelete={store.role === "owner"} /> : null}
     </div>
   );
 }

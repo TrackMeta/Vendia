@@ -99,6 +99,19 @@ export async function reserveExport(input: { courierId: string; orderIds: string
   return { ok: true, batchId: r.batch_id, orders: await toExportOrders(supabase, (rows ?? []) as unknown as Row[]), skipped: r.skipped };
 }
 
+/** Quita un lote del historial (solo el dueño). Los pedidos siguen marcados como exportados. */
+export async function deleteExportBatch(batchId: string): Promise<{ ok: true } | { ok: false; error: string }> {
+  await requireStore();
+  if (!z.uuid().safeParse(batchId).success) return { ok: false, error: "Lote inválido" };
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("delete_export_batch", { p_batch_id: batchId });
+  if (error) {
+    return { ok: false, error: /delete_export_batch/.test(error.message) ? "Falta correr la actualización de la base de datos (Bloque 17)." : "Solo el dueño puede quitar lotes." };
+  }
+  revalidatePath("/dashboard/logistica");
+  return { ok: true };
+}
+
 /** Vuelve a descargar un lote ya exportado (no reserva nada nuevo). */
 export async function getBatchExport(
   batchId: string,

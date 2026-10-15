@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { externalUrl, isNativeApp, nativePlugin, PUSH_PREFS_EVENT, vendiaNativo } from "@/modules/app-native/client";
 import { fileNameFrom, saveFile } from "@/modules/app-native/files";
 import { refreshDeviceIfStale, registerPush, scheduleDeviceSync } from "@/modules/app-native/push";
+import { THEME_EVENT } from "@/app/dashboard/theme-toggle";
 import { SOUND_PREFS_EVENT } from "@/modules/notifications/sound";
 
 type Handle = { remove: () => Promise<void> | void };
@@ -141,6 +142,8 @@ export function NativeBridge() {
 
     const scheme = window.matchMedia("(prefers-color-scheme: dark)");
     scheme.addEventListener("change", paintBars);
+    // Cambio de tema Claro/Oscuro en el panel
+    window.addEventListener(THEME_EVENT, paintBars);
 
     return () => {
       document.removeEventListener("click", onClick, true);
@@ -149,6 +152,7 @@ export function NativeBridge() {
       window.removeEventListener(SOUND_PREFS_EVENT, scheduleDeviceSync);
       window.removeEventListener(PUSH_PREFS_EVENT, scheduleDeviceSync);
       scheme.removeEventListener("change", paintBars);
+      window.removeEventListener(THEME_EVENT, paintBars);
       handles.forEach((h) => void h.then((x) => x.remove()).catch(() => {}));
     };
   }, [router]);

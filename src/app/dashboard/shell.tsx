@@ -173,12 +173,10 @@ function MoreSheet({
             );
           })}
         </nav>
-        <div className="mt-4 flex items-center gap-3 border-t pt-3">
-          <div className="w-32">
-            <ThemeToggle value={themePref} onChange={onThemeChange} light />
-          </div>
-          <form action={logoutHere} className="ml-auto">
-            <button type="submit" className="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm font-medium text-primary active:bg-primary/10">
+        <div className="mt-4 flex flex-col gap-2 border-t pt-3">
+          <ThemeToggle value={themePref} onChange={onThemeChange} light />
+          <form action={logoutHere} className="self-center">
+            <button type="submit" className="flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-primary active:bg-primary/10">
               <LogOut className="size-4" /> Cerrar sesión
             </button>
           </form>

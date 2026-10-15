@@ -1,6 +1,6 @@
 // Genera los íconos del APK a partir de la V roja (Recursos Iconos/Logo sin Fondo.png, que no se sube al repo):
-//   mipmap-*/ic_launcher.png y ic_launcher_round.png → V roja sobre blanco (celulares viejos)
-//   mipmap-*/ic_launcher_foreground.png              → V dentro de la zona segura del ícono adaptable (fondo blanco aparte)
+//   mipmap-*/ic_launcher.png y ic_launcher_round.png → V blanca sobre rojo (celulares viejos)
+//   mipmap-*/ic_launcher_foreground.png              → V blanca dentro de la zona segura del ícono adaptable (fondo rojo aparte)
 //   drawable-*/ic_stat_vendia.png                    → V blanca sobre transparente (ícono chico de los avisos)
 //   drawable*/splash.png                             → pantalla de inicio (Android 11 o menos)
 // Uso (desde D:\Vendia): node app-android/tools-iconos.mjs   (usa sharp de la web)
@@ -13,8 +13,8 @@ const aqui = dirname(fileURLToPath(import.meta.url));
 const ORIGEN = join(aqui, "..", "Recursos Iconos", "Logo sin Fondo.png");
 const RES = join(aqui, "android", "app", "src", "main", "res");
 const DENS = { mdpi: 1, hdpi: 1.5, xhdpi: 2, xxhdpi: 3, xxxhdpi: 4 };
-const BLANCO = { r: 255, g: 255, b: 255, alpha: 1 };
 const NADA = { r: 0, g: 0, b: 0, alpha: 0 };
+const ROJO = { r: 229, g: 57, b: 53, alpha: 1 };
 
 // Recorta la V a su contorno (sin el margen transparente del archivo original)
 async function recortarV() {
@@ -53,19 +53,19 @@ async function lienzo(w, h, V, fondo, archivo) {
 const forma = (s, redondo) =>
   Buffer.from(
     redondo
-      ? `<svg xmlns="http://www.w3.org/2000/svg" width="${s}" height="${s}"><circle cx="${s / 2}" cy="${s / 2}" r="${s * 0.46}" fill="#fff"/></svg>`
-      : `<svg xmlns="http://www.w3.org/2000/svg" width="${s}" height="${s}"><rect x="${s * 0.04}" y="${s * 0.04}" width="${s * 0.92}" height="${s * 0.92}" rx="${s * 0.19}" fill="#fff"/></svg>`,
+      ? `<svg xmlns="http://www.w3.org/2000/svg" width="${s}" height="${s}"><circle cx="${s / 2}" cy="${s / 2}" r="${s * 0.46}" fill="#E53935"/></svg>`
+      : `<svg xmlns="http://www.w3.org/2000/svg" width="${s}" height="${s}"><rect x="${s * 0.04}" y="${s * 0.04}" width="${s * 0.92}" height="${s * 0.92}" rx="${s * 0.19}" fill="#E53935"/></svg>`,
   );
 
 const V = await recortarV();
 for (const [d, k] of Object.entries(DENS)) {
   const mip = join(RES, `mipmap-${d}`);
   const s = Math.round(48 * k);
-  await lienzo(s, s, await v(V, s * 0.56), await sharp(forma(s, false)).png().toBuffer(), join(mip, "ic_launcher.png"));
-  await lienzo(s, s, await v(V, s * 0.52), await sharp(forma(s, true)).png().toBuffer(), join(mip, "ic_launcher_round.png"));
+  await lienzo(s, s, await v(V, s * 0.56, true), await sharp(forma(s, false)).png().toBuffer(), join(mip, "ic_launcher.png"));
+  await lienzo(s, s, await v(V, s * 0.52, true), await sharp(forma(s, true)).png().toBuffer(), join(mip, "ic_launcher_round.png"));
   // Ícono adaptable: lienzo de 108dp; la V (46% de ancho) queda dentro del círculo seguro de 66dp
   const f = Math.round(108 * k);
-  await lienzo(f, f, await v(V, f * 0.46), NADA, join(mip, "ic_launcher_foreground.png"));
+  await lienzo(f, f, await v(V, f * 0.46, true), NADA, join(mip, "ic_launcher_foreground.png"));
   // Avisos: 24dp con 2dp de margen
   const n = Math.round(24 * k);
   await lienzo(n, n, await v(V, 20 * k, true), NADA, join(RES, `drawable-${d}`, "ic_stat_vendia.png"));
@@ -80,9 +80,9 @@ const SPLASH = {
   "drawable-port-xxhdpi": [960, 1600], "drawable-port-xxxhdpi": [1280, 1920],
 };
 for (const [carpeta, [w, h]] of Object.entries(SPLASH)) {
-  await lienzo(w, h, await v(V, Math.min(w, h) * 0.3), BLANCO, join(RES, carpeta, "splash.png"));
+  await lienzo(w, h, await v(V, Math.min(w, h) * 0.3, true), ROJO, join(RES, carpeta, "splash.png"));
 }
 // Pantalla de inicio animada (MainActivity): la V sola, nítida aunque crezca al abrir la app
 mkdirSync(join(RES, "drawable-nodpi"), { recursive: true });
-await sharp(await v(V, 480)).toFile(join(RES, "drawable-nodpi", "inicio_v.png"));
+await sharp(await v(V, 480, true)).toFile(join(RES, "drawable-nodpi", "inicio_v.png"));
 console.log("íconos listos en", RES);

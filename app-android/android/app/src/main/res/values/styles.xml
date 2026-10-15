@@ -18,10 +18,10 @@
     </style>
 
 
-    <!-- Pantalla de inicio: solo blanco; la V animada (rebote, latido y apertura) la pone MainActivity -->
+    <!-- Pantalla de inicio: solo rojo; la V blanca animada (rebote, latido y apertura) la pone MainActivity -->
     <style name="AppTheme.NoActionBarLaunch" parent="Theme.SplashScreen">
-        <item name="android:background">@color/vendia_fondo</item>
-        <item name="windowSplashScreenBackground">@color/vendia_fondo</item>
+        <item name="android:background">@color/vendia_rojo</item>
+        <item name="windowSplashScreenBackground">@color/vendia_rojo</item>
         <item name="windowSplashScreenAnimatedIcon">@drawable/splash_vacio</item>
         <item name="postSplashScreenTheme">@style/AppTheme.NoActionBar</item>
     </style>

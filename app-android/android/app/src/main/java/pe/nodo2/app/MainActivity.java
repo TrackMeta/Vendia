@@ -3,8 +3,6 @@ package pe.nodo2.app;
 import android.animation.ObjectAnimator;
 import android.animation.PropertyValuesHolder;
 import android.animation.ValueAnimator;
-import android.graphics.Color;
-import android.graphics.Typeface;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
@@ -20,7 +18,7 @@ import android.view.animation.OvershootInterpolator;
 import android.webkit.WebView;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
-import android.widget.TextView;
+import androidx.core.content.ContextCompat;
 import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
@@ -85,7 +83,7 @@ public class MainActivity extends BridgeActivity {
 
     private void mostrarInicio() {
         inicio = new FrameLayout(this);
-        inicio.setBackgroundColor(Color.WHITE);
+        inicio.setBackgroundColor(ContextCompat.getColor(this, R.color.vendia_rojo));
         inicio.setClickable(true); // nada se toca por debajo mientras carga
 
         inicioV = new ImageView(this);
@@ -93,29 +91,15 @@ public class MainActivity extends BridgeActivity {
         inicioV.setAdjustViewBounds(true);
         inicio.addView(inicioV, new FrameLayout.LayoutParams(dp(104), ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.CENTER));
 
-        TextView nombre = new TextView(this);
-        nombre.setText("Vendia");
-        nombre.setTextColor(Color.parseColor("#202124"));
-        nombre.setTextSize(TypedValue.COMPLEX_UNIT_SP, 18);
-        nombre.setTypeface(Typeface.DEFAULT_BOLD);
-        nombre.setAlpha(0f);
-        FrameLayout.LayoutParams lp = new FrameLayout.LayoutParams(
-            ViewGroup.LayoutParams.WRAP_CONTENT,
-            ViewGroup.LayoutParams.WRAP_CONTENT,
-            Gravity.CENTER_HORIZONTAL | Gravity.BOTTOM
-        );
-        lp.bottomMargin = dp(64);
-        inicio.addView(nombre, lp);
-
         ((ViewGroup) getWindow().getDecorView()).addView(
             inicio,
             new ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
         );
         inicioDesde = SystemClock.uptimeMillis();
-        // Hora y batería en gris oscuro sobre el blanco (después la web pinta la barra como su cabecera)
+        // Hora y batería en blanco sobre el rojo (después la web pinta la barra como su cabecera)
         androidx.core.view.WindowInsetsControllerCompat barras = androidx.core.view.WindowCompat.getInsetsController(getWindow(), getWindow().getDecorView());
-        barras.setAppearanceLightStatusBars(true);
-        barras.setAppearanceLightNavigationBars(true);
+        barras.setAppearanceLightStatusBars(false);
+        barras.setAppearanceLightNavigationBars(false);
 
         // 1) Rebote: entra chica y transparente, se pasa un poquito y se acomoda
         inicioV.setScaleX(0.3f);
@@ -130,7 +114,6 @@ public class MainActivity extends BridgeActivity {
             .setInterpolator(new OvershootInterpolator(2.6f))
             .withEndAction(this::latir)
             .start();
-        nombre.animate().alpha(1f).setStartDelay(450).setDuration(350).start();
         // Tope: nunca se queda pegada
         principal.postDelayed(this::ocultarInicio, TOPE_MS);
     }

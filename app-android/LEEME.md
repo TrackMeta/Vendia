@@ -18,7 +18,7 @@ Envoltorio [Capacitor](https://capacitorjs.com) que abre el panel de Vendia
   (ignorada por git). Si se pierde, los celulares tendrán que desinstalar y volver a instalar.
 - **Plugin nativo `VendiaNativo`:** `info`, `barras`, `abrirExterno` (WhatsApp, llamadas, mapas), `guardarArchivo`
   (Descargas), `compartirArchivo` e `imprimir` (deja «Guardar como PDF»).
-- **Pantalla de inicio animada:** `MainActivity` (la V entra con rebote, late mientras carga y crece al abrir la app). Se cierra cuando la web llama `VendiaNativo.listo()` (o 4 s después de cargar; tope 12 s). La V sale de `drawable-nodpi/inicio_v.png` (`tools-iconos.mjs`).
+- **Pantalla de inicio animada:** `MainActivity` (fondo rojo; la V blanca entra con rebote, late mientras carga y crece al abrir la app). Se cierra cuando la web llama `VendiaNativo.listo()` (o 4 s después de cargar; tope 12 s). La V sale de `drawable-nodpi/inicio_v.png` (`tools-iconos.mjs`).
 - **Atajos del ícono:** «Nuevo pedido» y «Por confirmar». Los enlaces `https://vendia-theta.vercel.app/dashboard/...`
   también se pueden abrir con la app.
 - **Sonidos de los avisos** (`res/raw`): `dingdong`, `caja`, `moneda`, `campana` (canales `vendia_*`;

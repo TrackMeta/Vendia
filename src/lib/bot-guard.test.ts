@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { looksLikeBot, MIN_FILL_MS, trippedTrap } from "./bot-guard";
+import { looksLikeBot, trippedTrap } from "./bot-guard";
 
 const PHONES = [
   // Chrome en Android, navegador de Facebook/Instagram/TikTok, iPhone y un celular CUBOT: siempre pasan
@@ -34,17 +34,11 @@ describe("Filtro de robots", () => {
 
 describe("Trampa del formulario", () => {
   it("el campo escondido lleno es de robot", () => {
-    expect(trippedTrap("https://spam.example", 30_000)).toBe(true);
+    expect(trippedTrap("https://spam.example")).toBe(true);
   });
 
-  it("llenar el formulario en menos de un segundo y medio es de robot", () => {
-    expect(trippedTrap(undefined, 300)).toBe(true);
-    expect(trippedTrap(undefined, MIN_FILL_MS)).toBe(false);
-  });
-
-  it("una persona normal (o una página abierta antes de esta versión) pasa", () => {
-    expect(trippedTrap(undefined, 25_000)).toBe(false);
-    expect(trippedTrap("", 25_000)).toBe(false);
-    expect(trippedTrap(undefined, undefined)).toBe(false);
+  it("una persona normal pasa", () => {
+    expect(trippedTrap("")).toBe(false);
+    expect(trippedTrap(undefined)).toBe(false);
   });
 });

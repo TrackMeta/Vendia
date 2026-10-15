@@ -16,9 +16,8 @@ const schema = z.object({
     .regex(/^\d{6}$/)
     .optional(),
   offer_id: z.uuid().optional(),
-  // Trampa invisible y tiempo desde que se abrió el formulario (ver bot-guard)
+  // Trampa invisible (ver bot-guard)
   hp: z.string().max(200).optional(),
-  t: z.number().optional(),
 });
 
 /**
@@ -40,8 +39,8 @@ export async function POST(request: NextRequest) {
   }
   const parsed = schema.safeParse(body);
   if (!parsed.success) return new NextResponse(null, { status: 400 });
-  const { hp, t, ...data } = parsed.data;
-  if (trippedTrap(hp, t)) return new NextResponse(null, { status: 204 });
+  const { hp, ...data } = parsed.data;
+  if (trippedTrap(hp)) return new NextResponse(null, { status: 204 });
   const phone = normalizePeruPhone(data.phone);
   if (!phone) return new NextResponse(null, { status: 204 });
 

@@ -134,11 +134,6 @@ export function CodForm({
   // Formulario abandonado: si deja su celular y no termina, el vendedor puede escribirle.
   const submitted = useRef(false);
   const lastSent = useRef("");
-  // Contra robots: cuándo se abrió el formulario (y el campo trampa «website», más abajo)
-  const openedAt = useRef(0);
-  useEffect(() => {
-    openedAt.current = Date.now();
-  }, []);
   const phoneDigits = phone.replace(/\D/g, "");
   const typedName = fieldsBlock?.singleNameField ? fullName : `${firstName} ${lastName}`;
   const abandonPayload = JSON.stringify({
@@ -158,8 +153,7 @@ export function CodForm({
         const body = JSON.stringify({
           ...JSON.parse(abandonPayload),
           session_id: sessionId(),
-          hp: honeypot || undefined,
-          t: openedAt.current ? Date.now() - openedAt.current : undefined,
+          hp: honeypot || undefined, // campo trampa «website» (más abajo): una persona no lo ve
         });
         navigator.sendBeacon?.("/api/abandoned", new Blob([body], { type: "application/json" }));
       } catch {

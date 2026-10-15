@@ -14,15 +14,7 @@ export function looksLikeBot(userAgent: string | null | undefined): boolean {
   return BOT_UA.test(userAgent);
 }
 
-/** Menos que esto entre abrir el formulario y dejar el celular: ninguna persona escribe tan rápido. */
-export const MIN_FILL_MS = 1500;
-
-/**
- * Trampa del formulario: `hp` es un campo escondido que una persona no ve (y no llena);
- * `t` son los milisegundos desde que se abrió el formulario. Si no vienen (página abierta
- * antes de esta versión), se deja pasar.
- */
-export function trippedTrap(hp: string | undefined, t: number | undefined): boolean {
-  if (hp && hp.trim()) return true;
-  return typeof t === "number" && t >= 0 && t < MIN_FILL_MS;
+/** Trampa del formulario: `hp` es un campo escondido que una persona no ve (y no llena). */
+export function trippedTrap(hp: string | undefined): boolean {
+  return Boolean(hp && hp.trim());
 }

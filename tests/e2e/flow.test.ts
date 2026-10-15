@@ -143,7 +143,7 @@ describe("Abandonados y errores", () => {
     const res = await fetch(`${BASE}/api/abandoned`, {
       method: "POST",
       headers: { "User-Agent": PHONE_UA },
-      body: JSON.stringify({ landing_page_id: landingId, session_id: `sess${runId}`, name: "Rosa", phone: "923456789", offer_id: offerId, t: 25_000 }),
+      body: JSON.stringify({ landing_page_id: landingId, session_id: `sess${runId}`, name: "Rosa", phone: "923456789", offer_id: offerId }),
     });
     expect(res.status).toBe(204);
     const { data } = await admin.from("abandoned_checkouts").select("status, phone").eq("store_id", storeId);
@@ -158,11 +158,10 @@ describe("Abandonados y errores", () => {
         body: JSON.stringify({ landing_page_id: landingId, session_id: `robot${n}${runId}`, name: "Robot", phone: `91234567${n}`, ...extra }),
       });
     const answers = await Promise.all([
-      send({ "User-Agent": PHONE_UA }, { hp: "https://spam.example", t: 25_000 }, 1), // llenó el campo trampa
-      send({ "User-Agent": PHONE_UA }, { t: 200 }, 2), // demasiado rápido
-      send({ "User-Agent": "python-requests/2.31.0" }, { t: 25_000 }, 3), // programa, no navegador
+      send({ "User-Agent": PHONE_UA }, { hp: "https://spam.example" }, 1), // llenó el campo trampa
+      send({ "User-Agent": "python-requests/2.31.0" }, {}, 2), // programa, no navegador
     ]);
-    expect(answers.map((r) => r.status)).toEqual([204, 204, 204]);
+    expect(answers.map((r) => r.status)).toEqual([204, 204]);
     const { data } = await admin.from("abandoned_checkouts").select("phone").eq("store_id", storeId).like("phone", "5191234567%");
     expect(data).toEqual([]);
   });

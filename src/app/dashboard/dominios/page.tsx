@@ -3,7 +3,6 @@ import { PageHeader } from "@/components/dashboard/page-header";
 import { SimpleBadge } from "@/components/dashboard/status-badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { getMyStores, requireOwner } from "@/lib/auth";
-import { env } from "@/lib/env";
 import { formatDateTime } from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
 import { dnsRecords, isApex } from "@/modules/domains";
@@ -49,7 +48,7 @@ export default async function DomainsPage() {
     <div className="flex max-w-3xl flex-col gap-6">
       <PageHeader
         title="Dominios"
-        description={`Muestra tus landings con tu propia marca, por ejemplo tutienda.pe/oferta. Tus clientes confían más y compran más. Hoy se ven en ${new URL(env.siteUrl()).host}/p/${store.slug}/…`}
+        description="Muestra tus landings con tu propia marca, por ejemplo tutienda.pe/oferta. Tus clientes confían más y compran más."
       />
 
       <Card>

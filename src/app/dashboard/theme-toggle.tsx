@@ -55,35 +55,47 @@ export function saveThemePref(pref: ThemePref) {
 
 type ViewTransitionDoc = Document & { startViewTransition?: (cb: () => void) => { ready: Promise<void>; finished: Promise<void> } };
 
+/** Corre cb cuando el navegador ya pintó el cambio (2 cuadros), con tope por si la pestaña no dibuja. */
+function afterPaint(cb: () => void) {
+  let ran = false;
+  const once = () => {
+    if (ran) return;
+    ran = true;
+    cb();
+  };
+  requestAnimationFrame(() => requestAnimationFrame(once));
+  window.setTimeout(once, 250);
+}
+
 /**
- * Celular: una sola capa del color del tema nuevo aparece, se cambia el tema debajo y la capa se va.
- * Es lo más liviano posible (solo se anima la transparencia de una capa): no se traba.
+ * Celular: el color del tema nuevo nace en un círculo desde el botón y cubre la pantalla; recién
+ * entonces se cambia el tema debajo (el trabajo pesado queda tapado) y, ya pintado, la capa se funde.
+ * Mientras crece el círculo no se hace nada más, así no se traba.
  */
-function veilSwitch(apply: () => void, toDark: boolean, done: () => void) {
+function veilSwitch(apply: () => void, toDark: boolean, from: HTMLElement, done: () => void) {
+  const b = from.getBoundingClientRect();
+  const x = Math.round(b.left + b.width / 2);
+  const y = Math.round(b.top + b.height / 2);
+  const radius = Math.ceil(Math.hypot(Math.max(x, window.innerWidth - x), Math.max(y, window.innerHeight - y)));
   const veil = document.createElement("div");
   veil.setAttribute("aria-hidden", "true");
-  veil.style.cssText = `position:fixed;inset:0;z-index:2147483647;pointer-events:none;opacity:0;will-change:opacity;transition:opacity 110ms ease-out;background:${toDark ? "#17181b" : "#f3f4f6"}`;
+  veil.style.cssText = `position:fixed;inset:0;z-index:2147483647;pointer-events:none;background:${toDark ? "#17181b" : "#f3f4f6"};clip-path:circle(0px at ${x}px ${y}px);transition:clip-path 300ms cubic-bezier(0.2,0,0,1),opacity 180ms ease-in`;
   document.body.appendChild(veil);
-  void veil.offsetWidth; // que el navegador vea la opacidad 0 antes de subirla
-  veil.style.opacity = "1";
+  void veil.offsetWidth; // que el navegador vea el círculo en 0 antes de abrirlo
+  veil.style.clipPath = `circle(${radius}px at ${x}px ${y}px)`;
   // Con temporizadores (no con el fin de la animación): el tema se aplica siempre, aunque la animación no corra
   window.setTimeout(() => {
     apply();
-    window.setTimeout(() => {
-      veil.style.transition = "opacity 190ms ease-in";
+    afterPaint(() => {
       veil.style.opacity = "0";
       window.setTimeout(() => {
         veil.remove();
         done();
-      }, 210);
-    }, 30);
-  }, 110);
+      }, 200);
+    });
+  }, 300);
 }
 
-/**
- * Cambia de tema. Computadora: un círculo que crece desde el botón tocado (View Transitions).
- * Celular (pantalla táctil): la capa liviana de arriba. Con «reducir movimiento», de golpe.
- */
 function switchTheme(apply: () => void, from: HTMLElement, toDark: boolean) {
   const root = document.documentElement;
   const doc = document as ViewTransitionDoc;
@@ -95,7 +107,7 @@ function switchTheme(apply: () => void, from: HTMLElement, toDark: boolean) {
     return;
   }
   if (window.matchMedia("(pointer: coarse)").matches) {
-    veilSwitch(apply, toDark, done);
+    veilSwitch(apply, toDark, from, done);
     return;
   }
   if (!doc.startViewTransition) {

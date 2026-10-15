@@ -1,7 +1,7 @@
 "use client";
 
 import { Moon, Sun } from "lucide-react";
-import { useEffect, useSyncExternalStore } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { flushSync } from "react-dom";
 import { cn } from "@/lib/utils";
 import { THEME_COOKIE, type ThemePref } from "@/lib/theme";
@@ -57,7 +57,7 @@ type ViewTransitionDoc = Document & { startViewTransition?: (cb: () => void) => 
 
 /**
  * Cambia de tema. Computadora: un círculo que crece desde el botón tocado (View Transitions).
- * Celular (pantalla táctil) o con «reducir movimiento»: directo; solo se animan la píldora y el ícono.
+ * Con «reducir movimiento»: directo. El celular no pasa por aquí (ver ThemeToggle).
  */
 function switchTheme(apply: () => void, from: HTMLElement) {
   const root = document.documentElement;
@@ -65,12 +65,6 @@ function switchTheme(apply: () => void, from: HTMLElement) {
   const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   const done = () => window.setTimeout(() => window.dispatchEvent(new Event(THEME_EVENT)), 60);
   if (reduce) {
-    apply();
-    done();
-    return;
-  }
-  // Celular: directo (una capa o un círculo encima se veían como un parpadeo o se trababan)
-  if (window.matchMedia("(pointer: coarse)").matches) {
     apply();
     done();
     return;
@@ -109,7 +103,12 @@ function switchTheme(apply: () => void, from: HTMLElement) {
 export function ThemeToggle({ value, onChange, light = false }: { value: ThemePref; onChange: (pref: ThemePref) => void; light?: boolean }) {
   // Solo lee el tema (sin tocar <html>: eso lo hace el panel con useEffectiveDark)
   const systemDark = useSystemDark();
-  const current = value === "dark" || (value === "system" && systemDark === true) ? "dark" : "light";
+  // Celular: la píldora se mueve primero (solo este botón se redibuja, va suave) y, cuando llega,
+  // cambian los colores de una vez. Hacer las dos cosas juntas trababa la píldora a medio camino.
+  const [moving, setMoving] = useState<"light" | "dark" | null>(null);
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => void (timer.current && clearTimeout(timer.current)), []);
+  const current = moving ?? (value === "dark" || (value === "system" && systemDark === true) ? "dark" : "light");
   const index = OPTIONS.findIndex((o) => o.value === current);
   return (
     <div
@@ -136,13 +135,26 @@ export function ThemeToggle({ value, onChange, light = false }: { value: ThemePr
             onClick={(e) => {
               if (on && value === o.value) return;
               const target = e.currentTarget;
-              switchTheme(() => {
+              const apply = () => {
                 saveThemePref(o.value);
                 // Ya en el mismo instante (la foto «nueva» de la transición debe salir con el tema nuevo)
                 document.documentElement.classList.toggle("dark", o.value === "dark");
                 document.documentElement.style.colorScheme = o.value;
+                // El panel también, en el mismo cuadro (si no, al volver a claro se ve un instante a medias)
+                document.querySelector("[data-vd-shell]")?.classList.toggle("dark", o.value === "dark");
                 onChange(o.value);
-              }, target);
+              };
+              if (window.matchMedia("(pointer: coarse)").matches) {
+                setMoving(o.value);
+                if (timer.current) clearTimeout(timer.current);
+                timer.current = setTimeout(() => {
+                  apply();
+                  setMoving(null);
+                  window.setTimeout(() => window.dispatchEvent(new Event(THEME_EVENT)), 60);
+                }, 240);
+                return;
+              }
+              switchTheme(apply, target);
             }}
             className={cn(
               "relative z-10 flex h-8 items-center justify-center gap-1.5 rounded-lg text-xs transition-colors",

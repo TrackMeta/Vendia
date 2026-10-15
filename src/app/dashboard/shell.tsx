@@ -272,7 +272,7 @@ export function DashboardShell({
   );
 
   return (
-    <div className={cn("flex min-h-svh w-full bg-canvas text-foreground", dark && "dark")}>
+    <div data-vd-shell className={cn("flex min-h-svh w-full bg-canvas text-foreground", dark && "dark")}>
       <aside className="sticky top-0 hidden h-svh w-60 shrink-0 md:block">{sidebar}</aside>
       <MoreSheet
         open={open}

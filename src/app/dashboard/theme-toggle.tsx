@@ -72,7 +72,7 @@ function switchTheme(apply: () => void, from: HTMLElement) {
   if (!doc.startViewTransition) {
     root.classList.add("vd-theme-fade");
     apply();
-    window.setTimeout(() => root.classList.remove("vd-theme-fade"), 450);
+    window.setTimeout(() => root.classList.remove("vd-theme-fade"), 250);
     done();
     return;
   }
@@ -86,7 +86,7 @@ function switchTheme(apply: () => void, from: HTMLElement) {
     .then(() =>
       root.animate(
         { clipPath: [`circle(0px at ${x}px ${y}px)`, `circle(${radius}px at ${x}px ${y}px)`] },
-        { duration: 520, easing: "cubic-bezier(0.4, 0, 0.2, 1)", pseudoElement: "::view-transition-new(root)" },
+        { duration: 300, easing: "cubic-bezier(0.2, 0, 0, 1)", pseudoElement: "::view-transition-new(root)" },
       ),
     )
     .catch(() => {});
@@ -114,7 +114,7 @@ export function ThemeToggle({ value, onChange, light = false }: { value: ThemePr
       <span
         aria-hidden
         className={cn(
-          "absolute top-1 bottom-1 left-1 w-[calc(50%-0.25rem)] rounded-lg shadow-sm transition-transform duration-300 ease-[cubic-bezier(0.3,1.4,0.5,1)]",
+          "absolute top-1 bottom-1 left-1 w-[calc(50%-0.25rem)] rounded-lg shadow-sm transition-transform duration-200 ease-[cubic-bezier(0.3,1.4,0.5,1)]",
           light ? "bg-background ring-1 ring-foreground/10" : "bg-white/15",
         )}
         style={{ transform: `translateX(${index * 100}%)` }}
@@ -146,7 +146,7 @@ export function ThemeToggle({ value, onChange, light = false }: { value: ThemePr
             <o.icon
               aria-hidden
               className={cn(
-                "size-4 transition-transform duration-500 ease-[cubic-bezier(0.3,1.4,0.5,1)]",
+                "size-4 transition-transform duration-300 ease-[cubic-bezier(0.3,1.4,0.5,1)]",
                 on && o.value === "light" && "rotate-90 scale-110 text-amber-500",
                 on && o.value === "dark" && "-rotate-[20deg] scale-110 text-indigo-400",
               )}

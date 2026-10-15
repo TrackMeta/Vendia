@@ -208,3 +208,19 @@ html.vd-theme-fade *::after {
     border-color 0.2s ease,
     fill 0.2s ease !important;
 }
+
+/* Celular y tablet (pantallas táctiles): sin desenfoque. En Android es de lo más pesado de dibujar
+   (trababa el cambio de tema, abrir el «Más» y el desplazamiento). En su lugar: barras sólidas y
+   un velo más oscuro detrás de las ventanas. En la computadora queda igual. */
+@media (pointer: coarse) {
+  [class*="backdrop-blur"] {
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
+  }
+  [class*="backdrop-blur"][class*="bg-background/95"] {
+    background-color: var(--background) !important;
+  }
+  [class*="backdrop-blur"][class*="bg-black/10"] {
+    background-color: rgb(0 0 0 / 0.4) !important;
+  }
+}

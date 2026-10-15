@@ -49,7 +49,7 @@ export default async function DomainsPage() {
     <div className="flex max-w-3xl flex-col gap-6">
       <PageHeader
         title="Dominios"
-        description={`Tus landings ya funcionan en ${new URL(env.siteUrl()).host}/p/${store.slug}/… Con un dominio propio se ven más confiables (y no cambian si cambias de plataforma).`}
+        description={`Muestra tus landings con tu propia marca, por ejemplo tutienda.pe/oferta. Tus clientes confían más y compran más. Hoy se ven en ${new URL(env.siteUrl()).host}/p/${store.slug}/…`}
       />
 
       <Card>

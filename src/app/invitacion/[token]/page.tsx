@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { logoutAndContinue } from "@/app/(auth)/actions";
 import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { getUser } from "@/lib/auth";
@@ -37,9 +38,17 @@ export default async function InvitationPage({ params }: PageProps<"/invitacion/
             user.email?.toLowerCase() === inv.email ? (
               <AcceptInvitationButton token={token} />
             ) : (
-              <p className="text-sm text-amber-700">
-                Ingresaste como {user.email}, pero la invitación es para {inv.email}. Cierra sesión e ingresa con ese correo.
-              </p>
+              <div className="flex flex-col gap-2">
+                <p className="text-sm text-amber-700">
+                  Ingresaste como {user.email}, pero la invitación es para {inv.email}. Cierra sesión e ingresa con ese correo.
+                </p>
+                <form action={logoutAndContinue}>
+                  <input type="hidden" name="next" value={`/invitacion/${token}`} />
+                  <button type="submit" className={buttonVariants({ variant: "outline" })}>
+                    Cerrar sesión e ingresar con {inv.email}
+                  </button>
+                </form>
+              </div>
             )
           ) : (
             <div className="flex flex-col gap-2">

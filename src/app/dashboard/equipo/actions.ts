@@ -10,7 +10,7 @@ export type InviteResult = { ok: true; link: string } | { ok: false; error: stri
 export type ActionResult = { ok: true; message?: string } | { ok: false; error: string };
 
 async function origin() {
-  if (process.env.NEXT_PUBLIC_SITE_URL) return process.env.NEXT_PUBLIC_SITE_URL;
+  if (process.env.NEXT_PUBLIC_SITE_URL) return process.env.NEXT_PUBLIC_SITE_URL.replace(/\/+$/, "");
   const h = await headers();
   const host = h.get("x-forwarded-host") ?? h.get("host");
   return `${h.get("x-forwarded-proto") ?? (host?.startsWith("localhost") ? "http" : "https")}://${host}`;

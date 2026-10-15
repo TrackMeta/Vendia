@@ -10,7 +10,7 @@ import { createClient } from "@/lib/supabase/server";
 export type OnboardingState = { error?: string } | undefined;
 
 const schema = z.object({
-  name: z.string().trim().min(2, "El nombre debe tener al menos 2 caracteres").max(80),
+  name: z.string().trim().min(2, "El nombre debe tener al menos 2 caracteres").max(80, "El nombre puede tener hasta 80 caracteres"),
   slug: z
     .string()
     .trim()

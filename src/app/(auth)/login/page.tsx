@@ -6,13 +6,18 @@ import { AuthForm } from "../auth-form";
 export const metadata: Metadata = { title: "Ingresar" };
 
 export default async function LoginPage({ searchParams }: PageProps<"/login">) {
-  const { next } = await searchParams;
+  const { next, error } = await searchParams;
   return (
     <AuthForm
       title="Ingresar"
       description="Accede al panel de tu tienda."
       action={login}
       submitLabel="Ingresar"
+      notice={
+        error === "enlace"
+          ? "Ese enlace ya se usó o venció. Si ya confirmaste tu correo, ingresa aquí; si era para cambiar tu contraseña, pide uno nuevo en «¿Olvidaste tu contraseña?»."
+          : undefined
+      }
       hidden={{ next: typeof next === "string" ? next : "/dashboard" }}
       fields={[
         { name: "email", label: "Correo", type: "email", autoComplete: "email", placeholder: "tu@correo.com" },

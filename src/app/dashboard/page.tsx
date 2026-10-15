@@ -12,11 +12,13 @@ import { formatDateTime, formatMoney, formatNumber, formatPercent, formatRatio }
 import { createClient } from "@/lib/supabase/server";
 import { computeDashboardMetrics, fromOrderStats } from "@/modules/metrics";
 import { buildSeries, type DailyRow } from "@/modules/metrics/daily";
+import { fillHours } from "@/modules/metrics/hourly";
 import { refreshMetaInBackground } from "@/modules/meta/sync";
 import { resolveRange } from "@/modules/metrics/date-range";
 import { parseSaleMode, REAL_SALE_MODES } from "@/modules/metrics/real-sale";
 import type { OrderStatus } from "@/modules/orders/state-machine";
 import { DailyChart } from "./daily-chart";
+import { HourlyChart } from "./hourly-chart";
 import { WelcomeChecklist } from "./welcome-checklist";
 
 export const metadata: Metadata = { title: "Inicio" };
@@ -50,7 +52,7 @@ export default async function DashboardHome({ searchParams }: PageProps<"/dashbo
   refreshMetaInBackground(store.id);
   const supabase = await createClient();
 
-  const [{ data: stats }, { data: recent }, { data: expenseTotals }, { data: settings }, { data: daily, error: dailyError }, { data: meta }] = await Promise.all([
+  const [{ data: stats }, { data: recent }, { data: expenseTotals }, { data: settings }, { data: daily, error: dailyError }, { data: meta }, { data: hourly, error: hourlyError }] = await Promise.all([
     supabase.rpc("get_order_stats", { p_store_id: store.id, p_from: range.from, p_to: range.to }),
     supabase
       .from("orders")
@@ -62,6 +64,7 @@ export default async function DashboardHome({ searchParams }: PageProps<"/dashbo
     supabase.from("store_settings").select("real_sale_mode").eq("store_id", store.id).single(),
     supabase.rpc("get_daily_orders", { p_store_id: store.id, p_from: range.from, p_to: range.to }),
     supabase.from("store_meta_settings").select("ad_account_id, last_sync_at").eq("store_id", store.id).maybeSingle(),
+    supabase.rpc("get_hourly_orders", { p_store_id: store.id, p_from: range.from, p_to: range.to }),
   ]);
   const metaConnected = Boolean(meta?.ad_account_id);
   const saleMode = parseSaleMode(settings?.real_sale_mode);
@@ -80,6 +83,8 @@ export default async function DashboardHome({ searchParams }: PageProps<"/dashbo
   });
   // Si la función del gráfico aún no está en la base (falta correr el SQL), el Inicio sigue funcionando sin él
   const series = dailyError ? null : buildSeries((daily ?? []) as DailyRow[], range.startDate, range.endDate);
+  // Pedidos por hora (sin el SQL del Bloque 18, simplemente no se muestra)
+  const hours = hourlyError ? null : fillHours((hourly ?? []) as { hour: number; orders: number }[]);
 
   return (
     <div className="flex flex-col gap-5">
@@ -116,6 +121,14 @@ export default async function DashboardHome({ searchParams }: PageProps<"/dashbo
             ) : (
               <p className="py-10 text-center text-sm text-muted-foreground">Cuando entren pedidos en este periodo, aquí verás cómo van día a día.</p>
             )}
+          </CardContent>
+        </Card>
+      ) : null}
+
+      {hours && hours.some((n) => n > 0) ? (
+        <Card>
+          <CardContent>
+            <HourlyChart hours={hours} />
           </CardContent>
         </Card>
       ) : null}

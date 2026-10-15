@@ -672,6 +672,78 @@ async function main() {
     expect("otra persona no puede quitar el lote", true);
   }
   await db.exec(`set request.jwt.claim.sub = '${userId}'`);
+
+  console.log("\n— Dominios propios: verificación y raíz —");
+  const dom = (await db.query<{ id: string; t: string }>(
+    `insert into public.custom_domains (domain, owner_id, store_id) values ('pendiente.pe', '${userId}', '${storeId}') returning id, verify_token as t`,
+  )).rows[0];
+  expect("cada dominio trae su código de verificación", /^[0-9a-f]{32}$/.test(dom.t), dom.t);
+  const dom2 = (await db.query<{ t: string }>(`insert into public.custom_domains (domain, owner_id) values ('otro-pendiente.pe', '${userId}') returning verify_token as t`)).rows[0];
+  expect("el código es distinto en cada dominio", dom2.t !== dom.t);
+  const pendingRes = await step("un dominio pendiente no se resuelve", "select public.resolve_custom_domain('pendiente.pe')");
+  expect("pendiente → nada", pendingRes === null);
+  await db.query(
+    `insert into public.custom_domains (domain, owner_id, store_id, status) values ('activo.pe', '${userId}', '${storeId}', 'active'), ('todas.pe', '${userId}', null, 'active')`,
+  );
+  await db.query(
+    `insert into public.landing_pages (store_id, product_id, title, slug, content, published_content, status, published_at)
+     values ('${storeId}', '${productId}', 'Nueva', 'faja-nueva', '{}', '{}', 'published', now() + interval '1 hour'),
+            ('${storeId}', '${productId}', 'Borrador', 'faja-borrador', '{}', null, 'draft', null)`,
+  );
+  const activo = (await step("dominio de una tienda", "select public.resolve_custom_domain('ACTIVO.pe')")) as Record<string, unknown>;
+  expect(
+    "«/» muestra la landing publicada más reciente (no el borrador)",
+    activo.store_slug === "smoke-store" && activo.root_store_slug === "smoke-store" && activo.root_landing_slug === "faja-nueva",
+    JSON.stringify(activo),
+  );
+  const todas = (await step("dominio para todas (el dueño tiene 2 tiendas)", "select public.resolve_custom_domain('todas.pe')")) as Record<string, unknown>;
+  expect("con varias tiendas «/» no elige ninguna", todas.all_stores === true && todas.root_landing_slug === null, JSON.stringify(todas));
+  const www = (await step("www del dominio activo", "select public.resolve_custom_domain('www.activo.pe')")) as Record<string, unknown>;
+  expect("www lleva al dominio sin www", www.redirect_to === "activo.pe", JSON.stringify(www));
+  expect("www de un pendiente → nada", (await step("www pendiente", "select public.resolve_custom_domain('www.pendiente.pe')")) === null);
+
+  const solo = (await db.query<{ id: string }>("insert into auth.users (email) values ('una-tienda@test.dev') returning id")).rows[0].id;
+  const soloStore = (await db.query<{ id: string }>(`insert into public.stores (owner_id, name, slug) values ('${solo}', 'Solo', 'solo-tienda') returning id`)).rows[0].id;
+  const soloProduct = (await db.query<{ id: string }>(
+    `insert into public.products (store_id, name, price, cost, status) values ('${soloStore}', 'Gorra', 30, 10, 'active') returning id`,
+  )).rows[0].id;
+  await db.query(
+    `insert into public.landing_pages (store_id, product_id, title, slug, content, published_content, status, published_at) values ('${soloStore}', '${soloProduct}', 'Gorra', 'gorra', '{}', '{}', 'published', now())`,
+  );
+  await db.query(`insert into public.custom_domains (domain, owner_id, status) values ('solo.pe', '${solo}', 'active')`);
+  const soloRes = (await step("dominio para todas con una sola tienda", "select public.resolve_custom_domain('solo.pe')")) as Record<string, unknown>;
+  expect("«/» usa la landing de su única tienda", soloRes.root_store_slug === "solo-tienda" && soloRes.root_landing_slug === "gorra", JSON.stringify(soloRes));
+
+  await db.query(`insert into public.custom_domains (domain, owner_id, store_id, created_at) values ('viejo.pe', '${userId}', '${storeId}', now() - interval '8 days')`);
+  await db.query(`insert into public.custom_domains (domain, owner_id, store_id, status, created_at) values ('viejo-activo.pe', '${userId}', '${storeId}', 'active', now() - interval '30 days')`);
+  const stale = (await step("limpieza de dominios pendientes", "select public.purge_stale_domains()")) as string[];
+  const left = (await db.query<{ d: string }>("select domain as d from public.custom_domains order by domain")).rows.map((r) => r.d);
+  expect(
+    "se borra solo el pendiente de más de 7 días",
+    stale.length === 1 && stale[0] === "viejo.pe" && !left.includes("viejo.pe") && left.includes("viejo-activo.pe") && left.includes("pendiente.pe"),
+    JSON.stringify({ stale, left }),
+  );
+  const purgeGrant = (await db.query<{ ok: boolean }>("select has_function_privilege('authenticated', 'public.purge_stale_domains()', 'execute') as ok")).rows[0].ok;
+  expect("un vendedor no puede ejecutar la limpieza", purgeGrant === false);
+  const updGrant = (await db.query<{ ok: boolean }>("select has_column_privilege('authenticated', 'public.custom_domains', 'status', 'update') as ok")).rows[0].ok;
+  expect("un vendedor no puede cambiar el estado del dominio", updGrant === false);
+
+  console.log("\n— Pedidos por hora (Bloque 18) —");
+  await db.exec(`set request.jwt.claim.sub = '${userId}'`);
+  const porHora = (await step(
+    "pedidos por hora",
+    `select public.get_hourly_orders('${storeId}', now() - interval '400 days', now() + interval '1 day')`,
+  )) as { hour: number; orders: number }[];
+  expect("devuelve horas de 0 a 23 con pedidos", Array.isArray(porHora) && porHora.length > 0 && porHora.every((r) => r.hour >= 0 && r.hour < 24 && r.orders > 0));
+  const otroHora = (await db.query<{ id: string }>("insert into auth.users (email) values ('otro-hora@test.dev') returning id")).rows[0].id;
+  await db.exec(`set request.jwt.claim.sub = '${otroHora}'`);
+  try {
+    await db.query(`select public.get_hourly_orders('${storeId}', now() - interval '1 day', now())`);
+    expect("otra persona no ve los pedidos por hora", false);
+  } catch {
+    expect("otra persona no ve los pedidos por hora", true);
+  }
+  await db.exec(`set request.jwt.claim.sub = '${userId}'`);
   console.log("\nOK — prueba de humo completa");
 }
 

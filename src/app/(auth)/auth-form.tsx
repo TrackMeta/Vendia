@@ -24,6 +24,7 @@ export function AuthForm({
   action,
   hidden,
   footer,
+  notice,
 }: {
   title: string;
   description?: string;
@@ -32,6 +33,8 @@ export function AuthForm({
   action: (state: AuthState, formData: FormData) => Promise<AuthState>;
   hidden?: Record<string, string>;
   footer?: React.ReactNode;
+  /** Aviso arriba del formulario (p. ej. un enlace de correo que venció). */
+  notice?: string;
 }) {
   const [state, formAction, pending] = useActionState(action, undefined);
 
@@ -42,6 +45,9 @@ export function AuthForm({
         {description ? <CardDescription>{description}</CardDescription> : null}
       </CardHeader>
       <CardContent>
+        {notice && !state?.message ? (
+          <p className="mb-4 rounded-md bg-amber-50 p-3 text-sm text-amber-900 dark:bg-amber-950 dark:text-amber-200">{notice}</p>
+        ) : null}
         {state?.message ? (
           <p className="rounded-md bg-emerald-50 p-3 text-sm text-emerald-800 dark:bg-emerald-950 dark:text-emerald-200">
             {state.message}

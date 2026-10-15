@@ -79,10 +79,10 @@ export function NotificationBell({ storeId, initialUnread }: { storeId: string; 
 
   const loadItems = useCallback(async () => {
     const supabase = createClient();
-    const [{ data: list }, { data: reads }] = await Promise.all([
-      supabase.from("notifications").select("id, type, title, body, link, created_at").eq("store_id", storeId).order("created_at", { ascending: false }).limit(15),
-      supabase.from("notification_reads").select("notification_id").limit(500),
-    ]);
+    const { data: list } = await supabase.from("notifications").select("id, type, title, body, link, created_at").eq("store_id", storeId).order("created_at", { ascending: false }).limit(15);
+    // Leídas: solo de estas notificaciones (con muchas leídas, un límite fijo dejaba algunas como «no leídas»)
+    const ids = (list ?? []).map((n) => n.id);
+    const { data: reads } = ids.length ? await supabase.from("notification_reads").select("notification_id").in("notification_id", ids) : { data: [] };
     const readSet = new Set((reads ?? []).map((r) => r.notification_id));
     setItems((list ?? []).map((n) => ({ ...n, read: readSet.has(n.id) })));
   }, [storeId]);

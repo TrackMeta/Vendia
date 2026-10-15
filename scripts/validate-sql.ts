@@ -744,6 +744,33 @@ async function main() {
     expect("otra persona no ve los pedidos por hora", true);
   }
   await db.exec(`set request.jwt.claim.sub = '${userId}'`);
+
+  console.log("\n— Lectura de Meta en un solo paso (Bloque 19) —");
+  const ins = (date: string, ad: string, spend: number) => ({ date, ad_id: ad, adset_id: "as1", campaign_id: "c1", spend, spend_pen: spend, impressions: 10, reach: 5, clicks: 1, results: 1 });
+  const gasto = (date: string, amount: number) => ({ expense_date: date, description: "Meta Ads · C1", amount, currency: "PEN", exchange_rate: 1, igv_rate: 0, campaign_id: "c1", campaign_name: "C1", product_id: null, import_key: `meta:${date}:c1` });
+  const llamar = (insights: unknown[], gastos: unknown[]) =>
+    db.query(
+      "select public.replace_meta_sync($1, 'act_1', '2026-10-01', '2026-10-02', $2::jsonb, array['c1'], array['c1'], $3::jsonb)",
+      [storeId, JSON.stringify(insights), JSON.stringify(gastos)],
+    );
+  await db.query(
+    `insert into public.expenses (store_id, expense_date, category, amount, campaign_id, source, import_key) values ('${storeId}', '2026-10-01', 'meta_ads', 99, 'c1', 'import', 'csv:x')`,
+  );
+  await llamar([ins("2026-10-01", "a1", 10), ins("2026-10-02", "a1", 20)], [gasto("2026-10-01", 10), gasto("2026-10-02", 20)]);
+  await llamar([ins("2026-10-01", "a1", 15)], [gasto("2026-10-01", 15)]);
+  const met = (await db.query<{ n: number; s: string }>(`select count(*)::int as n, sum(spend)::text as s from public.meta_insights_daily where store_id = '${storeId}' and ad_account_id = 'act_1'`)).rows[0];
+  expect("las métricas se reemplazan (no se suman)", met.n === 1 && Number(met.s) === 15, JSON.stringify(met));
+  const gas = (await db.query<{ s: string; csv: number }>(
+    `select sum(amount) filter (where source = 'meta_sync')::text as s, count(*) filter (where source = 'import')::int as csv from public.expenses where store_id = '${storeId}' and campaign_id = 'c1'`,
+  )).rows[0];
+  expect("el gasto queda el nuevo y el CSV de esos días se reemplaza", Number(gas.s) === 15 && gas.csv === 0, JSON.stringify(gas));
+  try {
+    await llamar([ins("2026-10-01", "a1", -5)], []);
+    expect("un dato malo no deja la cuenta a medias", false);
+  } catch {
+    const still = (await db.query<{ s: string }>(`select sum(spend)::text as s from public.meta_insights_daily where store_id = '${storeId}' and ad_account_id = 'act_1'`)).rows[0];
+    expect("un dato malo no deja la cuenta a medias", Number(still.s) === 15, JSON.stringify(still));
+  }
   console.log("\nOK — prueba de humo completa");
 }
 

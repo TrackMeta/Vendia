@@ -113,8 +113,9 @@ export async function updateOrderDetails(orderId: string, _prev: ActionResult | 
   if (!parsed.success) return { ok: false, error: parsed.error.issues[0].message };
 
   const supabase = await createClient();
-  const { error } = await supabase.from("orders").update(parsed.data).eq("id", orderId).eq("store_id", store.id);
+  const { data: saved, error } = await supabase.from("orders").update(parsed.data).eq("id", orderId).eq("store_id", store.id).select("id");
   if (error) return { ok: false, error: "No se pudo guardar" };
+  if (!saved?.length) return { ok: false, error: "Este pedido no es de la tienda elegida. ¿Cambiaste de tienda? Recarga la página." };
   revalidatePath(`/dashboard/pedidos/${orderId}`);
   return { ok: true, message: "Pedido actualizado" };
 }
@@ -292,13 +293,14 @@ export async function updateOrderShipping(orderId: string, input: ShippingInput)
   if (!Object.keys(values).length) return { ok: true, message: "Sin cambios" };
 
   const supabase = await createClient();
-  let { error } = await supabase.from("orders").update(values).eq("id", id.data).eq("store_id", store.id);
+  let { data: saved, error } = await supabase.from("orders").update(values).eq("id", id.data).eq("store_id", store.id).select("id");
   if (error?.message.includes("shipping_cost_set_at")) {
     // Sin la actualización del Bloque 15 se guarda igual (sin recordar que el costo se puso a mano)
     delete values.shipping_cost_set_at;
-    ({ error } = await supabase.from("orders").update(values).eq("id", id.data).eq("store_id", store.id));
+    ({ data: saved, error } = await supabase.from("orders").update(values).eq("id", id.data).eq("store_id", store.id).select("id"));
   }
   if (error) return { ok: false, error: "No se pudieron guardar los datos de envío" };
+  if (!saved?.length) return { ok: false, error: "Este pedido no es de la tienda elegida. ¿Cambiaste de tienda? Recarga la página." };
   revalidateOrders(id.data);
   return { ok: true, message: "Datos de envío guardados" };
 }

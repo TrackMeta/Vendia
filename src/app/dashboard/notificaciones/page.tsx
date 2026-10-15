@@ -26,11 +26,15 @@ const TYPE_LABEL: Record<string, string> = {
 export default async function NotificationsPage() {
   const { user, store } = await requireStore();
   const supabase = await createClient();
-  const [{ data: list }, { data: reads }, myStores] = await Promise.all([
+  const [{ data: list }, myStores] = await Promise.all([
     supabase.from("notifications").select("id, type, title, body, link, created_at").eq("store_id", store.id).order("created_at", { ascending: false }).limit(100),
-    supabase.from("notification_reads").select("notification_id").eq("user_id", user.id).limit(1000),
     getMyStores(),
   ]);
+  // Leídas: solo de las notificaciones que se muestran (un límite fijo fallaba con muchas leídas)
+  const ids = (list ?? []).map((n) => n.id);
+  const { data: reads } = ids.length
+    ? await supabase.from("notification_reads").select("notification_id").eq("user_id", user.id).in("notification_id", ids)
+    : { data: [] as { notification_id: string }[] };
   const readSet = new Set((reads ?? []).map((r) => r.notification_id));
   const unread = (list ?? []).filter((n) => !readSet.has(n.id)).length;
 

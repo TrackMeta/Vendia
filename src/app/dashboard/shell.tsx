@@ -1,9 +1,9 @@
 "use client";
 
-import { Bell, Home, LogOut, Menu, ShoppingBag, Trophy, Truck, Users } from "lucide-react";
+import { ArrowLeftRight, Bell, Home, LogOut, Menu, ShoppingBag, Trophy, Truck, Users } from "lucide-react";
 import Link, { useLinkStatus } from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useState, useSyncExternalStore } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import { logout } from "@/app/(auth)/actions";
 import { BrandLogo } from "@/components/brand";
 import { NotificationBell } from "@/components/dashboard/notifications";
@@ -111,6 +111,49 @@ function BottomNav({ isOwner, onMore }: { isOwner: boolean; onMore: () => void }
   );
 }
 
+/** Tienda activa en este navegador: si otra pestaña cambia de tienda, esta se entera. */
+const ACTIVE_STORE_KEY = "vd_active_store";
+
+/**
+ * Otra pestaña cambió de tienda: lo que se guarde aquí iría a la tienda nueva (Vendia guarda en la
+ * tienda elegida al último). Se bloquea esta pestaña hasta recargarla, para no mezclar tiendas.
+ */
+function useStoreChangedElsewhere(storeId: string): boolean {
+  const [changed, setChanged] = useState(false);
+  useEffect(() => {
+    try {
+      localStorage.setItem(ACTIVE_STORE_KEY, storeId);
+    } catch {}
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === ACTIVE_STORE_KEY && e.newValue) setChanged(e.newValue !== storeId);
+    };
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
+  }, [storeId]);
+  return changed;
+}
+
+function StoreChangedNotice({ storeName }: { storeName: string }) {
+  return (
+    <div role="alertdialog" aria-modal="true" aria-labelledby="otra-tienda-titulo" className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4">
+      <div className="flex w-full max-w-sm flex-col gap-3 rounded-2xl bg-background p-5 text-foreground shadow-xl ring-1 ring-foreground/10">
+        <span className="flex size-10 items-center justify-center rounded-full bg-primary/10 text-primary">
+          <ArrowLeftRight className="size-5" aria-hidden />
+        </span>
+        <h2 id="otra-tienda-titulo" className="text-base font-semibold">
+          Cambiaste de tienda en otra pestaña
+        </h2>
+        <p className="text-sm text-muted-foreground">
+          Esta pestaña todavía muestra «{storeName}». Recárgala para no guardar cambios en la tienda equivocada.
+        </p>
+        <button type="button" onClick={() => window.location.reload()} className="h-10 rounded-lg bg-primary text-sm font-medium text-primary-foreground hover:bg-primary/90">
+          Recargar esta pestaña
+        </button>
+      </div>
+    </div>
+  );
+}
+
 /** Lo que se usa en la calle, en el «Más» del celular (lo de la barra de abajo no se repite). */
 const MORE_HREFS = ["/dashboard/abandonados", "/dashboard/rendimiento", "/dashboard/gastos", "/dashboard/liquidacion"];
 const NOTIFICATIONS_ITEM: NavItem = { href: "/dashboard/notificaciones", label: "Notificaciones", icon: Bell };
@@ -211,6 +254,7 @@ export function DashboardShell({
 }) {
   const [open, setOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
+  const storeChangedElsewhere = useStoreChangedElsewhere(storeId);
   const isOwner = role === "owner";
   const [themePref, setThemePref] = useState<ThemePref>(theme);
   const dark = useEffectiveDark(themePref);
@@ -284,6 +328,7 @@ export function DashboardShell({
         switcher={<StoreSwitcher current={storeId} currentName={storeName} currentLogo={storeLogo} isOwner={isOwner} stores={stores} light />}
       />
       <CommandMenu open={searchOpen} onOpenChange={setSearchOpen} isOwner={isOwner} phone={isDesktop === false} />
+      {storeChangedElsewhere ? <StoreChangedNotice storeName={storeName} /> : null}
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="sticky top-0 z-20 flex h-14 items-center gap-2 border-b bg-background/95 px-4 backdrop-blur md:hidden">
           <Link href={isOwner ? "/dashboard" : "/dashboard/pedidos"} className="flex-1" aria-label="Vendia, ir al inicio">

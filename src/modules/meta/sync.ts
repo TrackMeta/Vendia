@@ -86,27 +86,18 @@ async function syncAccount(
   }
 
   // 2. Métricas diarias de esta cuenta (se reemplaza el rango: si un anuncio quedó en 0, desaparece)
-  await admin.from("meta_insights_daily").delete().eq("store_id", storeId).eq("ad_account_id", acct).gte("date", since).lte("date", until);
-  if (rows.length) {
-    const { error } = await admin.from("meta_insights_daily").insert(
-      rows.map((r) => ({
-        store_id: storeId,
-        ad_account_id: acct,
-        date: r.date,
-        ad_id: r.adId,
-        adset_id: r.adsetId,
-        campaign_id: r.campaignId,
-        spend: r.spend,
-        spend_pen: toPen(r.spend, rate, igv),
-        impressions: r.impressions,
-        reach: r.reach,
-        clicks: r.clicks,
-        results: r.results,
-        updated_at: now,
-      })),
-    );
-    if (error) return { ok: false, error: "No se pudieron guardar las métricas" };
-  }
+  const insights = rows.map((r) => ({
+    date: r.date,
+    ad_id: r.adId,
+    adset_id: r.adsetId,
+    campaign_id: r.campaignId,
+    spend: r.spend,
+    spend_pen: toPen(r.spend, rate, igv),
+    impressions: r.impressions,
+    reach: r.reach,
+    clicks: r.clicks,
+    results: r.results,
+  }));
 
   // 3. Gasto por campaña y día
   const byDay = new Map<string, { date: string; campaignId: string; campaignName: string; amount: number }>();
@@ -127,34 +118,10 @@ async function syncAccount(
   const productOf = new Map<string, string>();
   for (const m of mapped ?? []) if (!productOf.has(m.campaign_id)) productOf.set(m.campaign_id, m.product_id);
 
-  if (accountCampaigns.length) {
-    await admin
-      .from("expenses")
-      .delete()
-      .eq("store_id", storeId)
-      .eq("source", "meta_sync")
-      .in("campaign_id", accountCampaigns)
-      .gte("expense_date", since)
-      .lte("expense_date", until);
-  }
-  // El CSV de esos días queda reemplazado por la sincronización (evita contar dos veces)
-  if (campaignIds.length) {
-    await admin
-      .from("expenses")
-      .delete()
-      .eq("store_id", storeId)
-      .eq("source", "import")
-      .eq("category", "meta_ads")
-      .in("campaign_id", campaignIds)
-      .gte("expense_date", since)
-      .lte("expense_date", until);
-  }
   const expenses = [...byDay.values()]
     .filter((d) => d.amount > 0)
     .map((d) => ({
-      store_id: storeId,
       expense_date: d.date,
-      category: "meta_ads",
       description: `Meta Ads · ${d.campaignName}`.slice(0, 300),
       amount: Math.round(d.amount * 100) / 100,
       currency: usd ? "USD" : "PEN",
@@ -163,12 +130,23 @@ async function syncAccount(
       campaign_id: d.campaignId,
       campaign_name: d.campaignName.slice(0, 255),
       product_id: productOf.get(d.campaignId) ?? null,
-      source: "meta_sync",
       import_key: `meta:${d.date}:${d.campaignId}`,
     }));
-  if (expenses.length) {
-    const { error } = await admin.from("expenses").upsert(expenses, { onConflict: "store_id,import_key" });
-    if (error) return { ok: false, error: "No se pudo registrar el gasto de Meta" };
+
+  // 4. Métricas y gasto se reemplazan en UN solo paso (transacción): si algo falla o se corta,
+  //    quedan los datos anteriores completos (antes podían quedar días sin gasto)
+  const { error: replaceError } = await admin.rpc("replace_meta_sync", {
+    p_store_id: storeId,
+    p_ad_account_id: acct,
+    p_since: since,
+    p_until: until,
+    p_insights: insights,
+    p_account_campaigns: accountCampaigns,
+    p_campaigns: campaignIds,
+    p_expenses: expenses,
+  });
+  if (replaceError) {
+    return { ok: false, error: /replace_meta_sync/.test(replaceError.message) ? "Falta correr la actualización de la base (Bloque 19)" : "No se pudo guardar lo leído de Meta" };
   }
 
   const spend = Math.round(rows.reduce((s, r) => s + toPen(r.spend, rate, igv), 0) * 100) / 100;
@@ -242,18 +220,23 @@ export async function syncMetaStore(
   return { ok: true, rows, spend: Math.round(spend * 100) / 100, since, until, accounts: accounts.length, failed };
 }
 
+/** Si una lectura marcada no termina (se cortó), la tienda vuelve a tocar a los 15 minutos. */
+const RETRY_AFTER_MINUTES = 15;
+
 /**
  * Lee la tienda si ya le toca según su intervalo. Primero «marca» la lectura con una actualización
  * condicional, así dos pestañas o el reloj y una pestaña no leen la misma tienda a la vez.
+ * La marca no cuenta como lectura hecha: si se corta, se reintenta en 15 minutos (no en una hora).
  */
 export async function syncMetaIfStale(admin: SupabaseClient, storeId: string): Promise<boolean> {
   const { data: row, error } = await admin.from("store_meta_settings").select("sync_every_minutes").eq("store_id", storeId).maybeSingle();
   // Sin la columna (falta el SQL) se usa el valor por defecto
   const every = error ? DEFAULT_SYNC_MINUTES : parseSyncInterval(row?.sync_every_minutes);
   const cutoff = new Date(Date.now() - (every - TOLERANCE_MINUTES) * 60_000).toISOString();
+  const claim = new Date(Date.now() - Math.max(0, every - TOLERANCE_MINUTES - RETRY_AFTER_MINUTES) * 60_000).toISOString();
   const { data } = await admin
     .from("store_meta_settings")
-    .update({ last_sync_at: new Date().toISOString() })
+    .update({ last_sync_at: claim })
     .eq("store_id", storeId)
     .eq("sync_enabled", true)
     .not("ad_account_id", "is", null)
@@ -264,11 +247,15 @@ export async function syncMetaIfStale(admin: SupabaseClient, storeId: string): P
   return true;
 }
 
+/** Tiendas que se leen a la vez en el reloj horario (cada una hace sus propias llamadas a Meta). */
+const PARALLEL_STORES = 4;
+
 /**
  * Reloj horario (Supabase pg_cron → /api/cron/meta-sync): lee las tiendas a las que ya les toca,
- * las más atrasadas primero, sin pasarse del tiempo máximo de la función (las demás, en la próxima hora).
+ * las más atrasadas primero, de a 4 a la vez y sin pasarse del tiempo máximo de la función
+ * (las demás, en la próxima vuelta).
  */
-export async function syncDueMetaStores(admin: SupabaseClient, budgetMs = 45_000) {
+export async function syncDueMetaStores(admin: SupabaseClient, budgetMs = 40_000) {
   const started = Date.now();
   const { data } = await admin
     .from("store_meta_settings")
@@ -278,10 +265,19 @@ export async function syncDueMetaStores(admin: SupabaseClient, budgetMs = 45_000
     .order("last_sync_at", { ascending: true, nullsFirst: true });
   const due = (data ?? []).filter((s) => isSyncDue(s.last_sync_at, parseSyncInterval(s.sync_every_minutes)));
   const done: string[] = [];
-  for (const s of due) {
-    if (Date.now() - started > budgetMs) break;
-    if (await syncMetaIfStale(admin, s.store_id)) done.push(s.store_id);
-  }
+  let next = 0;
+  // Cada «trabajador» toma la siguiente tienda pendiente hasta que se acaba el tiempo
+  const worker = async () => {
+    while (next < due.length && Date.now() - started < budgetMs) {
+      const s = due[next++];
+      try {
+        if (await syncMetaIfStale(admin, s.store_id)) done.push(s.store_id);
+      } catch (e) {
+        console.error("Lectura de Meta", s.store_id, e);
+      }
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(PARALLEL_STORES, due.length) }, worker));
   return { due: due.length, synced: done.length };
 }
 

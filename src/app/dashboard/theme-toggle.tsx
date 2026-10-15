@@ -2,7 +2,6 @@
 
 import { Moon, Sun } from "lucide-react";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
-import { flushSync } from "react-dom";
 import { cn } from "@/lib/utils";
 import { THEME_COOKIE, type ThemePref } from "@/lib/theme";
 
@@ -53,11 +52,15 @@ export function saveThemePref(pref: ThemePref) {
   document.cookie = `${THEME_COOKIE}=${pref}; path=/; max-age=31536000; samesite=lax`;
 }
 
-type ViewTransitionDoc = Document & { startViewTransition?: (cb: () => void) => { ready: Promise<void>; finished: Promise<void> } };
+type ViewTransitionDoc = Document & {
+  startViewTransition?: (cb: () => void) => { ready: Promise<void>; finished: Promise<void>; skipTransition?: () => void };
+};
 
 /**
- * Cambia de tema. Computadora: un círculo que crece desde el botón tocado (View Transitions).
- * Con «reducir movimiento»: directo. El celular no pasa por aquí (ver ThemeToggle).
+ * Cambia de tema con un círculo que nace del botón tocado (View Transitions), en la computadora y en
+ * el celular. `apply` cambia las clases del tema directo en la página (sin esperar a React): así la
+ * foto «nueva» está lista al instante y el círculo arranca enseguida.
+ * Sin View Transitions (navegadores viejos) o con «reducir movimiento»: directo.
  */
 function switchTheme(apply: () => void, from: HTMLElement) {
   const root = document.documentElement;
@@ -70,9 +73,7 @@ function switchTheme(apply: () => void, from: HTMLElement) {
     return;
   }
   if (!doc.startViewTransition) {
-    root.classList.add("vd-theme-fade");
     apply();
-    window.setTimeout(() => root.classList.remove("vd-theme-fade"), 250);
     done();
     return;
   }
@@ -81,12 +82,24 @@ function switchTheme(apply: () => void, from: HTMLElement) {
   const y = b.top + b.height / 2;
   const radius = Math.hypot(Math.max(x, window.innerWidth - x), Math.max(y, window.innerHeight - y));
   root.classList.add("vd-theme-switch");
-  const t = doc.startViewTransition(() => flushSync(apply));
+  // El tema se aplica una sola vez: en la transición o, si esta no arranca a tiempo, igual
+  let applied = false;
+  const applyOnce = () => {
+    if (applied) return;
+    applied = true;
+    apply();
+  };
+  const t = doc.startViewTransition(applyOnce);
+  window.setTimeout(() => {
+    if (applied) return;
+    t.skipTransition?.();
+    applyOnce();
+  }, 700);
   t.ready
     .then(() =>
       root.animate(
         { clipPath: [`circle(0px at ${x}px ${y}px)`, `circle(${radius}px at ${x}px ${y}px)`] },
-        { duration: 300, easing: "cubic-bezier(0.2, 0, 0, 1)", pseudoElement: "::view-transition-new(root)" },
+        { duration: 340, easing: "cubic-bezier(0.2, 0, 0, 1)", pseudoElement: "::view-transition-new(root)" },
       ),
     )
     .catch(() => {});
@@ -152,10 +165,12 @@ export function ThemeToggle({ value, onChange, light = false }: { value: ThemePr
               if (window.matchMedia("(pointer: coarse)").matches) {
                 setMoving(o.value);
                 if (timer.current) clearTimeout(timer.current);
+                // Cuando la píldora llega, el tema nuevo nace en un círculo desde el botón
                 timer.current = setTimeout(() => {
-                  apply();
-                  setMoving(null);
-                  window.setTimeout(() => window.dispatchEvent(new Event(THEME_EVENT)), 60);
+                  switchTheme(() => {
+                    apply();
+                    setMoving(null);
+                  }, target);
                 }, 240);
                 return;
               }

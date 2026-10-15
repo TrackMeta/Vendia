@@ -191,22 +191,11 @@
   background: rgb(255 255 255 / 0.4);
 }
 
-/* Cambio de tema: el nuevo modo crece en un círculo desde el botón (theme-toggle.tsx).
-   Sin View Transitions, los colores se funden suave. */
+/* Cambio de tema: el nuevo modo crece en un círculo desde el botón (theme-toggle.tsx). */
 html.vd-theme-switch::view-transition-old(root),
 html.vd-theme-switch::view-transition-new(root) {
   animation: none;
   mix-blend-mode: normal;
-}
-html.vd-theme-fade,
-html.vd-theme-fade *,
-html.vd-theme-fade *::before,
-html.vd-theme-fade *::after {
-  transition:
-    background-color 0.2s ease,
-    color 0.2s ease,
-    border-color 0.2s ease,
-    fill 0.2s ease !important;
 }
 
 /* Celular y tablet (pantallas táctiles): sin desenfoque. En Android es de lo más pesado de dibujar

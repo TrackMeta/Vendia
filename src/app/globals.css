@@ -221,3 +221,10 @@ html.vd-theme-instant *::before,
 html.vd-theme-instant *::after {
   transition: none !important;
 }
+
+/* Celular: el cambio de tema se funde (foto del modo actual → foto del nuevo), corto y parejo. */
+html.vd-theme-crossfade::view-transition-old(root),
+html.vd-theme-crossfade::view-transition-new(root) {
+  animation-duration: 260ms;
+  animation-timing-function: ease-out;
+}

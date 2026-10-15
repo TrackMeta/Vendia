@@ -110,6 +110,40 @@ function switchTheme(apply: () => void, from: HTMLElement) {
 }
 
 /**
+ * Celular: fundido de toda la pantalla (View Transitions sin recorte). El navegador saca una foto del
+ * modo actual y otra del nuevo y las funde: solo cambia la transparencia de dos imágenes, que la
+ * tarjeta gráfica hace sin trabarse. Sin View Transitions o con «reducir movimiento»: directo.
+ * Si la transición no arranca en 0,7 s (celular muy lento o app en segundo plano), cambia igual.
+ */
+function fadeTheme(apply: () => void) {
+  const root = document.documentElement;
+  const doc = document as ViewTransitionDoc;
+  const done = () => window.setTimeout(() => window.dispatchEvent(new Event(THEME_EVENT)), 60);
+  if (!doc.startViewTransition || window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+    apply();
+    done();
+    return;
+  }
+  let applied = false;
+  const applyOnce = () => {
+    if (applied) return;
+    applied = true;
+    apply();
+  };
+  root.classList.add("vd-theme-crossfade");
+  const t = doc.startViewTransition(applyOnce);
+  window.setTimeout(() => {
+    if (applied) return;
+    t.skipTransition?.();
+    applyOnce();
+  }, 700);
+  t.finished.finally(() => {
+    root.classList.remove("vd-theme-crossfade");
+    done();
+  });
+}
+
+/**
  * Selector Claro / Oscuro: una píldora que se desliza hasta la opción elegida y el ícono hace un gesto
  * (el sol gira, la luna se inclina). `light` = versión para fondo claro (el «Más» del celular).
  */
@@ -165,11 +199,12 @@ export function ThemeToggle({ value, onChange, light = false }: { value: ThemePr
               if (window.matchMedia("(pointer: coarse)").matches) {
                 setMoving(o.value);
                 if (timer.current) clearTimeout(timer.current);
-                // Cuando la píldora llega, los colores cambian de una vez (el círculo no iba fluido en el celular)
+                // Cuando la píldora llega, la pantalla se funde al otro modo (el círculo no iba fluido en el celular)
                 timer.current = setTimeout(() => {
-                  apply();
-                  setMoving(null);
-                  window.setTimeout(() => window.dispatchEvent(new Event(THEME_EVENT)), 60);
+                  fadeTheme(() => {
+                    apply();
+                    setMoving(null);
+                  });
                 }, 240);
                 return;
               }

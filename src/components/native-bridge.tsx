@@ -5,7 +5,7 @@ import { useEffect } from "react";
 import { toast } from "sonner";
 import { externalUrl, isNativeApp, nativePlugin, PUSH_PREFS_EVENT, vendiaNativo } from "@/modules/app-native/client";
 import { fileNameFrom, saveFile } from "@/modules/app-native/files";
-import { registerPush, scheduleDeviceSync } from "@/modules/app-native/push";
+import { refreshDeviceIfStale, registerPush, scheduleDeviceSync } from "@/modules/app-native/push";
 import { SOUND_PREFS_EVENT } from "@/modules/notifications/sound";
 
 type Handle = { remove: () => Promise<void> | void };
@@ -120,6 +120,9 @@ export function NativeBridge() {
       } catch {}
     }) as (d: never) => void);
 
+    // Volver a la app (desde otra app o la pantalla de inicio)
+    listen("resume", (() => refreshDeviceIfStale()) as (d: never) => void);
+
     // Sonido o tiendas cambiados en Notificaciones → se actualiza este celular
     window.addEventListener(SOUND_PREFS_EVENT, scheduleDeviceSync);
     window.addEventListener(PUSH_PREFS_EVENT, scheduleDeviceSync);
@@ -142,7 +145,10 @@ export function NativeBridge() {
     if (!isNativeApp()) return;
     // Después de pintar la nueva página
     const t = setTimeout(paintBars, 50);
-    if (pathname.startsWith("/dashboard")) void registerPush();
+    if (pathname.startsWith("/dashboard")) {
+      void registerPush();
+      refreshDeviceIfStale();
+    }
     return () => clearTimeout(t);
   }, [pathname]);
 

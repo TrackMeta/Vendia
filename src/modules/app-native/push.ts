@@ -16,6 +16,7 @@ type PushPlugin = {
 
 let registering = false;
 let syncTimer: ReturnType<typeof setTimeout> | null = null;
+let lastSync = 0;
 
 /** Modelo del celular, para reconocerlo en la lista (solo lo que dice el navegador). */
 function deviceModel(): string | null {
@@ -28,6 +29,7 @@ async function syncDevice() {
   const { token, version } = getPushState();
   if (!token) return;
   const prefs = readSoundPrefs();
+  lastSync = Date.now();
   const { error } = await createClient().rpc("register_push_device", {
     p_token: token,
     p_model: deviceModel(),
@@ -37,7 +39,15 @@ async function syncDevice() {
     p_only_orders: prefs.onlyOrders,
     p_muted_store_ids: readMutedStores(),
   });
-  if (error) console.warn("[avisos] no se guardó el celular", error.message);
+  if (error) {
+    lastSync = 0;
+    console.warn("[avisos] no se guardó el celular", error.message);
+  }
+}
+
+/** Al abrir la app o cambiar de sección: si hace rato que no se guardó, se vuelve a guardar (por si un cambio no llegó). */
+export function refreshDeviceIfStale() {
+  if (getPushState().status === "ready" && Date.now() - lastSync > 60_000) scheduleDeviceSync();
 }
 
 /** Cambió el sonido o las tiendas: se vuelve a guardar (una sola vez aunque cambien varias cosas). */

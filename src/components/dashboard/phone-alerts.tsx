@@ -55,7 +55,7 @@ export function PhoneAlerts({ stores }: { stores: { id: string; name: string }[]
       const res = await fetch("/api/push/test", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ token: push.token }) });
       const out = (await res.json().catch(() => ({}))) as { ok?: boolean; skipped?: string };
       if (out.ok) toast.success("Listo: en unos segundos te llega el aviso de prueba. Prueba también con la app cerrada.");
-      else if (out.skipped === "sin_firebase") toast.error("Falta conectar Firebase en el servidor de Vendia.");
+      else if (out.skipped?.startsWith("firebase") || out.skipped === "sin_firebase") toast.error("Falta conectar Firebase en el servidor de Vendia.");
       else if (out.skipped === "sin_celulares") toast.error("Este celular todavía no está registrado. Cierra y vuelve a abrir la app.");
       else toast.error("No se pudo mandar el aviso de prueba.");
     } catch {

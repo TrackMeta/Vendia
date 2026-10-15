@@ -21,15 +21,21 @@ export type PushMessage = {
 
 export type PushResult = "ok" | "invalid" | "error";
 
-export function serviceAccount(): ServiceAccount | null {
-  const raw = process.env.FCM_SERVICE_ACCOUNT;
-  if (!raw) return null;
+/**
+ * La cuenta de servicio, o por qué no sirve (sin revelar su contenido):
+ * «sin_firebase» = falta la variable; «firebase_no_es_json» = el texto está cortado o incompleto;
+ * «firebase_otro_archivo» = es otro JSON (p. ej. google-services.json, que es para la app, no para el servidor).
+ */
+export function serviceAccountStatus(): ServiceAccount | "sin_firebase" | "firebase_no_es_json" | "firebase_otro_archivo" {
+  const raw = process.env.FCM_SERVICE_ACCOUNT?.trim();
+  if (!raw) return "sin_firebase";
+  let sa: Partial<ServiceAccount>;
   try {
-    const sa = JSON.parse(raw) as Partial<ServiceAccount>;
-    return sa.client_email && sa.private_key && sa.project_id ? (sa as ServiceAccount) : null;
+    sa = JSON.parse(raw) as Partial<ServiceAccount>;
   } catch {
-    return null;
+    return "firebase_no_es_json";
   }
+  return sa.client_email && sa.private_key && sa.project_id ? (sa as ServiceAccount) : "firebase_otro_archivo";
 }
 
 const b64url = (input: string | Buffer) => Buffer.from(input).toString("base64url");

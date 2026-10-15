@@ -1,7 +1,7 @@
 import "server-only";
 import type { createAdminClient } from "@/lib/supabase/admin";
 import { channelForNotification } from "./channels";
-import { sendPush, serviceAccount } from "./fcm";
+import { sendPush, serviceAccountStatus } from "./fcm";
 
 type Admin = ReturnType<typeof createAdminClient>;
 type Device = { token: string; user_id: string; sound: string; sound_enabled: boolean; only_orders: boolean; muted_store_ids: string[] | null };
@@ -23,8 +23,8 @@ async function removeTokens(admin: Admin, tokens: string[]) {
  * (cada uno con su sonido; nada a las tiendas que la persona silenció en ese celular).
  */
 export async function pushNotification(admin: Admin, notificationId: string): Promise<PushOutcome> {
-  const sa = serviceAccount();
-  if (!sa) return { ok: false, sent: 0, skipped: "sin_firebase" };
+  const sa = serviceAccountStatus();
+  if (typeof sa === "string") return { ok: false, sent: 0, skipped: sa };
 
   const { data: n } = await admin.from("notifications").select("id, store_id, type, title, body, link, order_id").eq("id", notificationId).maybeSingle();
   if (!n) return { ok: true, sent: 0, skipped: "no_existe" };
@@ -68,8 +68,8 @@ export async function pushNotification(admin: Admin, notificationId: string): Pr
 
 /** «Mandarme un aviso de prueba»: a los celulares de esta persona (o solo a uno). */
 export async function pushTest(admin: Admin, userId: string, onlyToken?: string): Promise<PushOutcome> {
-  const sa = serviceAccount();
-  if (!sa) return { ok: false, sent: 0, skipped: "sin_firebase" };
+  const sa = serviceAccountStatus();
+  if (typeof sa === "string") return { ok: false, sent: 0, skipped: sa };
   let query = admin.from("push_devices").select("token, user_id, sound, sound_enabled, only_orders, muted_store_ids").eq("user_id", userId);
   if (onlyToken) query = query.eq("token", onlyToken);
   const { data: devices } = await query;

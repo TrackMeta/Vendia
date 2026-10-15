@@ -56,35 +56,10 @@ export function saveThemePref(pref: ThemePref) {
 type ViewTransitionDoc = Document & { startViewTransition?: (cb: () => void) => { ready: Promise<void>; finished: Promise<void> } };
 
 /**
- * Celular: una sola capa del color del tema nuevo aparece, se cambia el tema debajo y la capa se va.
- * Es lo más liviano posible (solo se anima la transparencia de una capa): no se traba.
- */
-function veilSwitch(apply: () => void, toDark: boolean, done: () => void) {
-  const veil = document.createElement("div");
-  veil.setAttribute("aria-hidden", "true");
-  veil.style.cssText = `position:fixed;inset:0;z-index:2147483647;pointer-events:none;opacity:0;will-change:opacity;transition:opacity 110ms ease-out;background:${toDark ? "#17181b" : "#f3f4f6"}`;
-  document.body.appendChild(veil);
-  void veil.offsetWidth; // que el navegador vea la opacidad 0 antes de subirla
-  veil.style.opacity = "1";
-  // Con temporizadores (no con el fin de la animación): el tema se aplica siempre, aunque la animación no corra
-  window.setTimeout(() => {
-    apply();
-    window.setTimeout(() => {
-      veil.style.transition = "opacity 190ms ease-in";
-      veil.style.opacity = "0";
-      window.setTimeout(() => {
-        veil.remove();
-        done();
-      }, 210);
-    }, 30);
-  }, 110);
-}
-
-/**
  * Cambia de tema. Computadora: un círculo que crece desde el botón tocado (View Transitions).
- * Celular (pantalla táctil): la capa liviana de arriba. Con «reducir movimiento», de golpe.
+ * Celular (pantalla táctil) o con «reducir movimiento»: directo; solo se animan la píldora y el ícono.
  */
-function switchTheme(apply: () => void, from: HTMLElement, toDark: boolean) {
+function switchTheme(apply: () => void, from: HTMLElement) {
   const root = document.documentElement;
   const doc = document as ViewTransitionDoc;
   const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -94,8 +69,10 @@ function switchTheme(apply: () => void, from: HTMLElement, toDark: boolean) {
     done();
     return;
   }
+  // Celular: directo (una capa o un círculo encima se veían como un parpadeo o se trababan)
   if (window.matchMedia("(pointer: coarse)").matches) {
-    veilSwitch(apply, toDark, done);
+    apply();
+    done();
     return;
   }
   if (!doc.startViewTransition) {
@@ -165,7 +142,7 @@ export function ThemeToggle({ value, onChange, light = false }: { value: ThemePr
                 document.documentElement.classList.toggle("dark", o.value === "dark");
                 document.documentElement.style.colorScheme = o.value;
                 onChange(o.value);
-              }, target, o.value === "dark");
+              }, target);
             }}
             className={cn(
               "relative z-10 flex h-8 items-center justify-center gap-1.5 rounded-lg text-xs transition-colors",

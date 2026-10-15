@@ -13,6 +13,8 @@ import { landingContent } from "@/modules/landing/schema";
 config({ path: ".env.local", quiet: true });
 
 const BASE = process.env.E2E_BASE_URL ?? "http://localhost:3001";
+// Un celular real (los programas sin navegador se toman como robots en visitas y abandonados)
+const PHONE_UA = "Mozilla/5.0 (Linux; Android 13; SM-A145M) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36";
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const publishable = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!;
 const admin = createClient(url, process.env.SUPABASE_SECRET_KEY!, { auth: { persistSession: false, autoRefreshToken: false } });
@@ -140,11 +142,29 @@ describe("Abandonados y errores", () => {
   it("el formulario abandonado se guarda", async () => {
     const res = await fetch(`${BASE}/api/abandoned`, {
       method: "POST",
-      body: JSON.stringify({ landing_page_id: landingId, session_id: `sess${runId}`, name: "Rosa", phone: "923456789", offer_id: offerId }),
+      headers: { "User-Agent": PHONE_UA },
+      body: JSON.stringify({ landing_page_id: landingId, session_id: `sess${runId}`, name: "Rosa", phone: "923456789", offer_id: offerId, t: 25_000 }),
     });
     expect(res.status).toBe(204);
     const { data } = await admin.from("abandoned_checkouts").select("status, phone").eq("store_id", storeId);
     expect(data).toEqual([{ status: "open", phone: "51923456789" }]);
+  });
+
+  it("los robots no dejan formularios abandonados (y no se les avisa)", async () => {
+    const send = (headers: Record<string, string>, extra: object, n: number) =>
+      fetch(`${BASE}/api/abandoned`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ landing_page_id: landingId, session_id: `robot${n}${runId}`, name: "Robot", phone: `91234567${n}`, ...extra }),
+      });
+    const answers = await Promise.all([
+      send({ "User-Agent": PHONE_UA }, { hp: "https://spam.example", t: 25_000 }, 1), // llenó el campo trampa
+      send({ "User-Agent": PHONE_UA }, { t: 200 }, 2), // demasiado rápido
+      send({ "User-Agent": "python-requests/2.31.0" }, { t: 25_000 }, 3), // programa, no navegador
+    ]);
+    expect(answers.map((r) => r.status)).toEqual([204, 204, 204]);
+    const { data } = await admin.from("abandoned_checkouts").select("phone").eq("store_id", storeId).like("phone", "5191234567%");
+    expect(data).toEqual([]);
   });
 
   it("un error del navegador queda registrado", async () => {

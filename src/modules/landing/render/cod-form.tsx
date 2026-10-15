@@ -134,6 +134,11 @@ export function CodForm({
   // Formulario abandonado: si deja su celular y no termina, el vendedor puede escribirle.
   const submitted = useRef(false);
   const lastSent = useRef("");
+  // Contra robots: cuándo se abrió el formulario (y el campo trampa «website», más abajo)
+  const openedAt = useRef(0);
+  useEffect(() => {
+    openedAt.current = Date.now();
+  }, []);
   const phoneDigits = phone.replace(/\D/g, "");
   const typedName = fieldsBlock?.singleNameField ? fullName : `${firstName} ${lastName}`;
   const abandonPayload = JSON.stringify({
@@ -150,7 +155,12 @@ export function CodForm({
       if (submitted.current || lastSent.current === abandonPayload) return;
       lastSent.current = abandonPayload;
       try {
-        const body = JSON.stringify({ ...JSON.parse(abandonPayload), session_id: sessionId() });
+        const body = JSON.stringify({
+          ...JSON.parse(abandonPayload),
+          session_id: sessionId(),
+          hp: honeypot || undefined,
+          t: openedAt.current ? Date.now() - openedAt.current : undefined,
+        });
         navigator.sendBeacon?.("/api/abandoned", new Blob([body], { type: "application/json" }));
       } catch {
         // si falla no pasa nada: es solo un respaldo
@@ -165,7 +175,7 @@ export function CodForm({
       clearTimeout(timer);
       document.removeEventListener("visibilitychange", onHide);
     };
-  }, [abandonPayload, data.landingId, phoneDigits.length, preview]);
+  }, [abandonPayload, data.landingId, honeypot, phoneDigits.length, preview]);
 
   // Embudo del formulario: hasta qué campo llega cada cliente (una vez por paso y sesión; no en la vista previa)
   const stepName = (fieldsBlock?.singleNameField ? fullName : firstName).trim().length >= 3;

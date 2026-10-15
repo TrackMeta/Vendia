@@ -771,6 +771,19 @@ async function main() {
     const still = (await db.query<{ s: string }>(`select sum(spend)::text as s from public.meta_insights_daily where store_id = '${storeId}' and ad_account_id = 'act_1'`)).rows[0];
     expect("un dato malo no deja la cuenta a medias", Number(still.s) === 15, JSON.stringify(still));
   }
+  console.log("\n— Límites de abandonados contra robots (Bloque 20) —");
+  const abandono = (sess: string, name: string) =>
+    db.query(
+      `select public.upsert_abandoned_checkout(jsonb_build_object('landing_page_id', $1::text, 'session_id', $2::text, 'name', $3::text, 'phone', '51966600066'))`,
+      [landingId, sess, name],
+    );
+  for (const n of [1, 2, 3, 4]) await abandono(`sess-limite-${n}`, `Robot ${n}`);
+  const mismos = (await db.query<{ n: number }>("select count(*)::int as n from public.abandoned_checkouts where phone = '51966600066'")).rows[0].n;
+  expect("un mismo celular deja máximo 3 abandonados al día", mismos === 3, String(mismos));
+  await abandono("sess-limite-1", "Rosa Corregida");
+  const corregido = (await db.query<{ customer_name: string }>("select customer_name from public.abandoned_checkouts where session_id = 'sess-limite-1'")).rows[0];
+  expect("la misma sesión sigue pudiendo corregir sus datos", corregido?.customer_name === "Rosa Corregida", JSON.stringify(corregido));
+
   console.log("\nOK — prueba de humo completa");
 }
 

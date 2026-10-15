@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
+import { looksLikeBot } from "@/lib/bot-guard";
 import { allowRequest, requestIp } from "@/lib/rate-limit";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { ATTRIBUTION_LIMITS } from "@/modules/attribution/limits";
@@ -19,10 +20,11 @@ const schema = z.object({
   price_variant: z.enum(["A", "B"]).optional(),
 });
 
-/** Registra visitas de la landing para el funnel. Idempotente por sesión/día (en la BD). */
+/** Registra visitas de la landing para el funnel. Idempotente por sesión/día (en la BD). Los robots se ignoran en silencio. */
 export async function POST(request: NextRequest) {
   // Una visita real manda pocos eventos por minuto: evita inflar el embudo
   if (!allowRequest(`track:${requestIp(request)}`, 120)) return new NextResponse(null, { status: 429 });
+  if (looksLikeBot(request.headers.get("user-agent"))) return new NextResponse(null, { status: 204 });
   let body: unknown;
   try {
     body = JSON.parse(await request.text());

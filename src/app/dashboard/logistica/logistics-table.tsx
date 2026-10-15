@@ -1,6 +1,7 @@
 "use client";
 
-import { AlertTriangle, Building2, Bus, Download, FileSpreadsheet, MapPin, Printer, UserCheck, X } from "lucide-react";
+import { AlertTriangle, Download, FileSpreadsheet, MapPin, Printer, UserCheck, X } from "lucide-react";
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
@@ -14,7 +15,8 @@ import { itemLabel, type VariantBreakdown } from "@/modules/orders/items";
 import { courierName } from "@/modules/couriers";
 import type { OrderStatus } from "@/modules/orders/state-machine";
 import { assignOrders, changeOrdersStatus } from "../pedidos/actions";
-import { ExportDialog, type StoreCourier } from "./export-dialog";
+import type { StoreCourier } from "./export-dialog";
+import { ZoneBadge } from "./zone-badge";
 import { AppSelect } from "@/components/dashboard/app-select";
 import { SourceIcon } from "@/components/brand-icons";
 import { cn } from "@/lib/utils";
@@ -96,20 +98,8 @@ const EMPTY_TEXT: Record<string, { title: string; text: string }> = {
  * Zona con color propio (Lima turquesa, provincia fucsia), con borde y sin relleno fuerte para no
  * confundirse con los colores de estado del pedido (ámbar, violeta, celeste, verde).
  */
-const ZONE_TONE = {
-  lima: "border-teal-300 bg-teal-50 text-teal-800 dark:border-teal-800 dark:bg-teal-950/60 dark:text-teal-200",
-  provincia: "border-fuchsia-300 bg-fuchsia-50 text-fuchsia-800 dark:border-fuchsia-800 dark:bg-fuchsia-950/60 dark:text-fuchsia-200",
-} as const;
-
-export function ZoneBadge({ zone }: { zone: "lima" | "provincia" }) {
-  const Icon = zone === "lima" ? Building2 : Bus;
-  return (
-    <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-medium whitespace-nowrap ${ZONE_TONE[zone] ?? ZONE_TONE.provincia}`}>
-      <Icon className="size-3" aria-hidden />
-      {zone === "lima" ? "Lima" : "Provincia"}
-    </span>
-  );
-}
+// El exportador (plantillas y listas de los couriers) se baja recién al abrirlo
+const ExportDialog = dynamic(() => import("./export-dialog").then((m) => m.ExportDialog), { ssr: false });
 
 export function LogisticsTable({
   view,

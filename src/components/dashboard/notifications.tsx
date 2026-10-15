@@ -291,13 +291,42 @@ export function NotificationBell({ storeId, initialUnread }: { storeId: string; 
   );
 }
 
-/** Refresca la página cuando cambian los pedidos de la tienda (tiempo real). */
+/**
+ * Refresca la página cuando cambian los pedidos de la tienda (tiempo real). Como mucho una vez
+ * cada 10 segundos, y solo con la pantalla a la vista (si está en segundo plano, al volver).
+ */
 export function LiveRefresh() {
   const router = useRouter();
   useEffect(() => {
-    const onChange = () => router.refresh();
+    let last = 0;
+    let waiting = false;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const onChange = () => {
+      if (document.visibilityState !== "visible") {
+        waiting = true;
+        return;
+      }
+      if (timer) return;
+      timer = setTimeout(
+        () => {
+          timer = null;
+          waiting = false;
+          last = Date.now();
+          router.refresh();
+        },
+        Math.max(0, last + 10_000 - Date.now()),
+      );
+    };
+    const onVisible = () => {
+      if (document.visibilityState === "visible" && waiting) onChange();
+    };
     window.addEventListener(ORDERS_CHANGED_EVENT, onChange);
-    return () => window.removeEventListener(ORDERS_CHANGED_EVENT, onChange);
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      if (timer) clearTimeout(timer);
+      window.removeEventListener(ORDERS_CHANGED_EVENT, onChange);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
   }, [router]);
   return null;
 }

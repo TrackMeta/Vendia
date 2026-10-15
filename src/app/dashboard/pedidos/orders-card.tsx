@@ -4,7 +4,7 @@ import { SourceIcon } from "@/components/brand-icons";
 import { OrderStatusBadge } from "@/components/dashboard/status-badge";
 import { formatDateTime, formatMoney } from "@/lib/format";
 import type { OrderStatus } from "@/modules/orders/state-machine";
-import { ZoneBadge } from "../logistica/logistics-table";
+import { ZoneBadge } from "../logistica/zone-badge";
 import { timeAgo } from "../logistica/time-ago";
 
 export type OrderCardData = {

@@ -1,7 +1,7 @@
 "use client";
 
 import { Bell, Home, LogOut, Menu, ShoppingBag, Trophy, Truck, Users } from "lucide-react";
-import Link from "next/link";
+import Link, { useLinkStatus } from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useState, useSyncExternalStore } from "react";
 import { logout } from "@/app/(auth)/actions";
@@ -67,6 +67,12 @@ function Nav({ onNavigate, isOwner }: { onNavigate?: () => void; isOwner: boolea
   );
 }
 
+/** Rayita roja arriba de la pestaña tocada mientras carga su sección (siempre ocupa su lugar: no mueve nada). */
+function TabPending() {
+  const { pending } = useLinkStatus();
+  return <span aria-hidden className={cn("absolute inset-x-4 top-0 h-0.5 rounded-full bg-primary transition-opacity", pending ? "animate-pulse opacity-100" : "opacity-0")} />;
+}
+
 /** Barra inferior en el celular: lo que el equipo usa todo el día, al alcance del pulgar. */
 function BottomNav({ isOwner, onMore }: { isOwner: boolean; onMore: () => void }) {
   const pathname = usePathname();
@@ -83,15 +89,17 @@ function BottomNav({ isOwner, onMore }: { isOwner: boolean; onMore: () => void }
         {items.map((item) => {
           const active = isActive(item, pathname);
           return (
-            <IntentLink
+            // Precarga normal (pocas pestañas): al tocar, la sección aparece al instante con su esqueleto
+            <Link
               key={item.href}
               href={item.href}
               aria-current={active ? "page" : undefined}
-              className={cn("flex min-w-0 flex-1 flex-col items-center gap-0.5 py-2 text-[11px] text-muted-foreground", active && "font-medium text-primary")}
+              className={cn("relative flex min-w-0 flex-1 flex-col items-center gap-0.5 py-2 text-[11px] text-muted-foreground", active && "font-medium text-primary")}
             >
+              <TabPending />
               <item.icon className="size-5" />
               <span className="truncate">{item.label}</span>
-            </IntentLink>
+            </Link>
           );
         })}
         <button type="button" onClick={onMore} className="flex min-w-0 flex-1 flex-col items-center gap-0.5 py-2 text-[11px] text-muted-foreground">
@@ -149,7 +157,7 @@ function MoreSheet({
           {items.map((item) => {
             const active = isActive(item, pathname);
             return (
-              <IntentLink
+              <Link
                 key={item.href}
                 href={item.href}
                 onClick={close}
@@ -161,7 +169,7 @@ function MoreSheet({
               >
                 <item.icon className="size-6 text-primary" />
                 <span className="truncate">{item.label}</span>
-              </IntentLink>
+              </Link>
             );
           })}
         </nav>

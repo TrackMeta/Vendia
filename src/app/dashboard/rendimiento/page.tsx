@@ -1,7 +1,9 @@
 import { BarChart3, Filter, Map as MapIcon, Megaphone } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
+import { Suspense } from "react";
 import { BrandIcon } from "@/components/brand-icons";
+import { Skeleton } from "@/components/ui/skeleton";
 import { DateRangeFilter, rangeParams } from "@/components/dashboard/date-range-filter";
 import { EmptyState, PageHeader } from "@/components/dashboard/page-header";
 import { requireOwner } from "@/lib/auth";
@@ -189,6 +191,24 @@ function FilterBar({
   );
 }
 
+/** Mientras se calculan los números: el encabezado, las pestañas y las fechas ya se pueden usar. */
+function NumbersSkeleton() {
+  return (
+    <div className="flex flex-col gap-3" aria-busy="true" aria-label="Calculando">
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+        {Array.from({ length: 4 }, (_, i) => (
+          <Skeleton key={i} className="h-20 rounded-xl" />
+        ))}
+      </div>
+      <div className="flex flex-col gap-2 rounded-xl bg-card p-4 ring-1 ring-foreground/10">
+        {Array.from({ length: 6 }, (_, i) => (
+          <Skeleton key={i} className="h-9 w-full" />
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export default async function PerformancePage({ searchParams }: PageProps<"/dashboard/rendimiento">) {
   const sp = await searchParams;
   const view: View = typeof sp.vista === "string" && sp.vista in VIEWS ? (sp.vista as View) : "anuncios";
@@ -252,7 +272,11 @@ export default async function PerformancePage({ searchParams }: PageProps<"/dash
 
       <DateRangeFilter basePath="/dashboard/rendimiento" range={range} params={keep} />
 
-      {view === "anuncios" ? <AdsView storeId={store.id} range={range} level={level} levelHref={(l) => href({ nivel: l })} last30Href={href({ nivel: level, rango: "30d", desde: undefined, hasta: undefined })} /> : null}
+      {view === "anuncios" ? (
+        <Suspense key={`ads-${level}-${range.from}-${range.to}`} fallback={<NumbersSkeleton />}>
+          <AdsView storeId={store.id} range={range} level={level} levelHref={(l) => href({ nivel: l })} last30Href={href({ nivel: level, rango: "30d", desde: undefined, hasta: undefined })} />
+        </Suspense>
+      ) : null}
       {view !== "anuncios" ? (
         <FilterBar
           level={filterLevel}
@@ -271,8 +295,13 @@ export default async function PerformancePage({ searchParams }: PageProps<"/dash
           }
         />
       ) : null}
-      {view === "embudo" && !(filterLevel && !filter) ? <FunnelView storeId={store.id} range={range} filter={filter} /> : null}
+      {view === "embudo" && !(filterLevel && !filter) ? (
+        <Suspense key={`embudo-${range.from}-${range.to}-${filter?.key ?? ""}`} fallback={<NumbersSkeleton />}>
+          <FunnelView storeId={store.id} range={range} filter={filter} />
+        </Suspense>
+      ) : null}
       {view === "zonas" && !(filterLevel && !filter) ? (
+        <Suspense key={`zonas-${geo}-${parent ?? ""}-${range.from}-${range.to}-${filter?.key ?? ""}`} fallback={<NumbersSkeleton />}>
         <ZonesView
           storeId={store.id}
           range={range}
@@ -282,6 +311,7 @@ export default async function PerformancePage({ searchParams }: PageProps<"/dash
           filter={filter}
           hrefFor={(g) => href({ vista: "zonas", geo: g.geo, padre: g.padre, nombre: g.nombre, ...filterParams })}
         />
+        </Suspense>
       ) : null}
     </div>
   );

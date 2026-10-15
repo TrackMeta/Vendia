@@ -11,7 +11,7 @@ import { Label } from "@/components/ui/label";
 import { COURIERS } from "@/modules/couriers";
 import { saveCourierSettings } from "./actions";
 import { CourierIcon } from "@/components/brand-icons";
-import { ZoneBadge } from "../logistica/logistics-table";
+import { ZoneBadge } from "../logistica/zone-badge";
 import { AppSelect } from "@/components/dashboard/app-select";
 
 export type CourierSettingsRow = {

@@ -25,7 +25,7 @@ import { itemLabel, type VariantBreakdown } from "@/modules/orders/items";
 import { mapsLink } from "@/modules/orders/location";
 import { type PaymentKind, type PaymentMethod, RECEIPTS_BUCKET } from "@/modules/orders/payments";
 import { ORDER_STATUS_LABELS, type OrderStatus } from "@/modules/orders/state-machine";
-import { ZoneBadge } from "../../logistica/logistics-table";
+import { ZoneBadge } from "../../logistica/zone-badge";
 import { AssignSelect } from "./assign-select";
 import { OrderDetailsForm } from "./details-form";
 import { type PaymentRow, PaymentsCard } from "./payments-card";
@@ -51,7 +51,8 @@ export default async function OrderDetailPage({ params }: PageProps<"/dashboard/
   const { user, store } = await requireStore();
   const supabase = await createClient();
 
-  const [{ data: attempts }, { data: settings }, { data: team }, { data: paymentRows }, { data: storeCouriers }] = await Promise.all([
+  // Todo en una sola tanda (antes el pedido esperaba a lo demás)
+  const [{ data: attempts }, { data: settings }, { data: team }, { data: paymentRows }, { data: storeCouriers }, { data: order }] = await Promise.all([
     supabase.from("order_contact_attempts").select("id, attempt_number, channel, result, note, next_contact_at, created_by, created_at").eq("order_id", id).order("id", { ascending: false }),
     supabase.from("store_settings").select("contact_sequence").eq("store_id", store.id).maybeSingle(),
     supabase.rpc("get_store_team", { p_store_id: store.id }),
@@ -62,19 +63,19 @@ export default async function OrderDetailPage({ params }: PageProps<"/dashboard/
       .eq("store_id", store.id)
       .order("created_at"),
     supabase.from("store_couriers").select("courier_id, zone, enabled").eq("store_id", store.id),
+    supabase
+      .from("orders")
+      .select(
+        "*, order_items (*), order_attribution (*), order_status_history (id, from_status, to_status, source, note, created_at), landing_pages (title, slug)",
+      )
+      .eq("id", id)
+      .eq("store_id", store.id)
+      .maybeSingle(),
   ]);
   const members = ((team ?? []) as { user_id: string; email: string; full_name: string | null }[]).map((m) => ({ id: m.user_id, name: m.full_name || m.email }));
   const memberName = (uid: string | null) => (uid ? (uid === user.id ? "Tú" : (members.find((m) => m.id === uid)?.name ?? "Equipo")) : "Sistema");
   const sequence = ((settings?.contact_sequence as ContactChannel[] | null) ?? DEFAULT_SEQUENCE).filter((x) => x === "call" || x === "whatsapp");
 
-  const { data: order } = await supabase
-    .from("orders")
-    .select(
-      "*, order_items (*), order_attribution (*), order_status_history (id, from_status, to_status, source, note, created_at), landing_pages (title, slug)",
-    )
-    .eq("id", id)
-    .eq("store_id", store.id)
-    .maybeSingle();
   if (!order) notFound();
 
   const items = order.order_items as {
@@ -97,19 +98,16 @@ export default async function OrderDetailPage({ params }: PageProps<"/dashboard/
 
   // Tarjeta del anuncio que trajo el pedido (si Meta está conectado y el pedido trae su ad_id)
   const metaIds = [attr?.ad_id, attr?.adset_id, attr?.campaign_id].filter((x): x is string => Boolean(x && /^\d{5,30}$/.test(x)));
-  const { data: metaEntities } = metaIds.length
-    ? await supabase.from("meta_entities").select("id, level, name, status, thumbnail_url, body, title, preview_url").eq("store_id", store.id).in("id", metaIds)
-    : { data: [] as { id: string; level: string; name: string | null; status: string | null; thumbnail_url: string | null; body: string | null; title: string | null; preview_url: string | null }[] };
-  const ad = metaEntities?.find((e) => e.level === "ad");
-  const adCampaign = metaEntities?.find((e) => e.level === "campaign");
-  const adSet = metaEntities?.find((e) => e.level === "adset");
-  const firstName = String(order.customer_name).split(" ")[0];
   const item = items[0];
-  const pendingContact = order.status === "new" || order.status === "pending_confirmation";
-  const zone = order.zone as "lima" | "provincia";
-  const locationHint = order.district_name === order.province_name ? order.province_name : `${order.province_name} ${order.district_name}`;
+  // Comprobantes: enlaces firmados de 1 hora (el bucket es privado)
+  const receiptPaths = (paymentRows ?? []).map((p) => p.receipt_path).filter((x): x is string => Boolean(x));
   // Medida y peso por defecto: oferta → producto (order_items no tiene FK a products)
-  const [{ data: packageProduct }, { data: packageOffer }, { data: productVariants }] = await Promise.all([
+  const [{ data: metaEntities }, { data: packageProduct }, { data: packageOffer }, { data: productVariants }, { data: signed }] = await Promise.all([
+    metaIds.length
+      ? supabase.from("meta_entities").select("id, level, name, status, thumbnail_url, body, title, preview_url").eq("store_id", store.id).in("id", metaIds)
+      : Promise.resolve({
+          data: [] as { id: string; level: string; name: string | null; status: string | null; thumbnail_url: string | null; body: string | null; title: string | null; preview_url: string | null }[],
+        }),
     item?.product_id
       ? supabase.from("products").select("package_size, package_weight, variant_label").eq("id", item.product_id).maybeSingle()
       : Promise.resolve({ data: null }),
@@ -119,16 +117,21 @@ export default async function OrderDetailPage({ params }: PageProps<"/dashboard/
     item?.product_id
       ? supabase.from("product_variants").select("id, name, stock").eq("product_id", item.product_id).eq("is_active", true).order("position")
       : Promise.resolve({ data: [] as { id: string; name: string; stock: number | null }[] }),
+    receiptPaths.length
+      ? supabase.storage.from(RECEIPTS_BUCKET).createSignedUrls(receiptPaths, 3600)
+      : Promise.resolve({ data: [] as { path: string | null; signedUrl: string }[] }),
   ]);
+  const ad = metaEntities?.find((e) => e.level === "ad");
+  const adCampaign = metaEntities?.find((e) => e.level === "campaign");
+  const adSet = metaEntities?.find((e) => e.level === "adset");
+  const firstName = String(order.customer_name).split(" ")[0];
+  const pendingContact = order.status === "new" || order.status === "pending_confirmation";
+  const zone = order.zone as "lima" | "provincia";
+  const locationHint = order.district_name === order.province_name ? order.province_name : `${order.province_name} ${order.district_name}`;
   const mainItem = items.find((i) => i.kind === "main") ?? item;
   const hasVariants = (productVariants ?? []).length > 0 || (mainItem?.variant_breakdown ?? []).length > 0;
   const variantsEditable = ["new", "pending_confirmation", "confirmed", "preparing"].includes(order.status);
 
-  // Comprobantes: enlaces firmados de 1 hora (el bucket es privado)
-  const receiptPaths = (paymentRows ?? []).map((p) => p.receipt_path).filter((x): x is string => Boolean(x));
-  const { data: signed } = receiptPaths.length
-    ? await supabase.storage.from(RECEIPTS_BUCKET).createSignedUrls(receiptPaths, 3600)
-    : { data: [] as { path: string | null; signedUrl: string }[] };
   const signedUrl = (path: string | null) => (path ? (signed?.find((s) => s.path === path)?.signedUrl ?? null) : null);
   const payments: PaymentRow[] = (paymentRows ?? []).map((p) => ({
     id: p.id,

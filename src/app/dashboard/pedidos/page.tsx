@@ -16,7 +16,7 @@ import { ORDER_STATUS_LABELS, ORDER_STATUSES, type OrderStatus } from "@/modules
 import { ORDER_STAGE_KEYS, ORDER_STAGES, parseStage, stageCounts, stageOf } from "@/modules/orders/stages";
 import { StatusMenu } from "./orders-status-menu";
 import { orderSearchFilters } from "@/modules/orders/search";
-import { ZoneBadge } from "../logistica/logistics-table";
+import { ZoneBadge } from "../logistica/zone-badge";
 import { SourceIcon } from "@/components/brand-icons";
 import { OrderCard } from "./orders-card";
 import { CountChip, SCROLL_ROW, Segmented, ToggleChip } from "./orders-filters";
@@ -43,7 +43,8 @@ export default async function OrdersPage({ searchParams }: PageProps<"/dashboard
     .from("orders")
     .select(
       "id, order_number, created_at, status, zone, source, source_channel, customer_name, customer_phone, total, district_name, province_name, is_possible_duplicate, risk_reasons, assigned_to, contact_attempts, last_contact_result, next_contact_at, contact_sequence_done, order_items (product_name, offer_name, quantity), order_attribution (utm_source, utm_campaign)",
-      { count: "exact" },
+      // Contar fila por fila solo hace falta al buscar; lo demás ya viene en los contadores de la base
+      q ? { count: "exact" } : undefined,
     )
     .eq("store_id", store.id);
   query = sort === "zona" ? query.order("zone", { ascending: true }).order("created_at", { ascending: false }) : query.order("created_at", { ascending: false });
@@ -82,7 +83,14 @@ export default async function OrdersPage({ searchParams }: PageProps<"/dashboard
   const statusCounts = new Map<string, number>(Object.entries(countsByStatus).map(([k, v]) => [k, Number(v)]));
   const total = [...statusCounts.values()].reduce((s, n) => s + n, 0);
   const byStage = stageCounts(statusCounts);
-  const totalPages = Math.max(1, Math.ceil((count ?? 0) / PAGE_SIZE));
+  const shown = q
+    ? (count ?? 0)
+    : status
+      ? (statusCounts.get(status) ?? 0)
+      : stage
+        ? ORDER_STAGES[stage].statuses.reduce((s, st) => s + (statusCounts.get(st) ?? 0), 0)
+        : total;
+  const totalPages = Math.max(1, Math.ceil(shown / PAGE_SIZE));
   const members = new Map(((team ?? []) as { user_id: string; email: string; full_name: string | null }[]).map((m) => [m.user_id, m.full_name || m.email]));
 
   const href = (params: Record<string, string | number | null>) => {

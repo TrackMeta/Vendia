@@ -36,6 +36,8 @@ export type VendiaNativo = {
   guardarArchivo: (o: { base64: string; nombre: string; mime: string }) => Promise<{ ok: boolean; nombre: string }>;
   compartirArchivo: (o: { base64: string; nombre: string; mime: string }) => Promise<void>;
   imprimir: (o: { titulo: string }) => Promise<void>;
+  /** La página ya se ve: cierra la pantalla de inicio animada (los APK anteriores no lo tienen). */
+  listo?: () => Promise<void>;
 };
 
 export const vendiaNativo = () => nativePlugin<VendiaNativo>("VendiaNativo");

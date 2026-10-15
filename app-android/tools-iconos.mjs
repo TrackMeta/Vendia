@@ -82,4 +82,7 @@ const SPLASH = {
 for (const [carpeta, [w, h]] of Object.entries(SPLASH)) {
   await lienzo(w, h, await v(V, Math.min(w, h) * 0.3), BLANCO, join(RES, carpeta, "splash.png"));
 }
+// Pantalla de inicio animada (MainActivity): la V sola, nítida aunque crezca al abrir la app
+mkdirSync(join(RES, "drawable-nodpi"), { recursive: true });
+await sharp(await v(V, 480)).toFile(join(RES, "drawable-nodpi", "inicio_v.png"));
 console.log("íconos listos en", RES);

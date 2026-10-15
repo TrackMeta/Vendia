@@ -47,6 +47,18 @@ export function NativeBridge() {
   const pathname = usePathname();
   const router = useRouter();
 
+  // Pantalla de inicio de la app: se cierra cuando ya hay contenido (no los cuadros grises de carga). Tope de 6 s.
+  useEffect(() => {
+    if (!isNativeApp()) return;
+    const desde = Date.now();
+    const timer = setInterval(() => {
+      if (document.querySelector('[aria-busy="true"]') && Date.now() - desde < 6000) return;
+      clearInterval(timer);
+      requestAnimationFrame(() => void vendiaNativo()?.listo?.().catch(() => {}));
+    }, 100);
+    return () => clearInterval(timer);
+  }, []);
+
   useEffect(() => {
     if (!isNativeApp()) return;
 

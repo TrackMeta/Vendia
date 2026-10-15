@@ -39,6 +39,13 @@ import java.io.OutputStream;
 )
 public class VendiaNativoPlugin extends Plugin {
 
+    // La web ya se ve (la llama la página al terminar de cargar): se cierra la pantalla de inicio animada.
+    @PluginMethod
+    public void listo(PluginCall call) {
+        if (getActivity() instanceof MainActivity) ((MainActivity) getActivity()).ocultarInicio();
+        call.resolve();
+    }
+
     @PluginMethod
     public void info(PluginCall call) {
         JSObject r = new JSObject();

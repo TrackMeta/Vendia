@@ -375,7 +375,7 @@ export function SettingsForm({
                     <span className="font-medium">{label}</span>
                     <span className="block text-xs text-muted-foreground">
                       {value === "zone"
-                        ? "Recomendado: en provincia el cliente ya pagó el saldo en la agencia aunque aún no recoja."
+                        ? "Recomendado: en provincia el cliente ya pagó el saldo."
                         : "Más conservador: en provincia espera a que el cliente recoja su pedido."}
                     </span>
                   </span>

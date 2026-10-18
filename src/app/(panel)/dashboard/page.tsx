@@ -29,6 +29,8 @@ const HELP = {
   cpa: "Costo por venta: cuánto gastaste en anuncios por cada venta real (pedido entregado o cobrado).",
   cpaOrder: "Costo por pedido: gasto en anuncios ÷ pedidos generados. Sirve para ver qué tan barato llegan los pedidos.",
   effective: "De cada 100 pedidos, cuántos terminaron en venta real.",
+  confirmation: "De cada 100 pedidos, cuántos se confirmaron (por llamada o WhatsApp). Los que se confirmaron y luego se cancelaron también cuentan.",
+  delivery: "De los envíos que ya terminaron, cuántos se entregaron. Los que siguen en camino no cuentan: así el % no baja solo porque aún no llegan.",
   profit: "Ingreso real menos costo de productos, envíos y embalaje, publicidad y otros gastos.",
 };
 
@@ -111,6 +113,31 @@ export default async function DashboardHome({ searchParams }: PageProps<"/dashbo
         />
         <KpiCard label="Ingreso real" value={formatMoney(m.totals.revenue)} sub={`Venta real: ${REAL_SALE_MODES[saleMode]}`} />
         <KpiCard label="ROAS real" value={formatRatio(m.roas.real)} sub={`CPA real ${formatMoney(m.cpa.perDelivered)}`} help={HELP.roas} />
+      </section>
+
+      {/* Las 3 tasas de la tienda: confirmación → entrega → venta real */}
+      <section className="grid grid-cols-3 gap-2 sm:gap-3" aria-label="Tasas de la tienda">
+        <KpiCard
+          compact
+          label="% confirmación"
+          value={formatPercent(m.rates.confirmationRate, 0)}
+          sub={`${formatNumber(m.counts.confirmed)} de ${formatNumber(m.counts.orders)} pedidos`}
+          help={HELP.confirmation}
+        />
+        <KpiCard
+          compact
+          label="% entrega"
+          value={formatPercent(m.rates.deliverySuccessRate, 0)}
+          sub={`${formatNumber(m.counts.delivered)} de ${formatNumber(m.counts.delivered + m.counts.failed)} envíos`}
+          help={HELP.delivery}
+        />
+        <KpiCard
+          compact
+          label="% venta real"
+          value={formatPercent(m.rates.effectiveRate, 0)}
+          sub={`${formatNumber(m.counts.delivered)} de ${formatNumber(m.counts.orders)} pedidos`}
+          help={HELP.effective}
+        />
       </section>
 
       {series ? (

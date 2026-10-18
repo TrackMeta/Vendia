@@ -21,6 +21,7 @@ export function Help({ children, label }: { children: React.ReactNode; label: st
 /**
  * Métrica principal (las 4 grandes del Inicio). `featured` = tarjeta grafito para la cifra que
  * más importa (la utilidad). Nunca en rojo: el rojo es para acciones.
+ * `compact` = más chica en el celular (para filas de 3, como las tasas: «100%» tiene que entrar).
  */
 export function KpiCard({
   label,
@@ -28,20 +29,22 @@ export function KpiCard({
   sub,
   help,
   featured,
+  compact,
 }: {
   label: string;
   value: string;
   sub?: React.ReactNode;
   help?: React.ReactNode;
   featured?: boolean;
+  compact?: boolean;
 }) {
   return (
-    <div className={cn("flex flex-col gap-1 rounded-xl p-4 ring-1", featured ? "dark bg-[#202124] text-white ring-transparent in-[.dark]:ring-white/10" : "bg-card ring-foreground/10")}>
+    <div className={cn("flex flex-col gap-1 rounded-xl ring-1", compact ? "p-3 sm:p-4" : "p-4", featured ? "dark bg-[#202124] text-white ring-transparent in-[.dark]:ring-white/10" : "bg-card ring-foreground/10")}>
       <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
         {label}
         {help ? <Help label={label}>{help}</Help> : null}
       </span>
-      <span className="text-[28px] leading-tight font-semibold tracking-tight tabular-nums">{value}</span>
+      <span className={cn("leading-tight font-semibold tracking-tight tabular-nums", compact ? "text-[22px] sm:text-[28px]" : "text-[28px]")}>{value}</span>
       {sub ? <span className="text-xs text-muted-foreground">{sub}</span> : null}
     </div>
   );

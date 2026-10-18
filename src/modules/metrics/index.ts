@@ -81,6 +81,8 @@ export function computeRates(counts: OrderCounts) {
     shippingRate: safeDivide(counts.shipped, counts.confirmed),
     /** Entregados / enviados */
     deliveryRate: safeDivide(counts.delivered, counts.shipped),
+    /** Envíos que salieron bien ÷ envíos que ya terminaron (entregados + no entregados/devueltos). Los que siguen en camino no cuentan. */
+    deliverySuccessRate: safeDivide(counts.delivered, counts.delivered + counts.failed),
     /** Entregados / pedidos generados */
     effectiveRate: safeDivide(counts.delivered, counts.orders),
     cancellationRate: safeDivide(counts.cancelled, counts.orders),

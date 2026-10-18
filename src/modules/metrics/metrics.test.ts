@@ -73,6 +73,8 @@ describe("Dashboard", () => {
     expect(m.cpa.perDelivered).toBeCloseTo(23.26, 2);
     expect(m.rates.confirmationRate).toBe(0.75);
     expect(m.rates.deliveryRate).toBeCloseTo(43 / 54);
+    // De los 54 enviados, 43 se entregaron y 11 fallaron: los que siguen en camino no bajan el %
+    expect(m.rates.deliverySuccessRate).toBeCloseTo(43 / 54);
     expect(m.profit).toBe(997);
   });
 
